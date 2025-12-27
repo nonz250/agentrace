@@ -23,16 +23,26 @@ interface ClaudeSettings {
   [key: string]: unknown;
 }
 
-const AGENTRACE_HOOK: ClaudeHook = {
-  type: "command",
-  command: "npx agentrace send",
-};
+const DEFAULT_COMMAND = "npx agentrace send";
+
+function createAgentraceHook(command: string): ClaudeHook {
+  return {
+    type: "command",
+    command,
+  };
+}
 
 function isAgentraceHook(hook: ClaudeHook): boolean {
   return hook.command?.includes("agentrace send");
 }
 
-export function installHooks(): { success: boolean; message: string } {
+export interface InstallHooksOptions {
+  command?: string;
+}
+
+export function installHooks(options: InstallHooksOptions = {}): { success: boolean; message: string } {
+  const command = options.command || DEFAULT_COMMAND;
+  const agentraceHook = createAgentraceHook(command);
   try {
     let settings: ClaudeSettings = {};
 
@@ -60,7 +70,7 @@ export function installHooks(): { success: boolean; message: string } {
     if (!hasPostToolUseHook) {
       settings.hooks.PostToolUse.push({
         matcher: "*",
-        hooks: [AGENTRACE_HOOK],
+        hooks: [agentraceHook],
       });
     }
 
@@ -75,7 +85,7 @@ export function installHooks(): { success: boolean; message: string } {
 
     if (!hasStopHook) {
       settings.hooks.Stop.push({
-        hooks: [AGENTRACE_HOOK],
+        hooks: [agentraceHook],
       });
     }
 

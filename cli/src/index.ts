@@ -11,8 +11,9 @@ program.name("agentrace").description("CLI for Agentrace").version("0.1.0");
 program
   .command("init")
   .description("Initialize agentrace configuration and hooks")
-  .action(async () => {
-    await initCommand();
+  .option("--dev", "Use local CLI path for development")
+  .action(async (options: { dev?: boolean }) => {
+    await initCommand({ dev: options.dev });
   });
 
 program
