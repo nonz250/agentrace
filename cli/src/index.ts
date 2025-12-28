@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { initCommand } from "./commands/init.js";
 import { sendCommand } from "./commands/send.js";
+import { uninstallCommand } from "./commands/uninstall.js";
 
 const program = new Command();
 
@@ -21,6 +22,13 @@ program
   .description("Send event to server (used by hooks)")
   .action(async () => {
     await sendCommand();
+  });
+
+program
+  .command("uninstall")
+  .description("Remove agentrace hooks and config")
+  .action(async () => {
+    await uninstallCommand();
   });
 
 program.parse();

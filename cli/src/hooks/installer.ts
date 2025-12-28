@@ -32,7 +32,8 @@ function createAgentraceHook(command: string): ClaudeHook {
 }
 
 function isAgentraceHook(hook: ClaudeHook): boolean {
-  return hook.command?.includes("agentrace send");
+  // Match both production ("agentrace send") and dev mode ("index.ts send")
+  return hook.command?.includes("agentrace send") || hook.command?.includes("index.ts send");
 }
 
 export interface InstallHooksOptions {
@@ -65,11 +66,13 @@ export function installHooks(options: InstallHooksOptions = {}): { success: bool
       matcher.hooks?.some(isAgentraceHook)
     );
 
-    if (!hasStopHook) {
-      settings.hooks.Stop.push({
-        hooks: [agentraceHook],
-      });
+    if (hasStopHook) {
+      return { success: true, message: "Hooks already installed (skipped)" };
     }
+
+    settings.hooks.Stop.push({
+      hooks: [agentraceHook],
+    });
 
     // Ensure directory exists
     const dir = path.dirname(CLAUDE_SETTINGS_PATH);
