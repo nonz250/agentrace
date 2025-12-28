@@ -36,8 +36,14 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// Get user ID from context (set by auth middleware)
+	var userID *string
+	if uid := GetUserIDFromContext(ctx); uid != "" {
+		userID = &uid
+	}
+
 	// Find or create session
-	session, err := h.repos.Session.FindOrCreateByClaudeSessionID(ctx, req.SessionID)
+	session, err := h.repos.Session.FindOrCreateByClaudeSessionID(ctx, req.SessionID, userID)
 	if err != nil {
 		http.Error(w, `{"error": "failed to create session"}`, http.StatusInternalServerError)
 		return

@@ -70,13 +70,17 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 	return sessions, nil
 }
 
-func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error) {
+func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	// Find existing session by ClaudeSessionID
 	for _, s := range r.sessions {
 		if s.ClaudeSessionID == claudeSessionID {
+			// Update UserID if provided and not already set
+			if userID != nil && s.UserID == nil {
+				s.UserID = userID
+			}
 			return s, nil
 		}
 	}
@@ -84,10 +88,23 @@ func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, c
 	// Create new session
 	session := &domain.Session{
 		ID:              uuid.New().String(),
+		UserID:          userID,
 		ClaudeSessionID: claudeSessionID,
 		StartedAt:       time.Now(),
 		CreatedAt:       time.Now(),
 	}
 	r.sessions[session.ID] = session
 	return session, nil
+}
+
+func (r *SessionRepository) UpdateUserID(ctx context.Context, id string, userID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	session, ok := r.sessions[id]
+	if !ok {
+		return nil
+	}
+	session.UserID = &userID
+	return nil
 }

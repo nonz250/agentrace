@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import { initCommand } from "./commands/init.js";
+import { loginCommand } from "./commands/login.js";
 import { sendCommand } from "./commands/send.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 
@@ -15,6 +16,13 @@ program
   .option("--dev", "Use local CLI path for development")
   .action(async (options: { dev?: boolean }) => {
     await initCommand({ dev: options.dev });
+  });
+
+program
+  .command("login")
+  .description("Open web dashboard in browser")
+  .action(async () => {
+    await loginCommand();
   });
 
 program
