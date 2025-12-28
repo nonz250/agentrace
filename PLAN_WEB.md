@@ -56,7 +56,7 @@ web/
 
 - タイムライン形式でイベント表示
 - 各イベントの展開/折りたたみ
-- ツール入出力の表示
+- transcript内容の表示（ユーザー入力、Claudeの応答、ツール使用等）
 
 ### 4. 設定
 
@@ -80,7 +80,6 @@ function SessionList({ sessions, onSelect }: SessionListProps) {
         <div key={session.id} onClick={() => onSelect(session)}>
           <div className="session-project">{session.projectPath}</div>
           <div className="session-time">{formatTime(session.startedAt)}</div>
-          <div className="session-user">{session.userName}</div>
         </div>
       ))}
     </div>
@@ -120,19 +119,11 @@ function EventCard({ event }: EventCardProps) {
     <div className="event-card">
       <div className="event-header" onClick={() => setExpanded(!expanded)}>
         <span className="event-type">{event.eventType}</span>
-        <span className="tool-name">{event.toolName}</span>
         <span className="event-time">{formatTime(event.createdAt)}</span>
       </div>
       {expanded && (
         <div className="event-detail">
-          <div className="event-input">
-            <h4>Input</h4>
-            <pre>{JSON.stringify(event.payload.tool_input, null, 2)}</pre>
-          </div>
-          <div className="event-output">
-            <h4>Output</h4>
-            <pre>{JSON.stringify(event.payload.tool_response, null, 2)}</pre>
-          </div>
+          <pre>{JSON.stringify(event.payload, null, 2)}</pre>
         </div>
       )}
     </div>
@@ -210,8 +201,8 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
 
 // src/api/sessions.ts
 
-export async function getSessions(workspaceId: string): Promise<Session[]> {
-  return fetchAPI(`/api/sessions?workspace_id=${workspaceId}`);
+export async function getSessions(): Promise<Session[]> {
+  return fetchAPI('/api/sessions');
 }
 
 export async function getSession(id: string): Promise<SessionDetail> {
@@ -219,16 +210,16 @@ export async function getSession(id: string): Promise<SessionDetail> {
 }
 ```
 
-## WebSocket 接続
+## WebSocket 接続（Step 5）
 
 ```ts
 // src/hooks/useWebSocket.ts
 
-export function useWebSocket(workspaceId: string) {
+export function useWebSocket() {
   const [events, setEvents] = useState<Event[]>([]);
 
   useEffect(() => {
-    const ws = new WebSocket(`${WS_URL}/ws/live?workspace_id=${workspaceId}`);
+    const ws = new WebSocket(`${WS_URL}/ws/live`);
 
     ws.onmessage = (e) => {
       const event = JSON.parse(e.data);
@@ -236,7 +227,7 @@ export function useWebSocket(workspaceId: string) {
     };
 
     return () => ws.close();
-  }, [workspaceId]);
+  }, []);
 
   return events;
 }
@@ -251,7 +242,7 @@ export function useWebSocket(workspaceId: string) {
 
 ## 実装順序
 
-### Step 4: 基本UI
+### Step 3: 基本UI
 
 1. Vite + React セットアップ
 2. ログイン画面
