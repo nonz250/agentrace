@@ -184,9 +184,17 @@ npx tsx src/index.ts login
 | 変数名 | 説明 | デフォルト |
 |--------|------|-----------|
 | `PORT` | サーバーポート | 8080 |
-| `DB_TYPE` | データベース種類 | memory |
-| `DATABASE_URL` | PostgreSQL接続文字列（Step 4） | - |
+| `DB_TYPE` | データベース種類（`memory` / `sqlite` / `postgres` / `mongodb`） | memory |
+| `DATABASE_URL` | DB接続文字列（Step 4） | - |
 | `DEV_MODE` | デバッグログ有効化 | false |
+
+**DATABASE_URL の形式:**
+
+| DB_TYPE | DATABASE_URL 例 |
+|---------|-----------------|
+| sqlite | `./data/agentrace.db` |
+| postgres | `postgres://user:pass@localhost:5432/agentrace?sslmode=disable` |
+| mongodb | `mongodb://user:pass@localhost:27017/agentrace` |
 
 ## 認証フロー
 

@@ -168,14 +168,22 @@ agentrace/
    - イベント一覧: payload.timestamp昇順（会話順）
    - 画面表示: payload.timestampを優先（created_atフォールバック）
 
-### Step 4: PostgreSQL対応
+### Step 4: 複数データベース対応
 
-**目標**: データの永続化
+**目標**: データの永続化（利用シーンに応じたDB選択）
+
+| DB | 利用シーン | 特徴 |
+| -- | ---------- | ---- |
+| SQLite3 | ローカル/小規模 | ファイルベース、セットアップ不要 |
+| PostgreSQL | イントラネット/本番 | 高信頼性、JSONB対応 |
+| MongoDB (DocumentDB) | AWS環境 | スケーラブル、ドキュメント指向 |
 
 1. **server/**
+   - SQLite3 Repository 実装
    - PostgreSQL Repository 実装
-   - マイグレーションファイル
-   - DB_TYPE環境変数で切り替え
+   - MongoDB Repository 実装
+   - 各DBのマイグレーション/スキーマ
+   - DB_TYPE環境変数で切り替え（`memory` / `sqlite` / `postgres` / `mongodb`）
 
 ### Step 5: リアルタイム機能
 

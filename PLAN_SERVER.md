@@ -2,7 +2,16 @@
 
 ## 概要
 
-Go で実装するバックエンドサーバー。Repository パターンでデータ層を抽象化し、オンメモリ/PostgreSQL を切り替え可能にする。
+Go で実装するバックエンドサーバー。Repository パターンでデータ層を抽象化し、複数のデータベースを切り替え可能にする。
+
+### 対応データベース
+
+| DB | DB_TYPE | 利用シーン |
+| -- | ------- | ---------- |
+| オンメモリ | `memory` | 開発・テスト |
+| SQLite3 | `sqlite` | ローカル/小規模運用 |
+| PostgreSQL | `postgres` | イントラネット/本番運用 |
+| MongoDB | `mongodb` | AWS (DocumentDB) 環境 |
 
 ## ディレクトリ構成
 
@@ -22,6 +31,7 @@ server/
 │   │   └── websession.go     # Step 2
 │   ├── repository/           # データアクセス層
 │   │   ├── interface.go      # インターフェース定義
+│   │   ├── factory.go        # DB_TYPEに応じたRepository生成
 │   │   ├── memory/           # オンメモリ実装
 │   │   │   ├── session.go
 │   │   │   ├── event.go
@@ -29,12 +39,12 @@ server/
 │   │   │   ├── apikey.go     # Step 2
 │   │   │   ├── websession.go # Step 2
 │   │   │   └── repositories.go
-│   │   └── postgres/         # PostgreSQL実装（Step 4）
-│   │       ├── session.go
-│   │       ├── event.go
-│   │       ├── user.go
-│   │       ├── apikey.go
-│   │       └── websession.go
+│   │   ├── sqlite/           # SQLite3実装（Step 4）
+│   │   │   └── ...
+│   │   ├── postgres/         # PostgreSQL実装（Step 4）
+│   │   │   └── ...
+│   │   └── mongodb/          # MongoDB実装（Step 4）
+│   │       └── ...
 │   ├── api/                  # HTTP ハンドラ
 │   │   ├── router.go
 │   │   ├── middleware.go
@@ -43,9 +53,12 @@ server/
 │   │   └── auth.go           # Step 2
 │   └── ws/                   # WebSocket（Step 5）
 │       └── hub.go
-├── migrations/               # PostgreSQL マイグレーション（Step 4）
-│   ├── 001_initial.up.sql
-│   └── 001_initial.down.sql
+├── migrations/               # マイグレーション（Step 4）
+│   ├── sqlite/
+│   │   └── 001_initial.sql
+│   └── postgres/
+│       ├── 001_initial.up.sql
+│       └── 001_initial.down.sql
 ├── go.mod
 └── go.sum
 ```
@@ -342,7 +355,68 @@ type WebSession struct {
   4. コンテキストにUserを設定
 ```
 
-## データモデル（PostgreSQL）- Step 4
+## データモデル - Step 4
+
+### SQLite3
+
+```sql
+-- ユーザー
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- APIキー
+CREATE TABLE api_keys (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    key_hash TEXT NOT NULL,
+    key_prefix TEXT NOT NULL,
+    last_used_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Webセッション
+CREATE TABLE web_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- セッション（Claude Codeセッション）
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    claude_session_id TEXT,
+    project_path TEXT,
+    started_at TEXT,
+    ended_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- イベント（transcript行をJSONで保存）
+CREATE TABLE events (
+    id TEXT PRIMARY KEY,
+    session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE,
+    event_type TEXT,
+    payload TEXT,  -- JSON文字列
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- インデックス
+CREATE INDEX idx_api_keys_hash ON api_keys(key_hash);
+CREATE INDEX idx_web_sessions_token ON web_sessions(token);
+CREATE INDEX idx_sessions_claude_id ON sessions(claude_session_id);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE INDEX idx_events_session ON events(session_id);
+CREATE INDEX idx_events_created ON events(created_at);
+```
+
+### PostgreSQL
 
 ```sql
 -- ユーザー
@@ -401,14 +475,78 @@ CREATE INDEX idx_events_session ON events(session_id);
 CREATE INDEX idx_events_created ON events(created_at);
 ```
 
+### MongoDB (DocumentDB)
+
+```javascript
+// コレクション: users
+{
+  _id: ObjectId,
+  name: String,
+  created_at: Date
+}
+
+// コレクション: api_keys
+{
+  _id: ObjectId,
+  user_id: ObjectId,  // users._id参照
+  name: String,
+  key_hash: String,
+  key_prefix: String,
+  last_used_at: Date | null,
+  created_at: Date
+}
+// インデックス: { key_hash: 1 }
+
+// コレクション: web_sessions
+{
+  _id: ObjectId,
+  user_id: ObjectId,
+  token: String,
+  expires_at: Date,
+  created_at: Date
+}
+// インデックス: { token: 1 }, unique
+// TTLインデックス: { expires_at: 1 }, expireAfterSeconds: 0
+
+// コレクション: sessions
+{
+  _id: ObjectId,
+  user_id: ObjectId | null,
+  claude_session_id: String,
+  project_path: String,
+  started_at: Date,
+  ended_at: Date | null,
+  created_at: Date
+}
+// インデックス: { claude_session_id: 1 }, { user_id: 1 }
+
+// コレクション: events
+{
+  _id: ObjectId,
+  session_id: ObjectId,
+  event_type: String,
+  payload: Object,  // そのまま埋め込み
+  created_at: Date
+}
+// インデックス: { session_id: 1 }, { created_at: 1 }
+```
+
 ## 環境変数
 
 | 変数名 | 説明 | デフォルト |
 | ------ | ---- | ---------- |
 | `PORT` | サーバーポート | 8080 |
-| `DB_TYPE` | データベース種類 | memory |
-| `DATABASE_URL` | PostgreSQL接続文字列 | - |
+| `DB_TYPE` | データベース種類 (`memory` / `sqlite` / `postgres` / `mongodb`) | memory |
+| `DATABASE_URL` | DB接続文字列（下記参照） | - |
 | `DEV_MODE` | デバッグログ有効化 | false |
+
+**DATABASE_URL の形式:**
+
+| DB_TYPE | DATABASE_URL 例 |
+| ------- | --------------- |
+| sqlite | `./data/agentrace.db` または `/var/lib/agentrace/data.db` |
+| postgres | `postgres://user:pass@localhost:5432/agentrace?sslmode=disable` |
+| mongodb | `mongodb://user:pass@localhost:27017/agentrace` または DocumentDB接続文字列 |
 
 **デバッグモード:**
 - `DEV_MODE=true` でリクエストログを出力
@@ -419,7 +557,9 @@ CREATE INDEX idx_events_created ON events(created_at);
 - `github.com/google/uuid` - UUID生成
 - `golang.org/x/crypto/bcrypt` - APIキーハッシュ
 - `github.com/gorilla/websocket` - WebSocket（Step 5）
+- `github.com/mattn/go-sqlite3` - SQLite3 ドライバ（Step 4）
 - `github.com/lib/pq` - PostgreSQL ドライバ（Step 4）
+- `go.mongodb.org/mongo-driver` - MongoDB ドライバ（Step 4）
 
 ## 実装順序
 
@@ -450,11 +590,19 @@ CREATE INDEX idx_events_created ON events(created_at);
 
 （サーバー側の追加実装は特になし）
 
-### Step 4: PostgreSQL対応
+### Step 4: 複数データベース対応
 
-1. PostgreSQL Repository 実装
-2. マイグレーション実行
-3. DB_TYPE 環境変数で切り替え
+1. Repository ファクトリ実装（DB_TYPEに応じた切り替え）
+2. SQLite3 Repository 実装
+   - マイグレーション
+   - 各Repository（Session, Event, User, APIKey, WebSession）
+3. PostgreSQL Repository 実装
+   - マイグレーション（up/down）
+   - 各Repository
+4. MongoDB Repository 実装
+   - インデックス作成
+   - 各Repository
+5. 統合テスト（各DBで動作確認）
 
 ### Step 5: リアルタイム機能
 
