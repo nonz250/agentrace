@@ -2,7 +2,7 @@
 
 ## 概要
 
-React + Vite で実装するフロントエンド。セッション一覧・詳細の表示とAPIキー管理を行う。
+React + Vite で実装するフロントエンド。ユーザー登録/ログインとセッション一覧・詳細の表示を行う。
 
 ## ディレクトリ構成
 
@@ -15,22 +15,24 @@ web/
 │   │   ├── client.ts         # fetch ラッパー
 │   │   ├── auth.ts           # 認証 API
 │   │   ├── sessions.ts       # セッション API
-│   │   └── apikeys.ts        # APIキー API
+│   │   └── keys.ts           # APIキー API
 │   ├── hooks/                # カスタム Hooks
 │   │   ├── useAuth.ts        # 認証状態管理
 │   │   ├── useSessions.ts    # セッション一覧
-│   │   └── useWebSocket.ts   # WebSocket 接続
+│   │   └── useWebSocket.ts   # WebSocket 接続（Step 5）
 │   ├── pages/                # ページコンポーネント
-│   │   ├── LoginPage.tsx
+│   │   ├── WelcomePage.tsx   # 初期画面（登録/ログイン選択）
+│   │   ├── RegisterPage.tsx  # ユーザー登録
+│   │   ├── LoginPage.tsx     # ログイン
 │   │   ├── SessionListPage.tsx
 │   │   ├── SessionDetailPage.tsx
-│   │   └── SettingsPage.tsx
+│   │   └── SettingsPage.tsx  # 設定（APIキー管理）
 │   ├── components/           # 共通コンポーネント
 │   │   ├── Layout.tsx
 │   │   ├── SessionList.tsx
 │   │   ├── SessionTimeline.tsx
 │   │   ├── EventCard.tsx
-│   │   └── ApiKeyManager.tsx
+│   │   └── ApiKeyManager.tsx # APIキー管理
 │   └── styles/
 │       └── global.css
 ├── index.html
@@ -41,27 +43,167 @@ web/
 
 ## 画面構成
 
-### 1. ログイン/登録
+### 1. 初期画面（WelcomePage）
 
-- メール/パスワード
-- OAuth ボタン（GitHub, Google）
+初回アクセス時に表示。登録済みならダッシュボードへリダイレクト。
 
-### 2. セッション一覧
+```
+┌─────────────────────────────────────────┐
+│ Agentrace                               │
+├─────────────────────────────────────────┤
+│                                         │
+│ Track and review Claude Code sessions   │
+│ with your team.                         │
+│                                         │
+│     [Register]  [Login with API Key]    │
+│                                         │
+└─────────────────────────────────────────┘
+```
 
-- 日時順でソート
-- ユーザー、プロジェクトでフィルタ
-- 検索機能
+### 2. ユーザー登録（RegisterPage）
 
-### 3. セッション詳細
+名前を入力するだけでAPIキーが発行される。
 
-- タイムライン形式でイベント表示
-- 各イベントの展開/折りたたみ
-- transcript内容の表示（ユーザー入力、Claudeの応答、ツール使用等）
+```
+┌─────────────────────────────────────────┐
+│ Create Account                          │
+├─────────────────────────────────────────┤
+│                                         │
+│ Your Name: [__________________]         │
+│                                         │
+│            [Create Account]             │
+└─────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────┐
+│ Account Created!                        │
+├─────────────────────────────────────────┤
+│ Your API Key:                           │
+│ ┌─────────────────────────────────────┐ │
+│ │ agtr_xxxxxxxxxxxxxxxxxxxxxxxx [Copy]│ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ ⚠️ Save this key - it won't be shown   │
+│    again.                               │
+│                                         │
+│ Set up CLI:                             │
+│ $ npx agentrace init                    │
+│                                         │
+│            [Go to Dashboard]            │
+└─────────────────────────────────────────┘
+```
 
-### 4. 設定
+### 3. ログイン（LoginPage）
 
-- プロフィール編集
-- APIキー管理（発行/削除）
+APIキーを入力してログイン。
+
+```
+┌─────────────────────────────────────────┐
+│ Login                                   │
+├─────────────────────────────────────────┤
+│                                         │
+│ API Key: [__________________________]   │
+│                                         │
+│            [Login]                      │
+│                                         │
+│ Don't have an account? [Register]       │
+└─────────────────────────────────────────┘
+```
+
+### 4. セッション一覧（SessionListPage）
+
+全ユーザーのセッションを表示。
+
+```
+┌─────────────────────────────────────────┐
+│ Agentrace          [Taro ▼] [Logout]    │
+├─────────────────────────────────────────┤
+│ Sessions                                │
+├─────────────────────────────────────────┤
+│ ┌─────────────────────────────────────┐ │
+│ │ /path/to/project                    │ │
+│ │ Taro • 2025-12-28 10:30            │ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ /path/to/another-project            │ │
+│ │ Hanako • 2025-12-28 09:15          │ │
+│ └─────────────────────────────────────┘ │
+│ ...                                     │
+└─────────────────────────────────────────┘
+```
+
+### 5. セッション詳細（SessionDetailPage）
+
+タイムライン形式でイベント表示。
+
+```
+┌─────────────────────────────────────────┐
+│ ← Back to Sessions                      │
+├─────────────────────────────────────────┤
+│ /path/to/project                        │
+│ Taro • Started 2025-12-28 10:30        │
+├─────────────────────────────────────────┤
+│ Timeline                                │
+│                                         │
+│ ● 10:30:05 user                        │
+│   ├─ [▼ Show content]                  │
+│                                         │
+│ ● 10:30:10 assistant                   │
+│   ├─ [▼ Show content]                  │
+│                                         │
+│ ● 10:30:15 tool_use                    │
+│   ├─ [▼ Show content]                  │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### 6. 設定（SettingsPage）
+
+APIキーの管理画面。複数デバイス用に複数のAPIキーを発行可能。
+
+```
+┌─────────────────────────────────────────┐
+│ Agentrace          [Taro ▼] [Logout]    │
+├─────────────────────────────────────────┤
+│ Settings                                │
+├─────────────────────────────────────────┤
+│ API Keys                                │
+│                                         │
+│ ┌─────────────────────────────────────┐ │
+│ │ MacBook Pro                         │ │
+│ │ agtr_xxxx... • Last used: 1h ago   │ │
+│ │                          [Delete]   │ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ Work PC                             │ │
+│ │ agtr_yyyy... • Last used: 3d ago   │ │
+│ │                          [Delete]   │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ ┌─────────────────────────────────────┐ │
+│ │ Name: [____________________]        │ │
+│ │              [Create New API Key]   │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+**新規キー発行後:**
+
+```
+┌─────────────────────────────────────────┐
+│ New API Key Created!                    │
+├─────────────────────────────────────────┤
+│                                         │
+│ Your API Key:                           │
+│ ┌─────────────────────────────────────┐ │
+│ │ agtr_zzzzzzzzzzzzzzzzzzzzzz   [Copy]│ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ ⚠️ Save this key - it won't be shown   │
+│    again.                               │
+│                                         │
+│               [Done]                    │
+└─────────────────────────────────────────┘
+```
 
 ## コンポーネント設計
 
@@ -79,7 +221,10 @@ function SessionList({ sessions, onSelect }: SessionListProps) {
       {sessions.map(session => (
         <div key={session.id} onClick={() => onSelect(session)}>
           <div className="session-project">{session.projectPath}</div>
-          <div className="session-time">{formatTime(session.startedAt)}</div>
+          <div className="session-meta">
+            <span>{session.userName}</span>
+            <span>{formatTime(session.startedAt)}</span>
+          </div>
         </div>
       ))}
     </div>
@@ -131,50 +276,6 @@ function EventCard({ event }: EventCardProps) {
 }
 ```
 
-### ApiKeyManager
-
-```tsx
-function ApiKeyManager() {
-  const [keys, setKeys] = useState<ApiKey[]>([]);
-  const [newKeyName, setNewKeyName] = useState('');
-
-  const createKey = async () => {
-    const key = await api.createApiKey({ name: newKeyName });
-    // 新規作成時のみ key.rawKey が返される（一度だけ表示）
-    alert(`New API Key: ${key.rawKey}`);
-    setKeys([...keys, key]);
-  };
-
-  const deleteKey = async (id: string) => {
-    await api.deleteApiKey(id);
-    setKeys(keys.filter(k => k.id !== id));
-  };
-
-  return (
-    <div className="api-key-manager">
-      <h3>API Keys</h3>
-      <ul>
-        {keys.map(key => (
-          <li key={key.id}>
-            <span>{key.name}</span>
-            <span>{key.keyPrefix}...</span>
-            <button onClick={() => deleteKey(key.id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
-      <div className="new-key">
-        <input
-          value={newKeyName}
-          onChange={e => setNewKeyName(e.target.value)}
-          placeholder="Key name (e.g., My MacBook)"
-        />
-        <button onClick={createKey}>Create New Key</button>
-      </div>
-    </div>
-  );
-}
-```
-
 ## API クライアント
 
 ```ts
@@ -199,6 +300,30 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// src/api/auth.ts
+
+export async function register(name: string): Promise<{ user: User; api_key: string }> {
+  return fetchAPI('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function login(apiKey: string): Promise<{ user: User }> {
+  return fetchAPI('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ api_key: apiKey }),
+  });
+}
+
+export async function logout(): Promise<void> {
+  return fetchAPI('/api/auth/logout', { method: 'POST' });
+}
+
+export async function getMe(): Promise<User> {
+  return fetchAPI('/api/me');
+}
+
 // src/api/sessions.ts
 
 export async function getSessions(): Promise<Session[]> {
@@ -208,6 +333,63 @@ export async function getSessions(): Promise<Session[]> {
 export async function getSession(id: string): Promise<SessionDetail> {
   return fetchAPI(`/api/sessions/${id}`);
 }
+
+// src/api/keys.ts
+
+export async function getKeys(): Promise<{ keys: ApiKey[] }> {
+  return fetchAPI('/api/keys');
+}
+
+export async function createKey(name: string): Promise<{ key: ApiKey; api_key: string }> {
+  return fetchAPI('/api/keys', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export async function deleteKey(id: string): Promise<void> {
+  return fetchAPI(`/api/keys/${id}`, { method: 'DELETE' });
+}
+```
+
+## 認証フロー
+
+### 初回アクセス
+
+```
+1. WelcomePageが表示される
+2. GET /api/me を試行
+   - 成功 → SessionListPageへリダイレクト
+   - 401 → そのまま表示
+```
+
+### 登録フロー
+
+```
+1. RegisterPageで名前入力
+2. POST /auth/register
+3. レスポンスでAPIキー表示（+ 自動ログイン）
+4. ユーザーがAPIキーをコピー
+5. 「Go to Dashboard」でSessionListPageへ
+```
+
+### ログインフロー（Web）
+
+```
+1. LoginPageでAPIキー入力
+2. POST /auth/login
+3. セッションCookie設定
+4. SessionListPageへリダイレクト
+```
+
+### ログインフロー（CLI経由）
+
+```
+1. CLI: POST /api/auth/web-session
+2. CLI: ブラウザでURL開く
+3. ブラウザ: GET /auth/session?token=xxxxx
+4. サーバー: セッションCookie設定
+5. ブラウザ: SessionListPageへリダイレクト
 ```
 
 ## WebSocket 接続（Step 5）
@@ -245,9 +427,11 @@ export function useWebSocket() {
 ### Step 3: 基本UI
 
 1. Vite + React セットアップ
-2. ログイン画面
-3. セッション一覧
-4. セッション詳細（タイムライン）
+2. WelcomePage（初期画面）
+3. RegisterPage（名前入力→APIキー発行）
+4. LoginPage（APIキー入力）
+5. SessionListPage（セッション一覧）
+6. SessionDetailPage（タイムライン表示）
 
 ### Step 5: リアルタイム機能
 

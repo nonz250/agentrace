@@ -16,21 +16,31 @@ server/
 │   │   └── config.go         # 環境変数・設定管理
 │   ├── domain/               # ドメインモデル
 │   │   ├── session.go
-│   │   └── event.go
+│   │   ├── event.go
+│   │   ├── user.go           # Step 2
+│   │   ├── apikey.go         # Step 2
+│   │   └── websession.go     # Step 2
 │   ├── repository/           # データアクセス層
 │   │   ├── interface.go      # インターフェース定義
 │   │   ├── memory/           # オンメモリ実装
 │   │   │   ├── session.go
 │   │   │   ├── event.go
+│   │   │   ├── user.go       # Step 2
+│   │   │   ├── apikey.go     # Step 2
+│   │   │   ├── websession.go # Step 2
 │   │   │   └── repositories.go
 │   │   └── postgres/         # PostgreSQL実装（Step 4）
 │   │       ├── session.go
-│   │       └── event.go
+│   │       ├── event.go
+│   │       ├── user.go
+│   │       ├── apikey.go
+│   │       └── websession.go
 │   ├── api/                  # HTTP ハンドラ
 │   │   ├── router.go
 │   │   ├── middleware.go
 │   │   ├── ingest.go
-│   │   └── session.go
+│   │   ├── session.go
+│   │   └── auth.go           # Step 2
 │   └── ws/                   # WebSocket（Step 5）
 │       └── hub.go
 ├── migrations/               # PostgreSQL マイグレーション（Step 4）
@@ -42,7 +52,7 @@ server/
 
 ## Repository パターン
 
-### インターフェース定義（現在の実装）
+### インターフェース定義（Step 1 実装済み）
 
 ```go
 // internal/repository/interface.go
@@ -75,14 +85,14 @@ type Repositories struct {
 }
 ```
 
-### Step 2以降で追加予定
+### Step 2で追加
 
 ```go
-// ユーザー（認証とは分離）
+// ユーザー
 type UserRepository interface {
     Create(ctx context.Context, user *domain.User) error
     FindByID(ctx context.Context, id string) (*domain.User, error)
-    FindByEmail(ctx context.Context, email string) (*domain.User, error)
+    FindAll(ctx context.Context) ([]*domain.User, error)
 }
 
 // APIキー
@@ -92,22 +102,24 @@ type APIKeyRepository interface {
     FindByUserID(ctx context.Context, userID string) ([]*domain.APIKey, error)
 }
 
-// ワークスペース
-type WorkspaceRepository interface {
-    Create(ctx context.Context, workspace *domain.Workspace) error
-    FindByID(ctx context.Context, id string) (*domain.Workspace, error)
-    FindByUserID(ctx context.Context, userID string) ([]*domain.Workspace, error)
+// Webセッション
+type WebSessionRepository interface {
+    Create(ctx context.Context, session *domain.WebSession) error
+    FindByToken(ctx context.Context, token string) (*domain.WebSession, error)
+    Delete(ctx context.Context, id string) error
+    DeleteExpired(ctx context.Context) error
 }
 ```
 
 ## ドメインモデル
 
-### 現在の実装
+### Step 1 実装済み
 
 ```go
 // internal/domain/session.go
 type Session struct {
     ID              string
+    UserID          *string    // Step 2で追加（nullable）
     ClaudeSessionID string
     ProjectPath     string
     StartedAt       time.Time
@@ -125,20 +137,11 @@ type Event struct {
 }
 ```
 
-### Step 2以降で追加予定
+### Step 2で追加
 
 ```go
 // internal/domain/user.go
 type User struct {
-    ID        string
-    Email     string
-    Name      string
-    CreatedAt time.Time
-    UpdatedAt time.Time
-}
-
-// internal/domain/workspace.go
-type Workspace struct {
     ID        string
     Name      string
     CreatedAt time.Time
@@ -146,14 +149,22 @@ type Workspace struct {
 
 // internal/domain/apikey.go
 type APIKey struct {
-    ID          string
-    UserID      string
-    WorkspaceID string
-    KeyHash     string
-    KeyPrefix   string
-    Name        string
-    LastUsedAt  *time.Time
-    CreatedAt   time.Time
+    ID         string
+    UserID     string
+    Name       string     // キーの名前（例: "MacBook Pro", "Work PC"）
+    KeyHash    string     // bcrypt hash
+    KeyPrefix  string     // "agtr_xxxx..." (表示用、先頭12文字程度)
+    LastUsedAt *time.Time
+    CreatedAt  time.Time
+}
+
+// internal/domain/websession.go
+type WebSession struct {
+    ID        string
+    UserID    string
+    Token     string
+    ExpiresAt time.Time
+    CreatedAt time.Time
 }
 ```
 
@@ -161,12 +172,12 @@ type APIKey struct {
 
 ### Step 1: データ受信（CLI用） ✅ 完了
 
-| Method | Path | 説明 |
-| ------ | ---- | ---- |
-| POST | `/api/ingest` | transcript行受信（Bearer認証） |
-| GET | `/api/sessions` | セッション一覧 |
-| GET | `/api/sessions/:id` | セッション詳細（イベント含む） |
-| GET | `/health` | ヘルスチェック |
+| Method | Path | 認証 | 説明 |
+| ------ | ---- | ---- | ---- |
+| POST | `/api/ingest` | Bearer | transcript行受信 |
+| GET | `/api/sessions` | Bearer | セッション一覧 |
+| GET | `/api/sessions/:id` | Bearer | セッション詳細（イベント含む） |
+| GET | `/health` | なし | ヘルスチェック |
 
 **POST /api/ingest リクエスト:**
 
@@ -190,29 +201,112 @@ type APIKey struct {
 }
 ```
 
-### Step 2: 認証（Web用）
+### Step 2: 認証
 
-| Method | Path | 説明 |
-| ------ | ---- | ---- |
-| POST | `/auth/register` | ユーザー登録 |
-| POST | `/auth/login` | ログイン → セッションCookie |
-| POST | `/auth/logout` | ログアウト |
-| GET | `/auth/oauth/:provider` | OAuth開始 |
-| GET | `/auth/oauth/:provider/callback` | OAuthコールバック |
+| Method | Path | 認証 | 説明 |
+| ------ | ---- | ---- | ---- |
+| POST | `/auth/register` | なし | ユーザー登録（名前入力→APIキー発行） |
+| POST | `/auth/login` | なし | APIキー入力→セッションCookie発行 |
+| GET | `/auth/session` | なし | トークンでログイン（CLI経由、Cookie発行） |
+| POST | `/api/auth/web-session` | Bearer | Webログイントークン発行 |
+| POST | `/api/auth/logout` | Session | ログアウト |
+| GET | `/api/me` | Session | 自分の情報 |
+| GET | `/api/users` | Session | ユーザー一覧 |
+| GET | `/api/keys` | Session | 自分のAPIキー一覧 |
+| POST | `/api/keys` | Session | 新しいAPIキー発行 |
+| DELETE | `/api/keys/:id` | Session | APIキー削除 |
 
-### Step 2: CLI セットアップ用
+**POST /auth/register リクエスト:**
 
-| Method | Path | 説明 |
-| ------ | ---- | ---- |
-| GET | `/setup` | セットアップ画面（ログイン後APIキー発行） |
-| POST | `/api/keys` | APIキー生成 |
-| DELETE | `/api/keys/:id` | APIキー削除 |
+```json
+{
+  "name": "Taro"
+}
+```
 
-### Step 3: REST API（フロント用）
+**POST /auth/register レスポンス:**
 
-| Method | Path | 説明 |
-| ------ | ---- | ---- |
-| GET | `/api/workspaces` | ワークスペース一覧 |
+```json
+{
+  "user": {
+    "id": "xxx",
+    "name": "Taro",
+    "created_at": "2025-12-28T..."
+  },
+  "api_key": "agtr_xxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+※ `api_key` は生の値で、この1回のみ返される
+※ 同時に `Set-Cookie: session=xxx` でログイン状態にする
+
+**POST /auth/login リクエスト:**
+
+```json
+{
+  "api_key": "agtr_xxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+**POST /auth/login レスポンス:**
+
+```json
+{
+  "user": {
+    "id": "xxx",
+    "name": "Taro",
+    "created_at": "2025-12-28T..."
+  }
+}
+```
+※ `Set-Cookie: session=xxx` でログイン状態にする
+
+**POST /api/auth/web-session レスポンス:**
+
+```json
+{
+  "url": "http://server:8080/auth/session?token=xxxxx",
+  "expires_at": "2025-12-28T..."
+}
+```
+
+**GET /api/keys レスポンス:**
+
+```json
+{
+  "keys": [
+    {
+      "id": "xxx",
+      "name": "MacBook Pro",
+      "key_prefix": "agtr_xxxx...",
+      "last_used_at": "2025-12-28T...",
+      "created_at": "2025-12-28T..."
+    }
+  ]
+}
+```
+
+**POST /api/keys リクエスト:**
+
+```json
+{
+  "name": "Work PC"
+}
+```
+
+**POST /api/keys レスポンス:**
+
+```json
+{
+  "key": {
+    "id": "xxx",
+    "name": "Work PC",
+    "key_prefix": "agtr_yyyy...",
+    "created_at": "2025-12-28T..."
+  },
+  "api_key": "agtr_yyyyyyyyyyyyyyyyyyyyyyyy"
+}
+```
+※ `api_key` は生の値で、この1回のみ返される
 
 ### Step 5: WebSocket（フロント用）
 
@@ -220,13 +314,67 @@ type APIKey struct {
 | ---- | ---- |
 | `/ws/live` | リアルタイム配信（新規イベント通知） |
 
+## 認証フロー
+
+### Bearer認証（CLI用）
+
+```
+リクエスト:
+  Authorization: Bearer agtr_xxxxxxxx
+
+サーバー処理:
+  1. APIKeyをbcryptでハッシュ化
+  2. DB検索で一致するAPIKeyを探す
+  3. 一致すればUserIDを取得
+  4. コンテキストにUserを設定
+```
+
+### Session認証（Web用）
+
+```
+リクエスト:
+  Cookie: session=xxxxx
+
+サーバー処理:
+  1. WebSessionテーブルからトークンで検索
+  2. 有効期限チェック
+  3. UserIDを取得
+  4. コンテキストにUserを設定
+```
+
 ## データモデル（PostgreSQL）- Step 4
 
 ```sql
--- セッション
+-- ユーザー
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- APIキー
+CREATE TABLE api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    key_hash VARCHAR(255) NOT NULL,
+    key_prefix VARCHAR(20) NOT NULL,
+    last_used_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Webセッション
+CREATE TABLE web_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- セッション（Claude Codeセッション）
 CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     claude_session_id VARCHAR(255),
     project_path VARCHAR(1024),
@@ -245,7 +393,10 @@ CREATE TABLE events (
 );
 
 -- インデックス
+CREATE INDEX idx_api_keys_hash ON api_keys(key_hash);
+CREATE INDEX idx_web_sessions_token ON web_sessions(token);
 CREATE INDEX idx_sessions_claude_id ON sessions(claude_session_id);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
 CREATE INDEX idx_events_session ON events(session_id);
 CREATE INDEX idx_events_created ON events(created_at);
 ```
@@ -257,18 +408,18 @@ CREATE INDEX idx_events_created ON events(created_at);
 | `PORT` | サーバーポート | 8080 |
 | `DB_TYPE` | データベース種類 | memory |
 | `DATABASE_URL` | PostgreSQL接続文字列 | - |
-| `API_KEY_FIXED` | 固定APIキー（開発用） | - |
+| `DEV_MODE` | デバッグログ有効化 | false |
 
-**開発モード判定:**
-- `API_KEY_FIXED` が設定されている場合、開発モードとしてリクエストログを出力
+**デバッグモード:**
+- `DEV_MODE=true` でリクエストログを出力
 
 ## 依存パッケージ
 
 - `github.com/gorilla/mux` - ルーティング
 - `github.com/google/uuid` - UUID生成
+- `golang.org/x/crypto/bcrypt` - APIキーハッシュ
 - `github.com/gorilla/websocket` - WebSocket（Step 5）
 - `github.com/lib/pq` - PostgreSQL ドライバ（Step 4）
-- `golang.org/x/crypto/bcrypt` - パスワードハッシュ（Step 2）
 
 ## 実装順序
 
@@ -278,14 +429,19 @@ CREATE INDEX idx_events_created ON events(created_at);
 2. オンメモリ Repository 実装
 3. POST /api/ingest（固定APIキー認証、transcript行配列対応）
 4. GET /api/sessions, /api/sessions/:id
-5. 開発モード時のリクエストログ出力
+5. DEV_MODE時のリクエストログ出力
 
-### Step 2: 認証とセットアップUI
+### Step 2: 認証機能
 
-1. User, Credential, APIKey Repository
-2. POST /auth/register, /auth/login
-3. GET /setup（HTML）
-4. POST /api/keys
+1. User, APIKey, WebSession ドメインモデル
+2. User, APIKey, WebSession Repository（memory）
+3. POST /auth/register - 名前入力でユーザー＆APIキー作成
+4. POST /auth/login - APIキーでログイン（Cookie発行）
+5. GET /auth/session - トークンでログイン（CLI経由）
+6. POST /api/auth/web-session - Webログイントークン発行
+7. Bearer認証ミドルウェア更新（APIKey → User解決）
+8. Session認証ミドルウェア追加
+9. セッションにUserID紐付け
 
 ### Step 3: Web UI（web/で実装）
 

@@ -2,6 +2,14 @@
 
 Claude Codeのやりとりをチームでレビューできるサービス
 
+## 想定する利用シーン
+
+| シーン | 説明 |
+| ------ | ---- |
+| ローカル | 個人でローカル起動してシングルユーザで使用 |
+| イントラネット | 社内サーバーにホストしてチームで使用 |
+| 開発 | DEV_MODEでデバッグログを出力しながら開発 |
+
 ## ディレクトリ構成
 
 ```
@@ -11,6 +19,7 @@ agentrace/
 │   │   ├── index.ts             # エントリーポイント
 │   │   ├── commands/
 │   │   │   ├── init.ts          # 初期設定
+│   │   │   ├── login.ts         # Webログイン（Step 2）
 │   │   │   ├── send.ts          # イベント送信（hooks用）
 │   │   │   └── uninstall.ts     # 設定削除
 │   │   ├── config/
@@ -22,21 +31,27 @@ agentrace/
 │   │       └── http.ts          # HTTP クライアント
 │   └── package.json
 │
-└── server/                      # Go バックエンド
-    ├── cmd/server/main.go       # エントリーポイント
-    └── internal/
-        ├── api/                 # HTTP ハンドラ
-        │   ├── router.go
-        │   ├── middleware.go
-        │   ├── ingest.go
-        │   └── session.go
-        ├── config/config.go     # 環境変数管理
-        ├── domain/              # ドメインモデル
-        │   ├── session.go
-        │   └── event.go
-        └── repository/          # データアクセス層
-            ├── interface.go
-            └── memory/          # オンメモリ実装
+├── server/                      # Go バックエンド
+│   ├── cmd/server/main.go       # エントリーポイント
+│   └── internal/
+│       ├── api/                 # HTTP ハンドラ
+│       │   ├── router.go
+│       │   ├── middleware.go
+│       │   ├── ingest.go
+│       │   ├── session.go
+│       │   └── auth.go          # Step 2
+│       ├── config/config.go     # 環境変数管理
+│       ├── domain/              # ドメインモデル
+│       │   ├── session.go
+│       │   ├── event.go
+│       │   ├── user.go          # Step 2
+│       │   ├── apikey.go        # Step 2
+│       │   └── websession.go    # Step 2
+│       └── repository/          # データアクセス層
+│           ├── interface.go
+│           └── memory/          # オンメモリ実装
+│
+└── web/                         # React フロントエンド（Step 3）
 ```
 
 ## 開発環境での動作確認
@@ -45,10 +60,10 @@ agentrace/
 
 ```bash
 cd server
-API_KEY_FIXED=test-key go run ./cmd/server
+DEV_MODE=true go run ./cmd/server
 ```
 
-- `API_KEY_FIXED` 設定時は開発モードとしてリクエストログを出力
+- `DEV_MODE=true` でリクエストログを出力
 
 ### 2. CLI初期化（開発モード）
 
@@ -57,7 +72,7 @@ cd cli
 npm install
 npx tsx src/index.ts init --dev
 # Server URL: http://localhost:8080
-# API Key: test-key
+# API Key: (Webで登録して取得)
 ```
 
 - `--dev` オプションでローカルCLIパスを使用
@@ -68,10 +83,10 @@ Claude Codeで操作すると、Stopイベントごとにtranscript差分がサ�
 
 ```bash
 # セッション一覧取得
-curl -H "Authorization: Bearer test-key" http://localhost:8080/api/sessions
+curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions
 
 # セッション詳細取得
-curl -H "Authorization: Bearer test-key" http://localhost:8080/api/sessions/{id}
+curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions/{id}
 ```
 
 ## CLIコマンド
@@ -80,17 +95,35 @@ curl -H "Authorization: Bearer test-key" http://localhost:8080/api/sessions/{id}
 |---------|------|
 | `agentrace init` | 設定 + hooks インストール |
 | `agentrace init --dev` | 開発モード（ローカルCLIパス使用） |
+| `agentrace login` | WebログインURL発行（Step 2） |
 | `agentrace send` | transcript差分送信（hooks用） |
 | `agentrace uninstall` | hooks/config 削除 |
 
 ## API エンドポイント
 
-| Method | Path | 説明 |
-|--------|------|------|
-| POST | `/api/ingest` | transcript行を受信 |
-| GET | `/api/sessions` | セッション一覧 |
-| GET | `/api/sessions/:id` | セッション詳細（イベント含む） |
-| GET | `/health` | ヘルスチェック |
+### Step 1（実装済み）
+
+| Method | Path | 認証 | 説明 |
+|--------|------|------|------|
+| POST | `/api/ingest` | Bearer | transcript行を受信 |
+| GET | `/api/sessions` | Bearer | セッション一覧 |
+| GET | `/api/sessions/:id` | Bearer | セッション詳細（イベント含む） |
+| GET | `/health` | なし | ヘルスチェック |
+
+### Step 2（認証機能）
+
+| Method | Path | 認証 | 説明 |
+|--------|------|------|------|
+| POST | `/auth/register` | なし | ユーザー登録（名前→APIキー発行） |
+| POST | `/auth/login` | なし | APIキーでログイン |
+| GET | `/auth/session` | なし | トークンでログイン（CLI経由） |
+| POST | `/api/auth/web-session` | Bearer | Webログイントークン発行 |
+| POST | `/api/auth/logout` | Session | ログアウト |
+| GET | `/api/me` | Session | 自分の情報 |
+| GET | `/api/users` | Session | ユーザー一覧 |
+| GET | `/api/keys` | Session | 自分のAPIキー一覧 |
+| POST | `/api/keys` | Session | 新しいAPIキー発行 |
+| DELETE | `/api/keys/:id` | Session | APIキー削除 |
 
 ## 環境変数（サーバー）
 
@@ -98,13 +131,40 @@ curl -H "Authorization: Bearer test-key" http://localhost:8080/api/sessions/{id}
 |--------|------|-----------|
 | `PORT` | サーバーポート | 8080 |
 | `DB_TYPE` | データベース種類 | memory |
-| `API_KEY_FIXED` | 固定APIキー（開発用） | - |
+| `DATABASE_URL` | PostgreSQL接続文字列（Step 4） | - |
+| `DEV_MODE` | デバッグログ有効化 | false |
+
+## 認証フロー
+
+### ユーザー登録（Web）
+
+1. ブラウザで http://server:8080 にアクセス
+2. 「Register」→ 名前入力 → APIキー発行
+3. APIキーをコピー（この1回のみ表示）
+
+### CLIセットアップ
+
+1. `npx agentrace init`
+2. Server URLとAPIキーを入力
+3. hooks自動設定
+
+### Webログイン
+
+- 方法1: `npx agentrace login` → URL発行 → ブラウザで開く
+- 方法2: WebでAPIキーを入力してログイン
+
+### 複数APIキー
+
+- 各ユーザーは複数のAPIキーを発行可能（別デバイス用など）
+- Webの設定画面（/settings）でAPIキーの管理
+- キー発行時に名前を付けられる（例: "MacBook Pro", "Work PC"）
 
 ## データフロー
 
 1. Claude Code が応答完了 → Stop hook 発火
 2. CLI: stdin から session_id, transcript_path を取得
 3. CLI: transcript_path のJSONLを読み、前回からの差分を抽出
-4. CLI: 差分をサーバーに POST /api/ingest
-5. Server: 各行を Event として保存
-6. CLI: カーソル位置を更新（~/.agentrace/cursors/{session_id}.json）
+4. CLI: 差分をサーバーに POST /api/ingest（Bearer認証）
+5. Server: APIKey → User解決、UserIDをセッションに紐付け
+6. Server: 各行を Event として保存
+7. CLI: カーソル位置を更新（~/.agentrace/cursors/{session_id}.json）
