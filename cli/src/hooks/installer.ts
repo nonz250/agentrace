@@ -16,7 +16,6 @@ interface ClaudeHookMatcher {
 
 interface ClaudeSettings {
   hooks?: {
-    PostToolUse?: ClaudeHookMatcher[];
     Stop?: ClaudeHookMatcher[];
     [key: string]: ClaudeHookMatcher[] | undefined;
   };
@@ -57,24 +56,7 @@ export function installHooks(options: InstallHooksOptions = {}): { success: bool
       settings.hooks = {};
     }
 
-    // Add PostToolUse hook
-    if (!settings.hooks.PostToolUse) {
-      settings.hooks.PostToolUse = [];
-    }
-
-    // Check if agentrace hook already exists
-    const hasPostToolUseHook = settings.hooks.PostToolUse.some((matcher) =>
-      matcher.hooks?.some(isAgentraceHook)
-    );
-
-    if (!hasPostToolUseHook) {
-      settings.hooks.PostToolUse.push({
-        matcher: "*",
-        hooks: [agentraceHook],
-      });
-    }
-
-    // Add Stop hook
+    // Add Stop hook only (transcript diff is sent on each Stop)
     if (!settings.hooks.Stop) {
       settings.hooks.Stop = [];
     }
@@ -118,16 +100,6 @@ export function uninstallHooks(): { success: boolean; message: string } {
       return { success: true, message: "No hooks configured" };
     }
 
-    // Remove agentrace hooks from PostToolUse
-    if (settings.hooks.PostToolUse) {
-      settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(
-        (matcher) => !matcher.hooks?.some(isAgentraceHook)
-      );
-      if (settings.hooks.PostToolUse.length === 0) {
-        delete settings.hooks.PostToolUse;
-      }
-    }
-
     // Remove agentrace hooks from Stop
     if (settings.hooks.Stop) {
       settings.hooks.Stop = settings.hooks.Stop.filter(
@@ -164,11 +136,11 @@ export function checkHooksInstalled(): boolean {
     const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
     const settings: ClaudeSettings = JSON.parse(content);
 
-    const hasPostToolUseHook = settings.hooks?.PostToolUse?.some((matcher) =>
+    const hasStopHook = settings.hooks?.Stop?.some((matcher) =>
       matcher.hooks?.some(isAgentraceHook)
     );
 
-    return !!hasPostToolUseHook;
+    return !!hasStopHook;
   } catch {
     return false;
   }

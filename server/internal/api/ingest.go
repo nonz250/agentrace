@@ -17,17 +17,14 @@ func NewIngestHandler(repos *repository.Repositories) *IngestHandler {
 }
 
 type IngestRequest struct {
-	SessionID     string                 `json:"session_id"`
-	HookEventName string                 `json:"hook_event_name"`
-	ToolName      string                 `json:"tool_name"`
-	ToolInput     map[string]interface{} `json:"tool_input"`
-	ToolResponse  map[string]interface{} `json:"tool_response"`
-	Cwd           string                 `json:"cwd"`
+	SessionID       string                   `json:"session_id"`
+	TranscriptLines []map[string]interface{} `json:"transcript_lines"`
+	Cwd             string                   `json:"cwd"`
 }
 
 type IngestResponse struct {
-	OK      bool   `json:"ok"`
-	EventID string `json:"event_id"`
+	OK            bool `json:"ok"`
+	EventsCreated int  `json:"events_created"`
 }
 
 func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
@@ -51,28 +48,29 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		session.ProjectPath = req.Cwd
 	}
 
-	// Create event
-	payload := map[string]interface{}{
-		"tool_input":    req.ToolInput,
-		"tool_response": req.ToolResponse,
-		"cwd":           req.Cwd,
-	}
+	// Create events from transcript lines
+	eventsCreated := 0
+	for _, line := range req.TranscriptLines {
+		event := &domain.Event{
+			SessionID: session.ID,
+			Payload:   line,
+		}
 
-	event := &domain.Event{
-		SessionID: session.ID,
-		EventType: req.HookEventName,
-		ToolName:  req.ToolName,
-		Payload:   payload,
-	}
+		// Extract type if present
+		if eventType, ok := line["type"].(string); ok {
+			event.EventType = eventType
+		}
 
-	if err := h.repos.Event.Create(ctx, event); err != nil {
-		http.Error(w, `{"error": "failed to create event"}`, http.StatusInternalServerError)
-		return
+		if err := h.repos.Event.Create(ctx, event); err != nil {
+			http.Error(w, `{"error": "failed to create event"}`, http.StatusInternalServerError)
+			return
+		}
+		eventsCreated++
 	}
 
 	resp := IngestResponse{
-		OK:      true,
-		EventID: event.ID,
+		OK:            true,
+		EventsCreated: eventsCreated,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

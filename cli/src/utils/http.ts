@@ -2,16 +2,13 @@ import { loadConfig } from "../config/manager.js";
 
 export interface IngestPayload {
   session_id: string;
-  hook_event_name: string;
-  tool_name?: string;
-  tool_input?: unknown;
-  tool_response?: unknown;
+  transcript_lines: unknown[];
   cwd?: string;
 }
 
 export interface IngestResponse {
   ok: boolean;
-  event_id?: string;
+  events_created?: number;
   error?: string;
 }
 

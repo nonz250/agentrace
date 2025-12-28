@@ -34,7 +34,6 @@ type SessionDetailResponse struct {
 type EventResponse struct {
 	ID        string                 `json:"id"`
 	EventType string                 `json:"event_type"`
-	ToolName  string                 `json:"tool_name"`
 	Payload   map[string]interface{} `json:"payload"`
 	CreatedAt string                 `json:"created_at"`
 }
@@ -59,7 +58,6 @@ func eventToResponse(e *domain.Event) *EventResponse {
 	return &EventResponse{
 		ID:        e.ID,
 		EventType: e.EventType,
-		ToolName:  e.ToolName,
 		Payload:   e.Payload,
 		CreatedAt: e.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}

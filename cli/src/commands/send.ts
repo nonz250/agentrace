@@ -1,12 +1,10 @@
 import { loadConfig } from "../config/manager.js";
-import { sendIngest, type IngestPayload } from "../utils/http.js";
+import { getNewLines, saveCursor } from "../config/cursor.js";
+import { sendIngest } from "../utils/http.js";
 
 interface HookInput {
   session_id?: string;
-  hook_event_name?: string;
-  tool_name?: string;
-  tool_input?: unknown;
-  tool_response?: unknown;
+  transcript_path?: string;
   cwd?: string;
 }
 
@@ -24,7 +22,7 @@ export async function sendCommand(): Promise<void> {
   let input = "";
   try {
     input = await readStdin();
-  } catch (error) {
+  } catch {
     console.error("[agentrace] Warning: Failed to read stdin");
     process.exit(0);
   }
@@ -43,19 +41,47 @@ export async function sendCommand(): Promise<void> {
     process.exit(0);
   }
 
-  // Prepare payload
-  const payload: IngestPayload = {
-    session_id: data.session_id || "unknown",
-    hook_event_name: data.hook_event_name || "unknown",
-    tool_name: data.tool_name,
-    tool_input: data.tool_input,
-    tool_response: data.tool_response,
-    cwd: data.cwd,
-  };
+  const sessionId = data.session_id;
+  const transcriptPath = data.transcript_path;
+
+  if (!sessionId || !transcriptPath) {
+    console.error("[agentrace] Warning: Missing session_id or transcript_path");
+    process.exit(0);
+  }
+
+  // Get new lines from transcript
+  const { lines, totalLineCount } = getNewLines(transcriptPath, sessionId);
+
+  if (lines.length === 0) {
+    // No new lines to send
+    process.exit(0);
+  }
+
+  // Parse JSONL lines
+  const transcriptLines: unknown[] = [];
+  for (const line of lines) {
+    try {
+      transcriptLines.push(JSON.parse(line));
+    } catch {
+      // Skip invalid JSON lines
+    }
+  }
+
+  if (transcriptLines.length === 0) {
+    process.exit(0);
+  }
 
   // Send to server
-  const result = await sendIngest(payload);
-  if (!result.ok) {
+  const result = await sendIngest({
+    session_id: sessionId,
+    transcript_lines: transcriptLines,
+    cwd: data.cwd,
+  });
+
+  if (result.ok) {
+    // Update cursor on success
+    saveCursor(sessionId, totalLineCount);
+  } else {
     console.error(`[agentrace] Warning: ${result.error}`);
   }
 
