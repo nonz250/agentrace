@@ -1,21 +1,24 @@
 package api
 
 import (
+	"bytes"
+	"io"
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/satetsu888/agentrace/server/internal/config"
 )
 
-type AuthMiddleware struct {
+type Middleware struct {
 	cfg *config.Config
 }
 
-func NewAuthMiddleware(cfg *config.Config) *AuthMiddleware {
-	return &AuthMiddleware{cfg: cfg}
+func NewMiddleware(cfg *config.Config) *Middleware {
+	return &Middleware{cfg: cfg}
 }
 
-func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
+func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get Bearer token from Authorization header
 		authHeader := r.Header.Get("Authorization")
@@ -41,6 +44,29 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		if token != m.cfg.APIKeyFixed {
 			http.Error(w, `{"error": "invalid api key"}`, http.StatusUnauthorized)
 			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (m *Middleware) RequestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !m.cfg.IsDevMode() {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Read and log request body
+		var bodyBytes []byte
+		if r.Body != nil {
+			bodyBytes, _ = io.ReadAll(r.Body)
+			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
+
+		log.Printf("[DEBUG] %s %s", r.Method, r.URL.Path)
+		if len(bodyBytes) > 0 {
+			log.Printf("[DEBUG] Body: %s", string(bodyBytes))
 		}
 
 		next.ServeHTTP(w, r)

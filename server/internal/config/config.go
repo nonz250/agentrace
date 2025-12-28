@@ -18,6 +18,10 @@ func Load() *Config {
 	}
 }
 
+func (c *Config) IsDevMode() bool {
+	return c.APIKeyFixed != ""
+}
+
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

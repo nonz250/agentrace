@@ -12,7 +12,10 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	r := mux.NewRouter()
 
 	// Middleware
-	authMiddleware := NewAuthMiddleware(cfg)
+	mw := NewMiddleware(cfg)
+
+	// Apply request logger to all routes
+	r.Use(mw.RequestLogger)
 
 	// Handlers
 	ingestHandler := NewIngestHandler(repos)
@@ -20,7 +23,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 
 	// API routes (authenticated)
 	api := r.PathPrefix("/api").Subrouter()
-	api.Use(authMiddleware.Authenticate)
+	api.Use(mw.Authenticate)
 
 	api.HandleFunc("/ingest", ingestHandler.Handle).Methods("POST")
 	api.HandleFunc("/sessions", sessionHandler.List).Methods("GET")
