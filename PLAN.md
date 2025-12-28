@@ -36,20 +36,21 @@ agentrace/
 ├─────────────────────────────────────────────────────────────┤
 │  $ npx agentrace init                                       │
 │      ↓                                                      │
-│  ブラウザでログイン → APIキー取得                            │
+│  APIキー入力（Step1） / ブラウザログイン（Step2）            │
 │      ↓                                                      │
 │  ~/.agentrace/config.json に保存                            │
 │  ~/.claude/settings.json に hooks 追加                      │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│ データ送信（自動）                                           │
+│ データ送信（自動・差分更新）                                 │
 ├─────────────────────────────────────────────────────────────┤
-│  Claude Code → Hook呼び出し                                 │
+│  Claude Code → Stop hook 発火                               │
 │      ↓                                                      │
-│  npx agentrace send（stdin から JSON）                      │
-│      ↓ HTTP POST                                            │
-│  Agentrace Server /api/ingest                               │
+│  npx agentrace send                                         │
+│      ↓ transcript_path から差分読み取り                     │
+│      ↓ HTTP POST /api/ingest                                │
+│  Agentrace Server                                           │
 │      ↓                                                      │
 │  Database（Memory / PostgreSQL）                            │
 └─────────────────────────────────────────────────────────────┘
@@ -67,21 +68,25 @@ agentrace/
 
 ## 実装順序
 
-### Step 1: 最小動作版（E2E疎通・オンメモリDB）
+### Step 1: 最小動作版（E2E疎通・オンメモリDB） ✅ 完了
 
 **目標**: Claude Codeのhooksからデータがサーバーに送信され、メモリに保存される
 
-1. **server/**
+1. **server/** ✅
    - Repository インターフェース定義
    - オンメモリ Repository 実装
    - POST /api/ingest（固定APIキー認証）
    - GET /api/sessions, /api/sessions/:id
+   - 開発モード時のリクエストログ出力
 
-2. **cli/**
+2. **cli/** ✅
    - `npx agentrace init` - APIキー入力（手動）+ hooks設定
-   - `npx agentrace send` - stdinからJSON読み取り→POST
+   - `npx agentrace init --dev` - 開発モード（ローカルCLIパス使用）
+   - `npx agentrace send` - transcript差分読み取り→POST
+   - `npx agentrace uninstall` - hooks/config削除
+   - カーソル管理による差分送信
 
-3. **動作確認**
+3. **動作確認** ✅
    - 実際のClaude Codeでhooksが動作することを確認
 
 ### Step 2: 認証とセットアップUI
@@ -89,13 +94,13 @@ agentrace/
 1. **server/** - ユーザー登録/ログイン、/setup画面
 2. **cli/** - ブラウザ連携でAPIキー自動取得
 
-### Step 3: PostgreSQL対応
-
-1. **server/** - PostgreSQL Repository 実装、マイグレーション
-
-### Step 4: Web UI
+### Step 3: Web UI
 
 1. **web/** - ログイン、セッション一覧・詳細
+
+### Step 4: PostgreSQL対応
+
+1. **server/** - PostgreSQL Repository 実装、マイグレーション
 
 ### Step 5: リアルタイム機能
 
