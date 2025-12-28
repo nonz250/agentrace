@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -57,6 +58,11 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 	for _, s := range r.sessions {
 		sessions = append(sessions, s)
 	}
+
+	// Sort by StartedAt descending (newest first)
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].StartedAt.After(sessions[j].StartedAt)
+	})
 
 	// Apply offset and limit
 	if offset >= len(sessions) {

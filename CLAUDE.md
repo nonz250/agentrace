@@ -51,7 +51,37 @@ agentrace/
 │           ├── interface.go
 │           └── memory/          # オンメモリ実装
 │
-└── web/                         # React フロントエンド（Step 3）
+└── web/                         # React フロントエンド
+    ├── src/
+    │   ├── main.tsx             # エントリーポイント
+    │   ├── App.tsx              # ルーティング
+    │   ├── api/                 # API クライアント
+    │   │   ├── client.ts        # fetch ラッパー
+    │   │   ├── auth.ts          # 認証 API
+    │   │   ├── sessions.ts      # セッション API
+    │   │   └── keys.ts          # APIキー API
+    │   ├── components/          # UIコンポーネント
+    │   │   ├── layout/          # Layout, Header
+    │   │   ├── sessions/        # SessionCard, SessionList
+    │   │   ├── timeline/        # EventCard, AssistantMessage, etc.
+    │   │   ├── settings/        # ApiKeyList, ApiKeyForm
+    │   │   └── ui/              # Button, Input, Card, etc.
+    │   ├── hooks/               # カスタムHooks
+    │   │   └── useAuth.ts       # 認証状態管理
+    │   ├── lib/                 # ユーティリティ
+    │   │   └── cn.ts            # clsx + tailwind-merge
+    │   ├── pages/               # ページコンポーネント
+    │   │   ├── WelcomePage.tsx
+    │   │   ├── RegisterPage.tsx
+    │   │   ├── LoginPage.tsx
+    │   │   ├── SessionListPage.tsx
+    │   │   ├── SessionDetailPage.tsx
+    │   │   └── SettingsPage.tsx
+    │   └── types/               # 型定義
+    │       ├── auth.ts
+    │       ├── session.ts
+    │       └── event.ts
+    └── package.json
 ```
 
 ## 開発環境での動作確認
@@ -87,7 +117,18 @@ npx tsx src/index.ts init --dev
 
 - `--dev` オプションでローカルCLIパスを使用
 
-### 4. 動作確認
+### 4. Web UI起動
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+- http://localhost:5173 でアクセス
+- Viteのプロキシ設定でAPIリクエストは自動的に localhost:8080 に転送
+
+### 5. 動作確認
 
 Claude Codeで操作すると、Stopイベントごとにtranscript差分がサーバーに送信される
 
@@ -181,3 +222,42 @@ npx tsx src/index.ts login
 5. Server: APIKey → User解決、UserIDをセッションに紐付け
 6. Server: 各行を Event として保存
 7. CLI: カーソル位置を更新（~/.agentrace/cursors/{session_id}.json）
+
+## Web フロントエンド（Step 3）
+
+### 技術スタック
+
+| カテゴリ | 技術 |
+| -------- | ---- |
+| ビルドツール | Vite |
+| UIライブラリ | React 18 |
+| 言語 | TypeScript |
+| スタイリング | Tailwind CSS |
+| ルーティング | React Router v6 |
+| 状態管理 | TanStack Query (React Query) |
+| フォーム | React Hook Form |
+| 日時処理 | date-fns |
+| アイコン | Lucide React |
+| コード表示 | react-syntax-highlighter |
+
+### ソート仕様
+
+| 対象 | ソートキー | 順序 |
+| ---- | ---------- | ---- |
+| セッション一覧 | StartedAt | 降順（新しい順） |
+| イベント一覧 | payload.timestamp | 昇順（会話順） |
+
+- イベントの時刻表示は `payload.timestamp` を優先（Claude Codeのオリジナルタイムスタンプ）
+- `created_at` はサーバー保存時刻なのでフォールバックとして使用
+
+### メッセージ表示
+
+AssistantMessageコンポーネントは以下のブロックタイプに対応：
+
+| ブロックタイプ | 表示 |
+| -------------- | ---- |
+| text | テキストそのまま表示 |
+| thinking | 折りたたみ可能なUI（紫色、Brainアイコン） |
+| tool_use | ツール名 + JSONハイライト表示 |
+| tool_result | ツール結果のpre表示 |
+| その他 | ブロックタイプ名 + JSON表示 |

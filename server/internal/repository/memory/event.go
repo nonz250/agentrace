@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -35,6 +36,20 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 	return nil
 }
 
+// getTimestampFromPayload extracts timestamp from payload, falls back to CreatedAt
+func getTimestampFromPayload(e *domain.Event) time.Time {
+	if ts, ok := e.Payload["timestamp"].(string); ok {
+		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+			return parsed
+		}
+		// Try parsing without timezone
+		if parsed, err := time.Parse("2006-01-02T15:04:05.000Z", ts); err == nil {
+			return parsed
+		}
+	}
+	return e.CreatedAt
+}
+
 func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.Event, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -45,5 +60,11 @@ func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string)
 			events = append(events, e)
 		}
 	}
+
+	// Sort by payload.timestamp ascending (oldest first)
+	sort.Slice(events, func(i, j int) bool {
+		return getTimestampFromPayload(events[i]).Before(getTimestampFromPayload(events[j]))
+	})
+
 	return events, nil
 }

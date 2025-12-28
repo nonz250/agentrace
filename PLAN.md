@@ -143,15 +143,30 @@ agentrace/
 2. **cli/** ✅
    - `npx agentrace login` - WebログインURL発行→ブラウザで開く
 
-### Step 3: Web UI
+### Step 3: Web UI ✅ 完了
 
 **目標**: セッション一覧・詳細の表示
 
-1. **web/**
-   - Vite + React セットアップ
-   - ログイン/登録ページ
-   - セッション一覧ページ
+1. **web/** ✅
+   - Vite + React + TypeScript + Tailwind CSS セットアップ
+   - TanStack Query でのデータ取得・キャッシュ
+   - React Router v6 でのルーティング
+   - ログイン/登録ページ（APIキー認証）
+   - セッション一覧ページ（StartedAt降順）
    - セッション詳細ページ（タイムライン表示）
+   - 設定ページ（APIキー管理）
+
+2. **メッセージ表示** ✅
+   - AssistantMessageコンポーネント
+     - テキストブロック表示
+     - Thinkingブロック（折りたたみ可能なUI）
+     - ツール使用/結果ブロック
+     - 未知のブロックタイプ（JSON表示）
+
+3. **ソート仕様** ✅
+   - セッション一覧: StartedAt降順（新しい順）
+   - イベント一覧: payload.timestamp昇順（会話順）
+   - 画面表示: payload.timestampを優先（created_atフォールバック）
 
 ### Step 4: PostgreSQL対応
 

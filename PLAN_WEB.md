@@ -540,6 +540,14 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
 
 ### タイムラインコンポーネント
 
+#### タイムスタンプの取り扱い
+
+イベントの時刻は `payload.timestamp` を優先して使用する（Claude Codeが記録したオリジナルのタイムスタンプ）。
+`created_at` はサーバーでの保存時刻なのでフォールバックとしてのみ使用。
+
+- **サーバー側**: イベントを `payload.timestamp` で昇順ソート（会話順）
+- **フロントエンド**: EventCardで `payload.timestamp` を表示
+
 ```tsx
 // src/components/timeline/EventCard.tsx
 import { cn } from '@/lib/cn'
@@ -557,6 +565,9 @@ interface EventCardProps {
 
 export function EventCard({ event }: EventCardProps) {
   const [expanded, setExpanded] = useState(true)
+
+  // payload.timestamp を優先、なければ created_at
+  const timestamp = (event.payload?.timestamp as string) || event.created_at
 
   const icon = {
     user: <User className="h-4 w-4" />,
@@ -594,7 +605,7 @@ export function EventCard({ event }: EventCardProps) {
           <span className="font-medium text-gray-900">{label}</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span>{format(new Date(event.createdAt), 'HH:mm:ss')}</span>
+          <span>{format(new Date(timestamp), 'HH:mm:ss')}</span>
           {expanded ? (
             <ChevronDown className="h-4 w-4" />
           ) : (
@@ -619,6 +630,8 @@ export function EventCard({ event }: EventCardProps) {
 
 ```tsx
 // src/components/timeline/AssistantMessage.tsx
+import { useState } from 'react'
+import { ChevronDown, ChevronRight, Brain } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
@@ -626,8 +639,38 @@ interface AssistantMessageProps {
   payload: Record<string, unknown>
 }
 
+// Claude Codeの "thinking" ブロックを折りたたみ可能なUIで表示
+function ThinkingBlock({ thinking }: { thinking: string }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="rounded-lg border border-purple-200 bg-purple-50">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-purple-700 hover:bg-purple-100"
+      >
+        <Brain className="h-4 w-4" />
+        <span>Thinking</span>
+        {expanded ? (
+          <ChevronDown className="ml-auto h-4 w-4" />
+        ) : (
+          <ChevronRight className="ml-auto h-4 w-4" />
+        )}
+      </button>
+      {expanded && (
+        <div className="border-t border-purple-200 px-3 py-2">
+          <p className="whitespace-pre-wrap text-sm text-purple-900">
+            {thinking}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AssistantMessage({ payload }: AssistantMessageProps) {
-  const content = payload?.message?.content
+  const message = payload?.message as Record<string, unknown> | undefined
+  const content = message?.content
 
   if (!content) {
     return (
@@ -637,11 +680,12 @@ export function AssistantMessage({ payload }: AssistantMessageProps) {
     )
   }
 
-  // contentが配列の場合（テキスト+コードブロック等）
+  // contentが配列の場合（テキスト+コードブロック+thinkingブロック等）
   if (Array.isArray(content)) {
     return (
       <div className="mt-3 space-y-3">
         {content.map((block, i) => {
+          // テキストブロック
           if (block.type === 'text') {
             return (
               <p key={i} className="text-gray-700 whitespace-pre-wrap">
@@ -649,6 +693,11 @@ export function AssistantMessage({ payload }: AssistantMessageProps) {
               </p>
             )
           }
+          // 思考ブロック（Claude Codeのinterleaved thinking）
+          if (block.type === 'thinking' && typeof block.thinking === 'string') {
+            return <ThinkingBlock key={i} thinking={block.thinking} />
+          }
+          // ツール使用ブロック
           if (block.type === 'tool_use') {
             return (
               <div key={i} className="rounded-lg bg-gray-50 p-3">
@@ -662,6 +711,30 @@ export function AssistantMessage({ payload }: AssistantMessageProps) {
                 >
                   {JSON.stringify(block.input, null, 2)}
                 </SyntaxHighlighter>
+              </div>
+            )
+          }
+          // ツール結果ブロック
+          if (block.type === 'tool_result') {
+            return (
+              <div key={i} className="rounded-lg bg-gray-50 p-3">
+                <p className="text-sm font-medium text-gray-600 mb-2">Tool Result</p>
+                <pre className="whitespace-pre-wrap text-sm text-gray-700">
+                  {typeof block.content === 'string'
+                    ? block.content
+                    : JSON.stringify(block.content, null, 2)}
+                </pre>
+              </div>
+            )
+          }
+          // 未知のブロックタイプはJSONで表示
+          if (block.type) {
+            return (
+              <div key={i} className="rounded-lg bg-gray-100 p-3">
+                <p className="mb-2 text-xs font-medium text-gray-500">{block.type}</p>
+                <pre className="whitespace-pre-wrap text-sm text-gray-600">
+                  {JSON.stringify(block, null, 2)}
+                </pre>
               </div>
             )
           }
@@ -1084,34 +1157,49 @@ export default defineConfig({
 
 ## 実装順序
 
-### Step 3: 基本UI
+### Step 3: 基本UI ✅ 完了
 
-1. **プロジェクトセットアップ**
+1. **プロジェクトセットアップ** ✅
    - Vite + React + TypeScript 初期化
    - Tailwind CSS 設定
    - ディレクトリ構造作成
    - パスエイリアス設定
 
-2. **汎用コンポーネント**
-   - Button, Input, Card, Modal, Spinner
-   - cn() ユーティリティ
+2. **汎用コンポーネント** ✅
+   - Button, Input, Card, Modal, Spinner, CopyButton
+   - cn() ユーティリティ（clsx + tailwind-merge）
    - Layout, Header コンポーネント
 
-3. **認証ページ**
+3. **認証ページ** ✅
    - WelcomePage（初期画面）
-   - RegisterPage（ユーザー登録）
-   - LoginPage（ログイン）
-   - useAuth フック
+   - RegisterPage（ユーザー登録、APIキー表示）
+   - LoginPage（APIキーでログイン）
+   - useAuth フック（TanStack Query）
 
-4. **セッション機能**
-   - SessionListPage（一覧）
+4. **セッション機能** ✅
+   - SessionListPage（一覧）- StartedAt降順でソート
    - SessionCard コンポーネント
    - SessionDetailPage（詳細）
    - Timeline, EventCard コンポーネント
 
-5. **設定ページ**
+5. **設定ページ** ✅
    - SettingsPage
    - ApiKeyList, ApiKeyForm コンポーネント
+
+6. **メッセージ表示** ✅
+   - UserMessage: ユーザー入力の表示
+   - AssistantMessage: アシスタント応答の表示
+     - テキストブロック
+     - Thinkingブロック（折りたたみ可能、紫色のUI）
+     - ツール使用ブロック
+     - ツール結果ブロック
+     - 未知のブロックタイプ（JSONで表示）
+   - ToolUse: ツール使用/結果の表示
+
+7. **ソートとタイムスタンプ** ✅
+   - セッション一覧: StartedAt降順（新しい順）
+   - イベント一覧: payload.timestamp昇順（会話順）
+   - 時刻表示: payload.timestampを優先（created_atフォールバック）
 
 ### Step 5: リアルタイム機能
 

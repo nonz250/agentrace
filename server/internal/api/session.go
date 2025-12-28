@@ -19,10 +19,13 @@ func NewSessionHandler(repos *repository.Repositories) *SessionHandler {
 
 type SessionResponse struct {
 	ID              string  `json:"id"`
+	UserID          *string `json:"user_id"`
+	UserName        *string `json:"user_name"`
 	ClaudeSessionID string  `json:"claude_session_id"`
 	ProjectPath     string  `json:"project_path"`
 	StartedAt       string  `json:"started_at"`
 	EndedAt         *string `json:"ended_at"`
+	EventCount      int     `json:"event_count"`
 	CreatedAt       string  `json:"created_at"`
 }
 
@@ -38,7 +41,7 @@ type EventResponse struct {
 	CreatedAt string                 `json:"created_at"`
 }
 
-func sessionToResponse(s *domain.Session) *SessionResponse {
+func sessionToResponse(s *domain.Session, userName *string, eventCount int) *SessionResponse {
 	var endedAt *string
 	if s.EndedAt != nil {
 		t := s.EndedAt.Format("2006-01-02T15:04:05Z07:00")
@@ -46,10 +49,13 @@ func sessionToResponse(s *domain.Session) *SessionResponse {
 	}
 	return &SessionResponse{
 		ID:              s.ID,
+		UserID:          s.UserID,
+		UserName:        userName,
 		ClaudeSessionID: s.ClaudeSessionID,
 		ProjectPath:     s.ProjectPath,
 		StartedAt:       s.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
 		EndedAt:         endedAt,
+		EventCount:      eventCount,
 		CreatedAt:       s.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
@@ -63,6 +69,10 @@ func eventToResponse(e *domain.Event) *EventResponse {
 	}
 }
 
+type SessionListResponse struct {
+	Sessions []*SessionResponse `json:"sessions"`
+}
+
 func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -72,9 +82,29 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := make([]*SessionResponse, len(sessions))
+	sessionResponses := make([]*SessionResponse, len(sessions))
 	for i, s := range sessions {
-		response[i] = sessionToResponse(s)
+		// Get user name
+		var userName *string
+		if s.UserID != nil {
+			user, err := h.repos.User.FindByID(ctx, *s.UserID)
+			if err == nil && user != nil {
+				userName = &user.Name
+			}
+		}
+
+		// Get event count
+		events, err := h.repos.Event.FindBySessionID(ctx, s.ID)
+		eventCount := 0
+		if err == nil {
+			eventCount = len(events)
+		}
+
+		sessionResponses[i] = sessionToResponse(s, userName, eventCount)
+	}
+
+	response := SessionListResponse{
+		Sessions: sessionResponses,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -96,6 +126,15 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user name
+	var userName *string
+	if session.UserID != nil {
+		user, err := h.repos.User.FindByID(ctx, *session.UserID)
+		if err == nil && user != nil {
+			userName = &user.Name
+		}
+	}
+
 	events, err := h.repos.Event.FindBySessionID(ctx, session.ID)
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch events"}`, http.StatusInternalServerError)
@@ -108,7 +147,7 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := SessionDetailResponse{
-		SessionResponse: *sessionToResponse(session),
+		SessionResponse: *sessionToResponse(session, userName, len(events)),
 		Events:          eventResponses,
 	}
 
