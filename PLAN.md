@@ -119,22 +119,28 @@ agentrace/
 3. **動作確認** ✅
    - 実際のClaude Codeでhooksが動作することを確認
 
-### Step 2: 認証機能
+### Step 2: 認証機能 ✅ 完了
 
 **目標**: ユーザー登録とAPIキー発行、Webログイン
 
-1. **server/**
+1. **server/** ✅
    - User, APIKey, WebSession ドメインモデル
    - 各種Repository（memory実装）
    - POST `/auth/register` - ユーザー登録＆APIキー発行
    - POST `/auth/login` - APIキーでログイン（Cookie発行）
    - GET `/auth/session` - トークンでログイン（CLI経由）
    - POST `/api/auth/web-session` - Webログイントークン発行
+   - POST `/api/auth/logout` - ログアウト
+   - GET `/api/me` - 自分の情報取得
+   - GET `/api/users` - ユーザー一覧
+   - GET `/api/keys` - 自分のAPIキー一覧
+   - POST `/api/keys` - 新しいAPIキー発行
+   - DELETE `/api/keys/:id` - APIキー削除
    - Bearer認証ミドルウェア（APIKey → User解決）
    - Session認証ミドルウェア（Cookie → User解決）
    - セッションにUserID紐付け
 
-2. **cli/**
+2. **cli/** ✅
    - `npx agentrace login` - WebログインURL発行→ブラウザで開く
 
 ### Step 3: Web UI

@@ -431,7 +431,7 @@ CREATE INDEX idx_events_created ON events(created_at);
 4. GET /api/sessions, /api/sessions/:id
 5. DEV_MODE時のリクエストログ出力
 
-### Step 2: 認証機能
+### Step 2: 認証機能 ✅ 完了
 
 1. User, APIKey, WebSession ドメインモデル
 2. User, APIKey, WebSession Repository（memory）
@@ -439,9 +439,12 @@ CREATE INDEX idx_events_created ON events(created_at);
 4. POST /auth/login - APIキーでログイン（Cookie発行）
 5. GET /auth/session - トークンでログイン（CLI経由）
 6. POST /api/auth/web-session - Webログイントークン発行
-7. Bearer認証ミドルウェア更新（APIKey → User解決）
-8. Session認証ミドルウェア追加
-9. セッションにUserID紐付け
+7. POST /api/auth/logout - ログアウト
+8. GET /api/me, GET /api/users - ユーザー情報取得
+9. GET /api/keys, POST /api/keys, DELETE /api/keys/:id - APIキー管理
+10. Bearer認証ミドルウェア更新（APIKey → User解決）
+11. Session認証ミドルウェア追加
+12. セッションにUserID紐付け
 
 ### Step 3: Web UI（web/で実装）
 

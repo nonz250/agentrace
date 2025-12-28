@@ -19,7 +19,7 @@ agentrace/
 │   │   ├── index.ts             # エントリーポイント
 │   │   ├── commands/
 │   │   │   ├── init.ts          # 初期設定
-│   │   │   ├── login.ts         # Webログイン（Step 2）
+│   │   │   ├── login.ts         # Webログイン
 │   │   │   ├── send.ts          # イベント送信（hooks用）
 │   │   │   └── uninstall.ts     # 設定削除
 │   │   ├── config/
@@ -39,14 +39,14 @@ agentrace/
 │       │   ├── middleware.go
 │       │   ├── ingest.go
 │       │   ├── session.go
-│       │   └── auth.go          # Step 2
+│       │   └── auth.go
 │       ├── config/config.go     # 環境変数管理
 │       ├── domain/              # ドメインモデル
 │       │   ├── session.go
 │       │   ├── event.go
-│       │   ├── user.go          # Step 2
-│       │   ├── apikey.go        # Step 2
-│       │   └── websession.go    # Step 2
+│       │   ├── user.go
+│       │   ├── apikey.go
+│       │   └── websession.go
 │       └── repository/          # データアクセス層
 │           ├── interface.go
 │           └── memory/          # オンメモリ実装
@@ -65,19 +65,29 @@ DEV_MODE=true go run ./cmd/server
 
 - `DEV_MODE=true` でリクエストログを出力
 
-### 2. CLI初期化（開発モード）
+### 2. ユーザー登録
+
+```bash
+# curlでユーザー登録（APIキーが返される）
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Your Name"}'
+# => {"user": {...}, "api_key": "agtr_xxxxx"}
+```
+
+### 3. CLI初期化（開発モード）
 
 ```bash
 cd cli
 npm install
 npx tsx src/index.ts init --dev
 # Server URL: http://localhost:8080
-# API Key: (Webで登録して取得)
+# API Key: (上記で取得したAPIキー)
 ```
 
 - `--dev` オプションでローカルCLIパスを使用
 
-### 3. 動作確認
+### 4. 動作確認
 
 Claude Codeで操作すると、Stopイベントごとにtranscript差分がサーバーに送信される
 
@@ -87,6 +97,9 @@ curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions
 
 # セッション詳細取得
 curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions/{id}
+
+# Webダッシュボードにログイン
+npx tsx src/index.ts login
 ```
 
 ## CLIコマンド
@@ -95,7 +108,7 @@ curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions/{i
 |---------|------|
 | `agentrace init` | 設定 + hooks インストール |
 | `agentrace init --dev` | 開発モード（ローカルCLIパス使用） |
-| `agentrace login` | WebログインURL発行（Step 2） |
+| `agentrace login` | WebログインURL発行 |
 | `agentrace send` | transcript差分送信（hooks用） |
 | `agentrace uninstall` | hooks/config 削除 |
 
@@ -106,11 +119,11 @@ curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions/{i
 | Method | Path | 認証 | 説明 |
 |--------|------|------|------|
 | POST | `/api/ingest` | Bearer | transcript行を受信 |
-| GET | `/api/sessions` | Bearer | セッション一覧 |
-| GET | `/api/sessions/:id` | Bearer | セッション詳細（イベント含む） |
+| GET | `/api/sessions` | Bearer/Session | セッション一覧 |
+| GET | `/api/sessions/:id` | Bearer/Session | セッション詳細（イベント含む） |
 | GET | `/health` | なし | ヘルスチェック |
 
-### Step 2（認証機能）
+### Step 2（実装済み）
 
 | Method | Path | 認証 | 説明 |
 |--------|------|------|------|

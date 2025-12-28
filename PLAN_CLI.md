@@ -196,6 +196,6 @@ Uninstall complete!
 4. `uninstall` - hooks/config削除
 5. カーソル管理による差分送信
 
-### Step 2: Webログイン
+### Step 2: Webログイン ✅ 完了
 
 1. `login` - POST /api/auth/web-session でURL発行、ブラウザで開く
