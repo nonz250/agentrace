@@ -1,75 +1,117 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import inquirer from "inquirer";
 import { saveConfig, getConfigPath } from "../config/manager.js";
 import { installHooks } from "../hooks/installer.js";
+import {
+  startCallbackServer,
+  getRandomPort,
+  generateToken,
+} from "../utils/callback-server.js";
+import { openBrowser, buildSetupUrl } from "../utils/browser.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const CALLBACK_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
 export interface InitOptions {
+  url?: string;
   dev?: boolean;
 }
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
+  // --url is required
+  if (!options.url) {
+    console.error("Error: --url option is required");
+    console.error("");
+    console.error("Usage: npx agentrace init --url <server-url>");
+    console.error("Example: npx agentrace init --url http://localhost:8080");
+    process.exit(1);
+  }
+
+  // Validate URL
+  let serverUrl: URL;
+  try {
+    serverUrl = new URL(options.url);
+  } catch {
+    console.error("Error: Invalid URL format");
+    process.exit(1);
+  }
+
   console.log("Agentrace Setup\n");
 
   if (options.dev) {
     console.log("[Dev Mode] Using local CLI for hooks\n");
   }
 
-  const answers = await inquirer.prompt([
-    {
-      type: "input",
-      name: "serverUrl",
-      message: "Server URL:",
-      default: "http://localhost:8080",
-      validate: (input: string) => {
-        try {
-          new URL(input);
-          return true;
-        } catch {
-          return "Please enter a valid URL";
-        }
-      },
-    },
-    {
-      type: "input",
-      name: "apiKey",
-      message: "API Key:",
-      validate: (input: string) => {
-        if (!input.trim()) {
-          return "API Key is required";
-        }
-        return true;
-      },
-    },
-  ]);
+  // Generate token and start callback server
+  const token = generateToken();
+  const port = getRandomPort();
+  const callbackUrl = `http://127.0.0.1:${port}/callback`;
 
-  // Save config
-  saveConfig({
-    server_url: answers.serverUrl,
-    api_key: answers.apiKey,
+  console.log("Starting local callback server...");
+
+  // Start callback server (returns promise that resolves when callback is received)
+  const callbackPromise = startCallbackServer(port, {
+    token,
+    timeout: CALLBACK_TIMEOUT,
   });
-  console.log(`✓ Config saved to ${getConfigPath()}`);
 
-  // Determine hook command
-  let hookCommand: string | undefined;
-  if (options.dev) {
-    // Use local CLI path for development
-    const cliRoot = path.resolve(__dirname, "../..");
-    const indexPath = path.join(cliRoot, "src/index.ts");
-    hookCommand = `npx tsx ${indexPath} send`;
-    console.log(`  Hook command: ${hookCommand}`);
+  // Build setup URL and open browser
+  const setupUrl = buildSetupUrl(serverUrl.toString(), token, callbackUrl);
+
+  console.log(`Opening browser for authentication...`);
+  const browserResult = await openBrowser(setupUrl);
+
+  if (!browserResult.success) {
+    console.log("");
+    console.log("Could not open browser automatically.");
+    console.log("Please open this URL manually:");
+    console.log("");
+    console.log(`  ${setupUrl}`);
+    console.log("");
   }
 
-  // Install hooks
-  const hookResult = installHooks({ command: hookCommand });
-  if (hookResult.success) {
-    console.log(`✓ ${hookResult.message}`);
-  } else {
-    console.error(`✗ ${hookResult.message}`);
-  }
+  console.log("Waiting for setup to complete...");
+  console.log("(This will timeout in 5 minutes)\n");
 
-  console.log("\nSetup complete!");
+  try {
+    // Wait for callback
+    const result = await callbackPromise;
+
+    // Save config
+    saveConfig({
+      server_url: serverUrl.toString(),
+      api_key: result.apiKey,
+    });
+    console.log(`✓ Config saved to ${getConfigPath()}`);
+
+    // Determine hook command
+    let hookCommand: string | undefined;
+    if (options.dev) {
+      // Use local CLI path for development
+      const cliRoot = path.resolve(__dirname, "../..");
+      const indexPath = path.join(cliRoot, "src/index.ts");
+      hookCommand = `npx tsx ${indexPath} send`;
+      console.log(`  Hook command: ${hookCommand}`);
+    }
+
+    // Install hooks
+    const hookResult = installHooks({ command: hookCommand });
+    if (hookResult.success) {
+      console.log(`✓ ${hookResult.message}`);
+    } else {
+      console.error(`✗ ${hookResult.message}`);
+    }
+
+    console.log("\n✓ Setup complete!");
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Timeout")) {
+      console.error("\n✗ Setup timed out.");
+      console.error("Please try again with: npx agentrace init --url " + options.url);
+    } else {
+      console.error("\n✗ Setup failed:", error instanceof Error ? error.message : error);
+    }
+    process.exit(1);
+  }
 }

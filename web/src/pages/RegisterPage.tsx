@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -13,12 +13,19 @@ export function RegisterPage() {
   const [apiKey, setApiKey] = useState<string | null>(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
 
   const registerMutation = useMutation({
     mutationFn: () => authApi.register({ email, password }),
     onSuccess: (data) => {
-      setApiKey(data.api_key)
       queryClient.invalidateQueries({ queryKey: ['me'] })
+      // If returnTo is provided, redirect there (skip API key display)
+      if (returnTo && returnTo.startsWith('/')) {
+        navigate(returnTo)
+      } else {
+        setApiKey(data.api_key)
+      }
     },
   })
 
@@ -143,7 +150,10 @@ export function RegisterPage() {
 
           <p className="mt-6 text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 hover:underline">
+            <Link
+              to={returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'}
+              className="text-primary-600 hover:underline"
+            >
               Login
             </Link>
           </p>

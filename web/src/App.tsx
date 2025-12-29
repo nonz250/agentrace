@@ -5,6 +5,7 @@ import { Layout } from '@/components/layout/Layout'
 import { WelcomePage } from '@/pages/WelcomePage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { SetupPage } from '@/pages/SetupPage'
 import { SessionListPage } from '@/pages/SessionListPage'
 import { SessionDetailPage } from '@/pages/SessionDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
@@ -128,6 +129,9 @@ export default function App() {
             </PublicRoute>
           }
         />
+
+        {/* Setup route - handles auth internally */}
+        <Route path="/setup" element={<SetupPage />} />
 
         {/* Protected routes */}
         <Route

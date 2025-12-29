@@ -96,9 +96,11 @@ agentrace/
 │   ├── src/
 │   │   ├── index.ts             # エントリーポイント
 │   │   ├── commands/
-│   │   │   ├── init.ts          # 初期設定
+│   │   │   ├── init.ts          # 初期設定（ブラウザ連携）
 │   │   │   ├── login.ts         # Webログイン
 │   │   │   ├── send.ts          # イベント送信（hooks用）
+│   │   │   ├── on.ts            # hooks有効化
+│   │   │   ├── off.ts           # hooks無効化
 │   │   │   └── uninstall.ts     # 設定削除
 │   │   ├── config/
 │   │   │   ├── manager.ts       # ~/.agentrace/config.json 管理
@@ -106,7 +108,9 @@ agentrace/
 │   │   ├── hooks/
 │   │   │   └── installer.ts     # ~/.claude/settings.json 編集
 │   │   └── utils/
-│   │       └── http.ts          # HTTP クライアント
+│   │       ├── http.ts          # HTTP クライアント
+│   │       ├── callback-server.ts  # ローカルコールバックサーバー
+│   │       └── browser.ts       # ブラウザ起動
 │   └── package.json
 │
 ├── server/                      # Go バックエンド
@@ -160,6 +164,7 @@ agentrace/
     │   │   ├── WelcomePage.tsx
     │   │   ├── RegisterPage.tsx
     │   │   ├── LoginPage.tsx
+    │   │   ├── SetupPage.tsx     # CLIセットアップ
     │   │   ├── SessionListPage.tsx
     │   │   ├── SessionDetailPage.tsx
     │   │   └── SettingsPage.tsx
@@ -176,10 +181,11 @@ agentrace/
 
 ```bash
 cd server
-DEV_MODE=true go run ./cmd/server
+DEV_MODE=true WEB_URL=http://localhost:5173 go run ./cmd/server
 ```
 
 - `DEV_MODE=true` でリクエストログを出力
+- `WEB_URL` でフロントエンドURLを指定（CLI init時のリダイレクト先）
 
 ### 2. ユーザー登録
 
@@ -196,11 +202,11 @@ curl -X POST http://localhost:8080/auth/register \
 ```bash
 cd cli
 npm install
-npx tsx src/index.ts init --dev
-# Server URL: http://localhost:8080
-# API Key: (上記で取得したAPIキー)
+npx tsx src/index.ts init --url http://localhost:8080 --dev
+# ブラウザが開く → ログイン/登録 → 自動的にAPIキー取得
 ```
 
+- `--url` でサーバーURLを指定（必須）
 - `--dev` オプションでローカルCLIパスを使用
 
 ### 4. Web UI起動
@@ -233,8 +239,8 @@ npx tsx src/index.ts login
 
 | コマンド | 説明 |
 |---------|------|
-| `agentrace init` | 設定 + hooks インストール |
-| `agentrace init --dev` | 開発モード（ローカルCLIパス使用） |
+| `agentrace init --url <url>` | ブラウザ連携で設定 + hooks インストール |
+| `agentrace init --url <url> --dev` | 開発モード（ローカルCLIパス使用） |
 | `agentrace login` | WebログインURL発行 |
 | `agentrace send` | transcript差分送信（hooks用） |
 | `agentrace on` | hooks有効化（認証情報は保持） |
@@ -305,6 +311,7 @@ npx tsx src/index.ts login
 | `DB_TYPE` | データベース種類（`memory` / `sqlite` / `postgres` / `mongodb`） | memory |
 | `DATABASE_URL` | DB接続文字列 | - |
 | `DEV_MODE` | デバッグログ有効化 | false |
+| `WEB_URL` | フロントエンドURL（開発時のリダイレクト用） | - |
 
 ### DATABASE_URL の形式
 

@@ -82,22 +82,23 @@ interface BrowserSetupOptions {
 }
 ```
 
-実装タスク:
-- [ ] `init` コマンドを `--url` 必須に変更（手動入力モード削除）
-- [ ] `cli/src/utils/callback-server.ts` 作成
-  - Express or Node.js http モジュールでローカルサーバー起動
+実装タスク: ✅ 完了
+- [x] `init` コマンドを `--url` 必須に変更（手動入力モード削除）
+- [x] `cli/src/utils/callback-server.ts` 作成
+  - Node.js http モジュールでローカルサーバー起動
   - `POST /callback` エンドポイント（{ api_key, token } を受信）
   - トークン検証（リプレイ攻撃防止）
   - CORSヘッダー設定（サーバーからのPOSTを許可）
-- [ ] `cli/src/utils/browser.ts` 作成
-  - `open` パッケージでブラウザを開く
+- [x] `cli/src/utils/browser.ts` 作成
+  - OS標準コマンドでブラウザを開く（open/start/xdg-open）
   - URL: `${serverUrl}/setup?token=${token}&callback=${callbackUrl}`
-- [ ] タイムアウト処理（5分でサーバー停止、エラーメッセージ表示）
-- [ ] 成功時: config保存 → hooks追加 → 完了メッセージ
+- [x] タイムアウト処理（5分でサーバー停止、エラーメッセージ表示）
+- [x] 成功時: config保存 → hooks追加 → 完了メッセージ
 
-**Server側:**
+**Server側:** ✅ 完了
 
-新規エンドポイント不要（WebがAPIキー生成APIを直接呼び出す）
+- [x] `WEB_URL` 環境変数追加（フロントエンドURLを指定）
+- [x] `GET /setup` エンドポイント追加（WEB_URLへリダイレクト）
 
 既存API活用:
 - `POST /api/keys` - APIキー生成（Session認証必須）
@@ -119,16 +120,17 @@ interface BrowserSetupOptions {
 3. 成功画面表示
 ```
 
-実装タスク:
-- [ ] `web/src/pages/SetupPage.tsx` 作成
+実装タスク: ✅ 完了
+- [x] `web/src/pages/SetupPage.tsx` 作成
   - URLパラメータ（token, callback）を取得
   - 未ログイン時は `/login?returnTo=...` にリダイレクト
   - APIキー生成ボタン
   - コールバック実行（fetch POST）
   - 成功/エラー表示
-- [ ] `web/src/App.tsx` にルート追加 `/setup`
-- [ ] LoginPage/RegisterPage の `returnTo` パラメータ対応
+- [x] `web/src/App.tsx` にルート追加 `/setup`
+- [x] LoginPage/RegisterPage の `returnTo` パラメータ対応
   - ログイン/登録成功後に `returnTo` URLへリダイレクト
+- [x] `useAuth` フックで `returnTo` 対応
 
 #### 1.4 セキュリティ考慮事項
 
@@ -313,14 +315,15 @@ npx agentrace on
 2. `on` コマンド実装（cli/src/commands/on.ts）
 3. index.ts にコマンド登録
 
-### Phase 3: 初期設定体験改善
+### Phase 3: 初期設定体験改善 ✅ 完了
 
-1. CLI: `--url` オプション追加、ブラウザ連携モード分岐
+1. CLI: `--url` オプション必須化、ブラウザ連携モード
 2. CLI: callback-server.ts（ローカルHTTPサーバー）
 3. CLI: browser.ts（ブラウザ起動ユーティリティ）
 4. Web: SetupPage.tsx（セットアップ画面）
 5. Web: LoginPage/RegisterPage に returnTo 対応
 6. Web: App.tsx に /setup ルート追加
+7. useAuth フックで returnTo 対応
 
 ### Phase 4: GitHub OAuth
 

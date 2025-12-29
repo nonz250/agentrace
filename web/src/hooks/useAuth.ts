@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthContext } from '@/App'
 import * as authApi from '@/api/auth'
 import type { LoginParams } from '@/api/auth'
@@ -7,12 +7,19 @@ import type { LoginParams } from '@/api/auth'
 export function useAuth() {
   const { user, isLoading, refetch } = useAuthContext()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
 
   const loginMutation = useMutation({
     mutationFn: (params: LoginParams) => authApi.login(params),
     onSuccess: async () => {
       await refetch()
-      navigate('/')
+      // Navigate to returnTo if provided and valid, otherwise to '/'
+      if (returnTo && returnTo.startsWith('/')) {
+        navigate(returnTo)
+      } else {
+        navigate('/')
+      }
     },
   })
 

@@ -56,5 +56,21 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 		w.Write([]byte(`{"status": "ok"}`))
 	}).Methods("GET")
 
+	// Setup redirect (for CLI init flow)
+	// If WEB_URL is set, redirect to frontend; otherwise assume same origin
+	r.HandleFunc("/setup", func(w http.ResponseWriter, r *http.Request) {
+		if cfg.WebURL != "" {
+			// Redirect to frontend with query params preserved
+			redirectURL := cfg.WebURL + "/setup"
+			if r.URL.RawQuery != "" {
+				redirectURL += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, redirectURL, http.StatusFound)
+			return
+		}
+		// If no WEB_URL, return 404 (frontend should be served from same origin)
+		http.NotFound(w, r)
+	}).Methods("GET")
+
 	return r
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -9,6 +9,8 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const { login, loginError, isLoggingIn } = useAuth()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,7 +71,10 @@ export function LoginPage() {
 
           <p className="mt-6 text-center text-sm text-gray-600">
             Don't have an account?{' '}
-            <Link to="/register" className="text-primary-600 hover:underline">
+            <Link
+              to={returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register'}
+              className="text-primary-600 hover:underline"
+            >
               Register
             </Link>
           </p>

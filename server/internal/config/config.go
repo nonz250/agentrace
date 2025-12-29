@@ -8,15 +8,18 @@ type Config struct {
 	DatabaseURL string
 	DevMode     bool
 	APIKeyFixed string // For backward compatibility in dev mode
+	WebURL      string // Frontend URL for redirects (defaults to self)
 }
 
 func Load() *Config {
+	port := getEnv("PORT", "8080")
 	return &Config{
-		Port:        getEnv("PORT", "8080"),
+		Port:        port,
 		DBType:      getEnv("DB_TYPE", "memory"),
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		DevMode:     getEnv("DEV_MODE", "") == "true",
 		APIKeyFixed: getEnv("API_KEY_FIXED", ""),
+		WebURL:      getEnv("WEB_URL", ""), // Empty means same origin
 	}
 }
 
