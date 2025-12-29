@@ -13,21 +13,20 @@
 #### 1.1 URLパラメータ対応
 
 ```bash
-# 現在
-npx agentrace init
-# Server URL: http://localhost:8080  ← 手動入力
-# API Key: agtr_xxxx  ← 手動入力
-
-# 変更後
-npx agentrace init url=http://localhost:8080
+# --url 必須
+npx agentrace init --url http://localhost:8080
 # ブラウザが開く → 登録/ログイン → 自動的にAPIキー取得
+
+# --url なしはエラー
+npx agentrace init
+# Error: --url option is required
 ```
 
 #### 1.2 ブラウザ連携フロー
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ CLI: npx agentrace init url=http://server:8080              │
+│ CLI: npx agentrace init --url http://server:8080            │
 ├─────────────────────────────────────────────────────────────┤
 │  1. CLIがワンタイムトークンを生成                            │
 │  2. ブラウザで http://server:8080/setup?token=xxx を開く     │
@@ -66,23 +65,88 @@ npx agentrace init url=http://localhost:8080
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### 1.3 実装タスク
+#### 1.3 実装詳細
 
-**CLI側:**
-- [ ] `init` コマンドに `url=` パラメータ追加
-- [ ] ローカルHTTPサーバー起動（コールバック受信用）
-- [ ] ブラウザを自動で開く
-- [ ] コールバック受信後の設定保存処理
-- [ ] タイムアウト処理（5分程度）
+**CLI側（cli/src/commands/init.ts）:**
+
+```typescript
+// initフロー
+// npx agentrace init --url http://...   → ブラウザ連携モード
+// npx agentrace init                    → エラー（--url必須）
+
+interface BrowserSetupOptions {
+  serverUrl: string;
+  callbackPort: number;  // ランダムポート（49152-65535）
+  token: string;         // crypto.randomUUID()
+  timeout: number;       // 5分
+}
+```
+
+実装タスク:
+- [ ] `init` コマンドを `--url` 必須に変更（手動入力モード削除）
+- [ ] `cli/src/utils/callback-server.ts` 作成
+  - Express or Node.js http モジュールでローカルサーバー起動
+  - `POST /callback` エンドポイント（{ api_key, token } を受信）
+  - トークン検証（リプレイ攻撃防止）
+  - CORSヘッダー設定（サーバーからのPOSTを許可）
+- [ ] `cli/src/utils/browser.ts` 作成
+  - `open` パッケージでブラウザを開く
+  - URL: `${serverUrl}/setup?token=${token}&callback=${callbackUrl}`
+- [ ] タイムアウト処理（5分でサーバー停止、エラーメッセージ表示）
+- [ ] 成功時: config保存 → hooks追加 → 完了メッセージ
 
 **Server側:**
-- [ ] GET `/setup` - セットアップページ（CLIからのリダイレクト先）
-- [ ] POST `/api/setup/complete` - セットアップ完了（APIキー生成 + コールバック）
+
+新規エンドポイント不要（WebがAPIキー生成APIを直接呼び出す）
+
+既存API活用:
+- `POST /api/keys` - APIキー生成（Session認証必須）
+- WebからCLIへのコールバックはフロントエンドのfetchで実行
 
 **Web側:**
-- [ ] SetupPage コンポーネント作成
-- [ ] 未ログイン時のリダイレクト処理
-- [ ] セットアップ完了後のコールバック実行
+
+```
+/setup?token=xxx&callback=http://localhost:xxxxx/callback
+  ↓
+未ログイン → /login?returnTo=/setup?token=...&callback=...
+  ↓
+ログイン済み → SetupPage表示
+  ↓
+「Setup CLI」ボタン押下
+  ↓
+1. POST /api/keys でAPIキー生成
+2. POST ${callback} に { api_key, token } を送信
+3. 成功画面表示
+```
+
+実装タスク:
+- [ ] `web/src/pages/SetupPage.tsx` 作成
+  - URLパラメータ（token, callback）を取得
+  - 未ログイン時は `/login?returnTo=...` にリダイレクト
+  - APIキー生成ボタン
+  - コールバック実行（fetch POST）
+  - 成功/エラー表示
+- [ ] `web/src/App.tsx` にルート追加 `/setup`
+- [ ] LoginPage/RegisterPage の `returnTo` パラメータ対応
+  - ログイン/登録成功後に `returnTo` URLへリダイレクト
+
+#### 1.4 セキュリティ考慮事項
+
+- トークンは `crypto.randomUUID()` で生成（推測困難）
+- コールバックURLは `localhost` のみ許可（CLI検証）
+- トークンは1回限り有効（使用後は無効化）
+- タイムアウト5分（長時間の待機を防止）
+- CORSは `callback` パラメータのoriginのみ許可
+
+#### 1.5 エラーハンドリング
+
+| シナリオ | CLI側の動作 |
+| -------- | ----------- |
+| `--url` なし | エラー: `--url option is required` |
+| ブラウザが開けない | 手動でURLを開くよう案内 |
+| タイムアウト | エラーメッセージ表示 |
+| コールバック失敗 | リトライボタンをWeb側に表示 |
+| トークン不一致 | エラーログ + 無視 |
 
 ---
 
@@ -251,9 +315,12 @@ npx agentrace on
 
 ### Phase 3: 初期設定体験改善
 
-1. CLI: ローカルサーバー + ブラウザ連携
-2. Server: `/setup` エンドポイント
-3. Web: SetupPage実装
+1. CLI: `--url` オプション追加、ブラウザ連携モード分岐
+2. CLI: callback-server.ts（ローカルHTTPサーバー）
+3. CLI: browser.ts（ブラウザ起動ユーティリティ）
+4. Web: SetupPage.tsx（セットアップ画面）
+5. Web: LoginPage/RegisterPage に returnTo 対応
+6. Web: App.tsx に /setup ルート追加
 
 ### Phase 4: GitHub OAuth
 
@@ -267,4 +334,4 @@ npx agentrace on
 
 - 既存ユーザーはパスワード未設定でも動作継続
 - APIキーでのログインは `/auth/login/apikey` で引き続きサポート
-- 既存の `init` コマンド（手動入力）も引き続きサポート
+- `init` コマンドは `--url` 必須に変更（手動入力モードは廃止）
