@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import ReactMarkdown from 'react-markdown'
 import type { DisplayBlock } from './Timeline'
 
 interface ContentBlockCardProps {
@@ -57,7 +58,37 @@ function renderContent(block: DisplayBlock) {
   if (block.blockType === 'text') {
     const text = typeof content === 'string' ? content : content?.text
     if (typeof text === 'string') {
-      return <p className="whitespace-pre-wrap text-gray-700">{text}</p>
+      return (
+        <div className="prose prose-sm max-w-none text-gray-700 prose-headings:text-gray-900 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-gray-800 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-gray-100 prose-pre:text-gray-800">
+          <ReactMarkdown
+            components={{
+              code({ className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '')
+                const code = String(children).replace(/\n$/, '')
+                return match ? (
+                  <SyntaxHighlighter
+                    language={match[1]}
+                    style={oneLight}
+                    customStyle={{
+                      fontSize: '0.75rem',
+                      borderRadius: '0.5rem',
+                      margin: 0,
+                    }}
+                  >
+                    {code}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                )
+              },
+            }}
+          >
+            {text}
+          </ReactMarkdown>
+        </div>
+      )
     }
   }
 
@@ -65,7 +96,35 @@ function renderContent(block: DisplayBlock) {
   if (block.blockType === 'thinking') {
     const thinking = content?.thinking as string
     return (
-      <p className="whitespace-pre-wrap text-sm text-purple-900">{thinking}</p>
+      <div className="prose prose-sm max-w-none text-purple-900 prose-headings:text-purple-900 prose-code:rounded prose-code:bg-purple-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-purple-800 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-purple-50 prose-pre:text-purple-900">
+        <ReactMarkdown
+          components={{
+            code({ className, children, ...props }) {
+              const match = /language-(\w+)/.exec(className || '')
+              const code = String(children).replace(/\n$/, '')
+              return match ? (
+                <SyntaxHighlighter
+                  language={match[1]}
+                  style={oneLight}
+                  customStyle={{
+                    fontSize: '0.75rem',
+                    borderRadius: '0.5rem',
+                    margin: 0,
+                  }}
+                >
+                  {code}
+                </SyntaxHighlighter>
+              ) : (
+                <code className={className} {...props}>
+                  {children}
+                </code>
+              )
+            },
+          }}
+        >
+          {thinking}
+        </ReactMarkdown>
+      </div>
     )
   }
 
@@ -108,11 +167,7 @@ function renderContent(block: DisplayBlock) {
       displayContent = JSON.stringify(resultContent, null, 2)
     }
 
-    const isJSON =
-      displayContent.trim().startsWith('{') ||
-      displayContent.trim().startsWith('[')
-
-    return isJSON ? (
+    return (
       <SyntaxHighlighter
         language="json"
         style={oneLight}
@@ -120,16 +175,12 @@ function renderContent(block: DisplayBlock) {
           fontSize: '0.75rem',
           borderRadius: '0.5rem',
           margin: 0,
-          maxHeight: '300px',
+          maxHeight: '400px',
           overflow: 'auto',
         }}
       >
         {displayContent}
       </SyntaxHighlighter>
-    ) : (
-      <pre className="max-h-[300px] overflow-auto whitespace-pre-wrap text-xs text-gray-700">
-        {displayContent}
-      </pre>
     )
   }
 
