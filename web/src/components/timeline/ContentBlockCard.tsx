@@ -215,8 +215,12 @@ function renderContent(block: DisplayBlock) {
 }
 
 export function ContentBlockCard({ block }: ContentBlockCardProps) {
-  // Thinking blocks default to collapsed
-  const [expanded, setExpanded] = useState(block.blockType !== 'thinking')
+  // Thinking, Tool Use, Tool Result blocks default to collapsed
+  const [expanded, setExpanded] = useState(
+    block.blockType !== 'thinking' &&
+      block.blockType !== 'tool_use' &&
+      block.blockType !== 'tool_result'
+  )
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
