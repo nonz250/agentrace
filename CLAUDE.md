@@ -10,6 +10,84 @@ Claude Codeのやりとりをチームでレビューできるサービス
 | イントラネット | 社内サーバーにホストしてチームで使用 |
 | 開発 | DEV_MODEでデバッグログを出力しながら開発 |
 
+※ インターネット公開は想定しない（OAuth等は不要）
+
+## 技術スタック
+
+| コンポーネント | 技術 |
+| -------------- | ---- |
+| CLI | Node.js / TypeScript（npx配布） |
+| バックエンド | Go + Gorilla Mux |
+| データ層 | Repository パターン（Memory / SQLite / PostgreSQL / MongoDB） |
+| フロントエンド | React + Vite + Tailwind CSS |
+
+## プロジェクト構成
+
+```
+agentrace/
+├── cli/                       # npx agentrace CLI
+├── server/                    # バックエンドサーバー
+└── web/                       # フロントエンド
+```
+
+## アーキテクチャ
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ユーザー登録（Web）                                          │
+├─────────────────────────────────────────────────────────────┤
+│  ブラウザで http://server:8080 にアクセス                    │
+│      ↓                                                      │
+│  「Register」→ 名前入力 → APIキー発行                       │
+│      ↓                                                      │
+│  APIキーをコピー（この1回のみ表示）                          │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ CLI セットアップ                                             │
+├─────────────────────────────────────────────────────────────┤
+│  $ npx agentrace init                                       │
+│      ↓                                                      │
+│  Server URL と APIキーを入力                                 │
+│      ↓                                                      │
+│  ~/.agentrace/config.json に保存                            │
+│  ~/.claude/settings.json に hooks 追加                      │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ データ送信（自動・差分更新）                                 │
+├─────────────────────────────────────────────────────────────┤
+│  Claude Code → Stop hook 発火                               │
+│      ↓                                                      │
+│  npx agentrace send                                         │
+│      ↓ transcript_path から差分読み取り                     │
+│      ↓ HTTP POST /api/ingest (Bearer認証)                   │
+│  Agentrace Server                                           │
+│      ↓ APIKey → User 解決、UserIDをセッションに紐付け       │
+│  Database（Memory / SQLite / PostgreSQL / MongoDB）         │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Webログイン                                                  │
+├─────────────────────────────────────────────────────────────┤
+│  方法1: $ npx agentrace login → URL発行 → ブラウザで開く    │
+│  方法2: WebでAPIキーを入力してログイン                       │
+│      ↓                                                      │
+│  セッションCookie発行 → ダッシュボードへ                    │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ レビュー                                                     │
+├─────────────────────────────────────────────────────────────┤
+│  Web UI（セッション認証）                                    │
+│      ↓ REST API                                             │
+│  Agentrace Server                                           │
+│      ↓                                                      │
+│  セッション一覧 → 詳細 → イベントタイムライン               │
+│  （全ユーザーのセッションが閲覧可能）                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## ディレクトリ構成
 
 ```
@@ -33,6 +111,9 @@ agentrace/
 │
 ├── server/                      # Go バックエンド
 │   ├── cmd/server/main.go       # エントリーポイント
+│   ├── migrations/              # DBマイグレーション
+│   │   ├── sqlite/
+│   │   └── postgres/
 │   └── internal/
 │       ├── api/                 # HTTP ハンドラ
 │       │   ├── router.go
@@ -49,7 +130,11 @@ agentrace/
 │       │   └── websession.go
 │       └── repository/          # データアクセス層
 │           ├── interface.go
-│           └── memory/          # オンメモリ実装
+│           ├── factory.go
+│           ├── memory/          # オンメモリ実装
+│           ├── sqlite/          # SQLite実装
+│           ├── postgres/        # PostgreSQL実装
+│           └── mongodb/         # MongoDB実装
 │
 └── web/                         # React フロントエンド
     ├── src/
@@ -63,7 +148,7 @@ agentrace/
     │   ├── components/          # UIコンポーネント
     │   │   ├── layout/          # Layout, Header
     │   │   ├── sessions/        # SessionCard, SessionList
-    │   │   ├── timeline/        # EventCard, AssistantMessage, etc.
+    │   │   ├── timeline/        # Timeline, ContentBlockCard
     │   │   ├── settings/        # ApiKeyList, ApiKeyForm
     │   │   └── ui/              # Button, Input, Card, etc.
     │   ├── hooks/               # カスタムHooks
@@ -153,9 +238,37 @@ npx tsx src/index.ts login
 | `agentrace send` | transcript差分送信（hooks用） |
 | `agentrace uninstall` | hooks/config 削除 |
 
+### 設定ファイル
+
+**~/.agentrace/config.json**
+
+```json
+{
+  "server_url": "http://localhost:8080",
+  "api_key": "agtr_xxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+### Hooks 設定
+
+**~/.claude/settings.json に追加**
+
+```json
+{
+  "hooks": {
+    "Stop": [{
+      "hooks": [{
+        "type": "command",
+        "command": "npx agentrace send"
+      }]
+    }]
+  }
+}
+```
+
 ## API エンドポイント
 
-### Step 1（実装済み）
+### データ受信（CLI用）
 
 | Method | Path | 認証 | 説明 |
 |--------|------|------|------|
@@ -164,7 +277,7 @@ npx tsx src/index.ts login
 | GET | `/api/sessions/:id` | Bearer/Session | セッション詳細（イベント含む） |
 | GET | `/health` | なし | ヘルスチェック |
 
-### Step 2（実装済み）
+### 認証
 
 | Method | Path | 認証 | 説明 |
 |--------|------|------|------|
@@ -185,16 +298,25 @@ npx tsx src/index.ts login
 |--------|------|-----------|
 | `PORT` | サーバーポート | 8080 |
 | `DB_TYPE` | データベース種類（`memory` / `sqlite` / `postgres` / `mongodb`） | memory |
-| `DATABASE_URL` | DB接続文字列（Step 4） | - |
+| `DATABASE_URL` | DB接続文字列 | - |
 | `DEV_MODE` | デバッグログ有効化 | false |
 
-**DATABASE_URL の形式:**
+### DATABASE_URL の形式
 
 | DB_TYPE | DATABASE_URL 例 |
 |---------|-----------------|
 | sqlite | `./data/agentrace.db` |
 | postgres | `postgres://user:pass@localhost:5432/agentrace?sslmode=disable` |
 | mongodb | `mongodb://user:pass@localhost:27017/agentrace` |
+
+### 対応データベース
+
+| DB | DB_TYPE | 利用シーン |
+| -- | ------- | ---------- |
+| オンメモリ | `memory` | 開発・テスト |
+| SQLite3 | `sqlite` | ローカル/小規模運用 |
+| PostgreSQL | `postgres` | イントラネット/本番運用 |
+| MongoDB | `mongodb` | AWS (DocumentDB) 環境 |
 
 ## 認証フロー
 
@@ -215,6 +337,32 @@ npx tsx src/index.ts login
 - 方法1: `npx agentrace login` → URL発行 → ブラウザで開く
 - 方法2: WebでAPIキーを入力してログイン
 
+### Bearer認証（CLI用）
+
+```
+リクエスト:
+  Authorization: Bearer agtr_xxxxxxxx
+
+サーバー処理:
+  1. APIKeyをbcryptでハッシュ化
+  2. DB検索で一致するAPIKeyを探す
+  3. 一致すればUserIDを取得
+  4. コンテキストにUserを設定
+```
+
+### Session認証（Web用）
+
+```
+リクエスト:
+  Cookie: session=xxxxx
+
+サーバー処理:
+  1. WebSessionテーブルからトークンで検索
+  2. 有効期限チェック
+  3. UserIDを取得
+  4. コンテキストにUserを設定
+```
+
 ### 複数APIキー
 
 - 各ユーザーは複数のAPIキーを発行可能（別デバイス用など）
@@ -231,7 +379,7 @@ npx tsx src/index.ts login
 6. Server: 各行を Event として保存
 7. CLI: カーソル位置を更新（~/.agentrace/cursors/{session_id}.json）
 
-## Web フロントエンド（Step 3）
+## Web フロントエンド
 
 ### 技術スタック
 
@@ -247,6 +395,7 @@ npx tsx src/index.ts login
 | 日時処理 | date-fns |
 | アイコン | Lucide React |
 | コード表示 | react-syntax-highlighter |
+| Markdown | react-markdown + @tailwindcss/typography |
 
 ### ソート仕様
 
@@ -260,12 +409,21 @@ npx tsx src/index.ts login
 
 ### メッセージ表示
 
-AssistantMessageコンポーネントは以下のブロックタイプに対応：
+ContentBlockCardコンポーネントは以下のブロックタイプに対応：
 
 | ブロックタイプ | 表示 |
 | -------------- | ---- |
-| text | テキストそのまま表示 |
-| thinking | 折りたたみ可能なUI（紫色、Brainアイコン） |
-| tool_use | ツール名 + JSONハイライト表示 |
-| tool_result | ツール結果のpre表示 |
+| text | Markdown対応テキスト表示（コードブロックはシンタックスハイライト） |
+| thinking | 折りたたみ可能なUI（紫色、デフォルト折りたたみ） |
+| tool_use | ツール名 + JSONハイライト表示（デフォルト折りたたみ） |
+| tool_result | ツール結果表示（デフォルト折りたたみ） |
 | その他 | ブロックタイプ名 + JSON表示 |
+
+## 将来の拡張（スコープ外）
+
+- リアルタイム機能（WebSocket）
+- コメント機能（セッション/イベントへのコメント）
+- セッションの再開機能（コンテキストをClaude Codeに渡す）
+- Slack/Discord通知
+- 統計ダッシュボード
+- セッションのエクスポート（Markdown等）
