@@ -237,6 +237,9 @@ npx tsx src/index.ts login
 | `agentrace init --dev` | 開発モード（ローカルCLIパス使用） |
 | `agentrace login` | WebログインURL発行 |
 | `agentrace send` | transcript差分送信（hooks用） |
+| `agentrace on` | hooks有効化（認証情報は保持） |
+| `agentrace on --dev` | hooks有効化（開発モード） |
+| `agentrace off` | hooks無効化（認証情報は保持） |
 | `agentrace uninstall` | hooks/config 削除 |
 
 ### 設定ファイル

@@ -224,11 +224,11 @@ npx agentrace on
 | `on` | 追加 | 保持 |
 | `uninstall` | 削除 | 削除 |
 
-#### 3.2 実装タスク
+#### 3.2 実装タスク ✅ 完了
 
-- [ ] `on` コマンド追加
-- [ ] `off` コマンド追加
-- [ ] hooks/installer.ts に `removeHooks()` 関数追加（既存の`uninstall`から分離）
+- [x] `on` コマンド追加
+- [x] `off` コマンド追加
+- [x] 既存の `uninstallHooks()` 関数を活用（分離不要だった）
 
 ---
 
@@ -243,11 +243,11 @@ npx agentrace on
 5. API変更（register: email+password のみ、login）
 6. Web UI更新（登録/ログインフォーム、Header表示）
 
-### Phase 2: CLI on/off コマンド
+### Phase 2: CLI on/off コマンド ✅ 完了
 
-1. `off` コマンド実装
-2. `on` コマンド実装
-3. hooks/installer.ts リファクタリング
+1. `off` コマンド実装（cli/src/commands/off.ts）
+2. `on` コマンド実装（cli/src/commands/on.ts）
+3. index.ts にコマンド登録
 
 ### Phase 3: 初期設定体験改善
 

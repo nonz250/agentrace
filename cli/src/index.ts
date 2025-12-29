@@ -5,6 +5,8 @@ import { initCommand } from "./commands/init.js";
 import { loginCommand } from "./commands/login.js";
 import { sendCommand } from "./commands/send.js";
 import { uninstallCommand } from "./commands/uninstall.js";
+import { onCommand } from "./commands/on.js";
+import { offCommand } from "./commands/off.js";
 
 const program = new Command();
 
@@ -37,6 +39,21 @@ program
   .description("Remove agentrace hooks and config")
   .action(async () => {
     await uninstallCommand();
+  });
+
+program
+  .command("on")
+  .description("Enable agentrace hooks (credentials preserved)")
+  .option("--dev", "Use local CLI path for development")
+  .action(async (options: { dev?: boolean }) => {
+    await onCommand({ dev: options.dev });
+  });
+
+program
+  .command("off")
+  .description("Disable agentrace hooks (credentials preserved)")
+  .action(async () => {
+    await offCommand();
   });
 
 program.parse();
