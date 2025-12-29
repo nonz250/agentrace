@@ -21,7 +21,7 @@ export function WelcomePage() {
           </Link>
           <Link to="/login">
             <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-              Login with API Key
+              Login
             </Button>
           </Link>
         </div>

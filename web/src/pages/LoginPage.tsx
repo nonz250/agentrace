@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
 
 export function LoginPage() {
-  const [apiKey, setApiKey] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const { login, loginError, isLoggingIn } = useAuth()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (apiKey.trim()) {
-      login(apiKey)
+    if (email.trim() && password.trim()) {
+      login({ email, password })
     }
   }
 
@@ -32,22 +33,35 @@ export function LoginPage() {
             Login
           </h1>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              label="API Key"
-              placeholder="agtr_..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              label="Email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={isLoggingIn}
-              error={loginError?.message}
             />
+
+            <Input
+              label="Password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoggingIn}
+            />
+
+            {loginError && (
+              <p className="text-sm text-red-600">{loginError.message}</p>
+            )}
 
             <Button
               type="submit"
-              className="mt-6 w-full"
+              className="w-full"
               size="lg"
               loading={isLoggingIn}
-              disabled={!apiKey.trim()}
+              disabled={!email.trim() || !password.trim()}
             >
               Login
             </Button>

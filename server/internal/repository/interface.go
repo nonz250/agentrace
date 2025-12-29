@@ -25,6 +25,7 @@ type EventRepository interface {
 type UserRepository interface {
 	Create(ctx context.Context, user *domain.User) error
 	FindByID(ctx context.Context, id string) (*domain.User, error)
+	FindByEmail(ctx context.Context, email string) (*domain.User, error)
 	FindAll(ctx context.Context) ([]*domain.User, error)
 }
 
@@ -46,11 +47,20 @@ type WebSessionRepository interface {
 	DeleteExpired(ctx context.Context) error
 }
 
+// PasswordCredentialRepository はパスワード認証情報の永続化を担当する
+type PasswordCredentialRepository interface {
+	Create(ctx context.Context, cred *domain.PasswordCredential) error
+	FindByUserID(ctx context.Context, userID string) (*domain.PasswordCredential, error)
+	Update(ctx context.Context, cred *domain.PasswordCredential) error
+	Delete(ctx context.Context, id string) error
+}
+
 // Repositories は全リポジトリをまとめる
 type Repositories struct {
-	Session    SessionRepository
-	Event      EventRepository
-	User       UserRepository
-	APIKey     APIKeyRepository
-	WebSession WebSessionRepository
+	Session            SessionRepository
+	Event              EventRepository
+	User               UserRepository
+	APIKey             APIKeyRepository
+	WebSession         WebSessionRepository
+	PasswordCredential PasswordCredentialRepository
 }

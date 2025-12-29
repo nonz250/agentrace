@@ -122,7 +122,8 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 		if s.UserID != nil {
 			user, err := h.repos.User.FindByID(ctx, *s.UserID)
 			if err == nil && user != nil {
-				userName = &user.Name
+				displayName := user.GetDisplayName()
+				userName = &displayName
 			}
 		}
 
@@ -164,7 +165,8 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if session.UserID != nil {
 		user, err := h.repos.User.FindByID(ctx, *session.UserID)
 		if err == nil && user != nil {
-			userName = &user.Name
+			displayName := user.GetDisplayName()
+			userName = &displayName
 		}
 	}
 

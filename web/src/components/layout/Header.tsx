@@ -40,7 +40,7 @@ export function Header() {
               onClick={() => setMenuOpen(!menuOpen)}
               className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
             >
-              {user?.name}
+              {user?.display_name || user?.email}
               <ChevronDown className="h-4 w-4" />
             </button>
 

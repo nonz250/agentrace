@@ -2,14 +2,11 @@ package postgres
 
 import (
 	"database/sql"
-	_ "embed"
 	"fmt"
 
 	_ "github.com/lib/pq"
+	"github.com/satetsu888/agentrace/server/migrations"
 )
-
-//go:embed migrations/001_initial.sql
-var migrationSQL string
 
 // DB wraps the PostgreSQL database connection
 type DB struct {
@@ -39,6 +36,6 @@ func Open(databaseURL string) (*DB, error) {
 }
 
 func runMigrations(db *sql.DB) error {
-	_, err := db.Exec(migrationSQL)
+	_, err := db.Exec(migrations.PostgresInitial)
 	return err
 }

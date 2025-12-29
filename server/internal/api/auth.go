@@ -20,8 +20,8 @@ const (
 	apiKeyPrefix       = "agtr_"
 	apiKeyLength       = 32
 	sessionTokenLength = 32
-	sessionDuration    = 7 * 24 * time.Hour     // 7 days
-	webSessionDuration = 10 * time.Minute       // 10 minutes for CLI login
+	sessionDuration    = 7 * 24 * time.Hour   // 7 days
+	webSessionDuration = 10 * time.Minute     // 10 minutes for CLI login
 )
 
 type AuthHandler struct {
@@ -35,7 +35,8 @@ func NewAuthHandler(cfg *config.Config, repos *repository.Repositories) *AuthHan
 
 // RegisterRequest is the request body for user registration
 type RegisterRequest struct {
-	Name string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // RegisterResponse is the response for user registration
@@ -44,8 +45,14 @@ type RegisterResponse struct {
 	APIKey string       `json:"api_key"`
 }
 
-// LoginRequest is the request body for login
+// LoginRequest is the request body for login with email/password
 type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// LoginWithAPIKeyRequest is the request body for login with API key
+type LoginWithAPIKeyRequest struct {
 	APIKey string `json:"api_key"`
 }
 
@@ -122,6 +129,20 @@ func hashAPIKey(key string) (string, error) {
 	return string(hash), nil
 }
 
+// hashPassword hashes a password using bcrypt
+func hashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+// checkPassword compares a password with a hash
+func checkPassword(password, hash string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}
+
 // Register handles user registration
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
@@ -130,19 +151,57 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == "" {
-		http.Error(w, `{"error": "name is required"}`, http.StatusBadRequest)
+	if req.Email == "" {
+		http.Error(w, `{"error": "email is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.Password == "" {
+		http.Error(w, `{"error": "password is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Password) < 8 {
+		http.Error(w, `{"error": "password must be at least 8 characters"}`, http.StatusBadRequest)
 		return
 	}
 
 	ctx := r.Context()
 
-	// Create user
+	// Check if email is already registered
+	existingUser, err := h.repos.User.FindByEmail(ctx, req.Email)
+	if err != nil {
+		http.Error(w, `{"error": "failed to check email"}`, http.StatusInternalServerError)
+		return
+	}
+	if existingUser != nil {
+		http.Error(w, `{"error": "email already registered"}`, http.StatusConflict)
+		return
+	}
+
+	// Hash password
+	passwordHash, err := hashPassword(req.Password)
+	if err != nil {
+		http.Error(w, `{"error": "failed to hash password"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Create user (DisplayName is empty, will show email)
 	user := &domain.User{
-		Name: req.Name,
+		Email: req.Email,
 	}
 	if err := h.repos.User.Create(ctx, user); err != nil {
 		http.Error(w, `{"error": "failed to create user"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Create password credential
+	passwordCred := &domain.PasswordCredential{
+		UserID:       user.ID,
+		PasswordHash: passwordHash,
+	}
+	if err := h.repos.PasswordCredential.Create(ctx, passwordCred); err != nil {
+		http.Error(w, `{"error": "failed to create password credential"}`, http.StatusInternalServerError)
 		return
 	}
 
@@ -206,9 +265,92 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// Login handles user login with API key
+// Login handles user login with email/password
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid json"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.Email == "" {
+		http.Error(w, `{"error": "email is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.Password == "" {
+		http.Error(w, `{"error": "password is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Find user by email
+	user, err := h.repos.User.FindByEmail(ctx, req.Email)
+	if err != nil {
+		http.Error(w, `{"error": "failed to find user"}`, http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, `{"error": "invalid email or password"}`, http.StatusUnauthorized)
+		return
+	}
+
+	// Find password credential
+	passwordCred, err := h.repos.PasswordCredential.FindByUserID(ctx, user.ID)
+	if err != nil {
+		http.Error(w, `{"error": "failed to find password credential"}`, http.StatusInternalServerError)
+		return
+	}
+	if passwordCred == nil {
+		http.Error(w, `{"error": "invalid email or password"}`, http.StatusUnauthorized)
+		return
+	}
+
+	// Check password
+	if !checkPassword(req.Password, passwordCred.PasswordHash) {
+		http.Error(w, `{"error": "invalid email or password"}`, http.StatusUnauthorized)
+		return
+	}
+
+	// Create web session
+	sessionToken, err := generateToken()
+	if err != nil {
+		http.Error(w, `{"error": "failed to generate session token"}`, http.StatusInternalServerError)
+		return
+	}
+
+	webSession := &domain.WebSession{
+		UserID:    user.ID,
+		Token:     sessionToken,
+		ExpiresAt: time.Now().Add(sessionDuration),
+	}
+	if err := h.repos.WebSession.Create(ctx, webSession); err != nil {
+		http.Error(w, `{"error": "failed to create web session"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Set session cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    sessionToken,
+		Path:     "/",
+		Expires:  webSession.ExpiresAt,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	resp := LoginResponse{
+		User: user,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// LoginWithAPIKey handles user login with API key
+func (h *AuthHandler) LoginWithAPIKey(w http.ResponseWriter, r *http.Request) {
+	var req LoginWithAPIKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error": "invalid json"}`, http.StatusBadRequest)
 		return

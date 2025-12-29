@@ -62,7 +62,27 @@ func (db *DB) Collection(name string) *mongo.Collection {
 }
 
 func (db *DB) createIndexes(ctx context.Context) error {
-	// Users collection - no special indexes needed
+	// Users collection
+	usersIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "email", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	}
+	if _, err := db.Collection("users").Indexes().CreateMany(ctx, usersIndexes); err != nil {
+		return err
+	}
+
+	// Password Credentials collection
+	passwordCredentialsIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "user_id", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	}
+	if _, err := db.Collection("password_credentials").Indexes().CreateMany(ctx, passwordCredentialsIndexes); err != nil {
+		return err
+	}
 
 	// API Keys collection
 	apiKeysIndexes := []mongo.IndexModel{

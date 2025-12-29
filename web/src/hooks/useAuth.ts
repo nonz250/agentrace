@@ -1,29 +1,33 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useAuthContext } from '@/App'
 import * as authApi from '@/api/auth'
+import type { LoginParams } from '@/api/auth'
 
 export function useAuth() {
-  const queryClient = useQueryClient()
+  const { user, isLoading, refetch } = useAuthContext()
   const navigate = useNavigate()
 
-  const { data: user, isLoading, error } = useQuery({
-    queryKey: ['me'],
-    queryFn: authApi.getMe,
-    retry: false,
+  const loginMutation = useMutation({
+    mutationFn: (params: LoginParams) => authApi.login(params),
+    onSuccess: async () => {
+      await refetch()
+      navigate('/')
+    },
   })
 
-  const loginMutation = useMutation({
-    mutationFn: authApi.login,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['me'] })
+  const loginWithApiKeyMutation = useMutation({
+    mutationFn: (apiKey: string) => authApi.loginWithApiKey(apiKey),
+    onSuccess: async () => {
+      await refetch()
       navigate('/')
     },
   })
 
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
-    onSuccess: () => {
-      queryClient.clear()
+    onSuccess: async () => {
+      await refetch()
       navigate('/welcome')
     },
   })
@@ -32,10 +36,12 @@ export function useAuth() {
     user,
     isLoading,
     isAuthenticated: !!user,
-    error,
     login: loginMutation.mutate,
     loginError: loginMutation.error,
     isLoggingIn: loginMutation.isPending,
+    loginWithApiKey: loginWithApiKeyMutation.mutate,
+    loginWithApiKeyError: loginWithApiKeyMutation.error,
+    isLoggingInWithApiKey: loginWithApiKeyMutation.isPending,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
   }

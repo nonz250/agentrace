@@ -46,6 +46,18 @@ func (r *UserRepository) FindByID(ctx context.Context, id string) (*domain.User,
 	return user, nil
 }
 
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, u := range r.users {
+		if u.Email == email {
+			return u, nil
+		}
+	}
+	return nil, nil
+}
+
 func (r *UserRepository) FindAll(ctx context.Context) ([]*domain.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

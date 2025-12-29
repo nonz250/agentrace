@@ -8,13 +8,14 @@ import { CopyButton } from '@/components/ui/CopyButton'
 import * as authApi from '@/api/auth'
 
 export function RegisterPage() {
-  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [apiKey, setApiKey] = useState<string | null>(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const registerMutation = useMutation({
-    mutationFn: () => authApi.register(name),
+    mutationFn: () => authApi.register({ email, password }),
     onSuccess: (data) => {
       setApiKey(data.api_key)
       queryClient.invalidateQueries({ queryKey: ['me'] })
@@ -23,10 +24,12 @@ export function RegisterPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (name.trim()) {
+    if (email.trim() && password.length >= 8) {
       registerMutation.mutate()
     }
   }
+
+  const isFormValid = email.trim() && password.length >= 8
 
   if (apiKey) {
     return (
@@ -97,26 +100,53 @@ export function RegisterPage() {
             Create Account
           </h1>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              label="Your Name"
-              placeholder="Enter your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              label="Email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={registerMutation.isPending}
-              error={registerMutation.error?.message}
             />
+
+            <Input
+              label="Password"
+              type="password"
+              placeholder="At least 8 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={registerMutation.isPending}
+              error={
+                password.length > 0 && password.length < 8
+                  ? 'Password must be at least 8 characters'
+                  : undefined
+              }
+            />
+
+            {registerMutation.error && (
+              <p className="text-sm text-red-600">
+                {registerMutation.error.message}
+              </p>
+            )}
 
             <Button
               type="submit"
               className="mt-6 w-full"
               size="lg"
               loading={registerMutation.isPending}
-              disabled={!name.trim()}
+              disabled={!isFormValid}
             >
               Create Account
             </Button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary-600 hover:underline">
+              Login
+            </Link>
+          </p>
         </div>
       </div>
     </div>

@@ -26,19 +26,20 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO users (id, name, created_at) VALUES ($1, $2, $3)`,
-		user.ID, user.Name, user.CreatedAt,
+		`INSERT INTO users (id, email, display_name, created_at) VALUES ($1, $2, $3, $4)`,
+		user.ID, user.Email, user.DisplayName, user.CreatedAt,
 	)
 	return err
 }
 
 func (r *UserRepository) FindByID(ctx context.Context, id string) (*domain.User, error) {
 	var user domain.User
+	var displayName sql.NullString
 
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, name, created_at FROM users WHERE id = $1`,
+		`SELECT id, email, display_name, created_at FROM users WHERE id = $1`,
 		id,
-	).Scan(&user.ID, &user.Name, &user.CreatedAt)
+	).Scan(&user.ID, &user.Email, &displayName, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -47,11 +48,32 @@ func (r *UserRepository) FindByID(ctx context.Context, id string) (*domain.User,
 		return nil, err
 	}
 
+	user.DisplayName = displayName.String
+	return &user, nil
+}
+
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
+	var displayName sql.NullString
+
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, email, display_name, created_at FROM users WHERE email = $1`,
+		email,
+	).Scan(&user.ID, &user.Email, &displayName, &user.CreatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	user.DisplayName = displayName.String
 	return &user, nil
 }
 
 func (r *UserRepository) FindAll(ctx context.Context) ([]*domain.User, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, name, created_at FROM users ORDER BY created_at DESC`)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, email, display_name, created_at FROM users ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +82,11 @@ func (r *UserRepository) FindAll(ctx context.Context) ([]*domain.User, error) {
 	var users []*domain.User
 	for rows.Next() {
 		var user domain.User
-		if err := rows.Scan(&user.ID, &user.Name, &user.CreatedAt); err != nil {
+		var displayName sql.NullString
+		if err := rows.Scan(&user.ID, &user.Email, &displayName, &user.CreatedAt); err != nil {
 			return nil, err
 		}
+		user.DisplayName = displayName.String
 		users = append(users, &user)
 	}
 

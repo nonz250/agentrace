@@ -1,8 +1,18 @@
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    display_name TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Password Credentials table (separate from users for flexibility)
+CREATE TABLE IF NOT EXISTS password_credentials (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- API Keys table
@@ -46,6 +56,8 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 -- Indexes
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_password_credentials_user ON password_credentials(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(token);

@@ -2,16 +2,13 @@ package sqlite
 
 import (
 	"database/sql"
-	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/satetsu888/agentrace/server/migrations"
 )
-
-//go:embed migrations/001_initial.sql
-var migrationSQL string
 
 // DB wraps the SQLite database connection
 type DB struct {
@@ -49,6 +46,6 @@ func Open(databaseURL string) (*DB, error) {
 }
 
 func runMigrations(db *sql.DB) error {
-	_, err := db.Exec(migrationSQL)
+	_, err := db.Exec(migrations.SQLiteInitial)
 	return err
 }

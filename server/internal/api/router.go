@@ -25,6 +25,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	// Auth routes (no auth required)
 	r.HandleFunc("/auth/register", authHandler.Register).Methods("POST")
 	r.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
+	r.HandleFunc("/auth/login/apikey", authHandler.LoginWithAPIKey).Methods("POST")
 	r.HandleFunc("/auth/session", authHandler.Session).Methods("GET")
 
 	// API routes (Bearer auth - for CLI)

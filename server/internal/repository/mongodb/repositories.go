@@ -7,10 +7,11 @@ import (
 // NewRepositories creates all MongoDB repositories
 func NewRepositories(db *DB) *repository.Repositories {
 	return &repository.Repositories{
-		Session:    NewSessionRepository(db),
-		Event:      NewEventRepository(db),
-		User:       NewUserRepository(db),
-		APIKey:     NewAPIKeyRepository(db),
-		WebSession: NewWebSessionRepository(db),
+		Session:            NewSessionRepository(db),
+		Event:              NewEventRepository(db),
+		User:               NewUserRepository(db),
+		APIKey:             NewAPIKeyRepository(db),
+		WebSession:         NewWebSessionRepository(db),
+		PasswordCredential: NewPasswordCredentialRepository(db),
 	}
 }

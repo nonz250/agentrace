@@ -22,9 +22,10 @@ func NewUserRepository(db *DB) *UserRepository {
 }
 
 type userDocument struct {
-	ID        string    `bson:"_id"`
-	Name      string    `bson:"name"`
-	CreatedAt time.Time `bson:"created_at"`
+	ID          string    `bson:"_id"`
+	Email       string    `bson:"email"`
+	DisplayName string    `bson:"display_name,omitempty"`
+	CreatedAt   time.Time `bson:"created_at"`
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
@@ -36,9 +37,10 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	}
 
 	doc := userDocument{
-		ID:        user.ID,
-		Name:      user.Name,
-		CreatedAt: user.CreatedAt,
+		ID:          user.ID,
+		Email:       user.Email,
+		DisplayName: user.DisplayName,
+		CreatedAt:   user.CreatedAt,
 	}
 
 	_, err := r.collection.InsertOne(ctx, doc)
@@ -56,9 +58,28 @@ func (r *UserRepository) FindByID(ctx context.Context, id string) (*domain.User,
 	}
 
 	return &domain.User{
-		ID:        doc.ID,
-		Name:      doc.Name,
-		CreatedAt: doc.CreatedAt,
+		ID:          doc.ID,
+		Email:       doc.Email,
+		DisplayName: doc.DisplayName,
+		CreatedAt:   doc.CreatedAt,
+	}, nil
+}
+
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var doc userDocument
+	err := r.collection.FindOne(ctx, bson.M{"email": email}).Decode(&doc)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.User{
+		ID:          doc.ID,
+		Email:       doc.Email,
+		DisplayName: doc.DisplayName,
+		CreatedAt:   doc.CreatedAt,
 	}, nil
 }
 
@@ -77,9 +98,10 @@ func (r *UserRepository) FindAll(ctx context.Context) ([]*domain.User, error) {
 			return nil, err
 		}
 		users = append(users, &domain.User{
-			ID:        doc.ID,
-			Name:      doc.Name,
-			CreatedAt: doc.CreatedAt,
+			ID:          doc.ID,
+			Email:       doc.Email,
+			DisplayName: doc.DisplayName,
+			CreatedAt:   doc.CreatedAt,
 		})
 	}
 
