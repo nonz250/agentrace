@@ -79,9 +79,10 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     // Wait for callback
     const result = await callbackPromise;
 
-    // Save config
+    // Save config (remove trailing slash from URL)
+    const serverUrlStr = serverUrl.toString().replace(/\/+$/, '');
     saveConfig({
-      server_url: serverUrl.toString(),
+      server_url: serverUrlStr,
       api_key: result.apiKey,
     });
     console.log(`✓ Config saved to ${getConfigPath()}`);

@@ -483,8 +483,12 @@ func (h *AuthHandler) Session(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	// Redirect to dashboard
-	http.Redirect(w, r, "/", http.StatusFound)
+	// Redirect to dashboard (use WEB_URL if set)
+	redirectURL := "/"
+	if h.cfg.WebURL != "" {
+		redirectURL = h.cfg.WebURL
+	}
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // CreateWebSession creates a web session for CLI login

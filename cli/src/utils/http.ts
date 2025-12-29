@@ -17,6 +17,10 @@ export interface WebSessionResponse {
   expires_at: string;
 }
 
+function getBaseUrl(config: { server_url: string }): string {
+  return config.server_url.replace(/\/+$/, '');
+}
+
 export async function sendIngest(
   payload: IngestPayload
 ): Promise<IngestResponse> {
@@ -25,7 +29,7 @@ export async function sendIngest(
     return { ok: false, error: "Config not found" };
   }
 
-  const url = `${config.server_url}/api/ingest`;
+  const url = `${getBaseUrl(config)}/api/ingest`;
 
   try {
     const response = await fetch(url, {
@@ -57,7 +61,7 @@ export async function createWebSession(): Promise<
     return { ok: false, error: "Config not found. Run 'agentrace init' first." };
   }
 
-  const url = `${config.server_url}/api/auth/web-session`;
+  const url = `${getBaseUrl(config)}/api/auth/web-session`;
 
   try {
     const response = await fetch(url, {
