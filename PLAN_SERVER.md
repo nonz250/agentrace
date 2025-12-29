@@ -45,14 +45,12 @@ server/
 │   │   │   └── ...
 │   │   └── mongodb/          # MongoDB実装（Step 4）
 │   │       └── ...
-│   ├── api/                  # HTTP ハンドラ
-│   │   ├── router.go
-│   │   ├── middleware.go
-│   │   ├── ingest.go
-│   │   ├── session.go
-│   │   └── auth.go           # Step 2
-│   └── ws/                   # WebSocket（Step 5）
-│       └── hub.go
+│   └── api/                  # HTTP ハンドラ
+│       ├── router.go
+│       ├── middleware.go
+│       ├── ingest.go
+│       ├── session.go
+│       └── auth.go           # Step 2
 ├── migrations/               # マイグレーション（Step 4）
 │   ├── sqlite/
 │   │   └── 001_initial.sql
@@ -321,12 +319,6 @@ type WebSession struct {
 ```
 ※ `api_key` は生の値で、この1回のみ返される
 
-### Step 5: WebSocket（フロント用）
-
-| Path | 説明 |
-| ---- | ---- |
-| `/ws/live` | リアルタイム配信（新規イベント通知） |
-
 ## 認証フロー
 
 ### Bearer認証（CLI用）
@@ -556,7 +548,6 @@ CREATE INDEX idx_events_created ON events(created_at);
 - `github.com/gorilla/mux` - ルーティング
 - `github.com/google/uuid` - UUID生成
 - `golang.org/x/crypto/bcrypt` - APIキーハッシュ
-- `github.com/gorilla/websocket` - WebSocket（Step 5）
 - `github.com/mattn/go-sqlite3` - SQLite3 ドライバ（Step 4）
 - `github.com/lib/pq` - PostgreSQL ドライバ（Step 4）
 - `go.mongodb.org/mongo-driver` - MongoDB ドライバ（Step 4）
@@ -603,8 +594,3 @@ CREATE INDEX idx_events_created ON events(created_at);
    - インデックス作成
    - 各Repository
 5. 動作確認 ✅
-
-### Step 5: リアルタイム機能
-
-1. WebSocket Hub 実装
-2. イベント保存時に配信

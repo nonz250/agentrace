@@ -35,8 +35,7 @@ web/
 │   │   └── keys.ts               # APIキー API
 │   │
 │   ├── hooks/                    # カスタム Hooks
-│   │   ├── useAuth.ts            # 認証状態管理
-│   │   └── useWebSocket.ts       # WebSocket 接続（Step 5）
+│   │   └── useAuth.ts            # 認証状態管理
 │   │
 │   ├── pages/                    # ページコンポーネント
 │   │   ├── WelcomePage.tsx       # 初期画面（登録/ログイン選択）
@@ -54,8 +53,7 @@ web/
 │   │   │
 │   │   ├── sessions/
 │   │   │   ├── SessionCard.tsx   # セッションカード
-│   │   │   ├── SessionList.tsx   # セッション一覧
-│   │   │   └── SessionFilter.tsx # フィルター（Step 5）
+│   │   │   └── SessionList.tsx   # セッション一覧
 │   │   │
 │   │   ├── timeline/
 │   │   │   ├── Timeline.tsx      # タイムライン
@@ -1079,53 +1077,11 @@ export default function App() {
 }
 ```
 
-## WebSocket 接続（Step 5）
-
-```ts
-// src/hooks/useWebSocket.ts
-import { useEffect, useRef, useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-
-const WS_URL = import.meta.env.VITE_WS_URL || `ws://${window.location.host}`
-
-export function useWebSocket() {
-  const ws = useRef<WebSocket | null>(null)
-  const queryClient = useQueryClient()
-
-  const connect = useCallback(() => {
-    ws.current = new WebSocket(`${WS_URL}/ws/live`)
-
-    ws.current.onmessage = (e) => {
-      const data = JSON.parse(e.data)
-
-      // 新しいイベントが来たらセッション一覧を更新
-      if (data.type === 'new_event') {
-        queryClient.invalidateQueries({ queryKey: ['sessions'] })
-        queryClient.invalidateQueries({ queryKey: ['session', data.session_id] })
-      }
-    }
-
-    ws.current.onclose = () => {
-      // 再接続
-      setTimeout(connect, 3000)
-    }
-  }, [queryClient])
-
-  useEffect(() => {
-    connect()
-    return () => {
-      ws.current?.close()
-    }
-  }, [connect])
-}
-```
-
 ## 環境変数
 
 | 変数名 | 説明 | デフォルト |
 | ------ | ---- | ---------- |
 | `VITE_API_URL` | バックエンドAPI URL | '' (同一オリジン) |
-| `VITE_WS_URL` | WebSocket URL | 自動検出 |
 
 ## Vite 設定
 
@@ -1146,10 +1102,6 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8080',
       '/auth': 'http://localhost:8080',
-      '/ws': {
-        target: 'ws://localhost:8080',
-        ws: true,
-      },
     },
   },
 })
@@ -1200,9 +1152,3 @@ export default defineConfig({
    - セッション一覧: StartedAt降順（新しい順）
    - イベント一覧: payload.timestamp昇順（会話順）
    - 時刻表示: payload.timestampを優先（created_atフォールバック）
-
-### Step 5: リアルタイム機能
-
-1. WebSocket 接続フック
-2. 新規イベントのリアルタイム更新
-3. セッション一覧の自動更新

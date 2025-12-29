@@ -88,7 +88,7 @@ agentrace/
 │ レビュー                                                     │
 ├─────────────────────────────────────────────────────────────┤
 │  Web UI（セッション認証）                                    │
-│      ↓ REST API / WebSocket                                 │
+│      ↓ REST API                                             │
 │  Agentrace Server                                           │
 │      ↓                                                      │
 │  セッション一覧 → 詳細 → イベントタイムライン               │
@@ -185,15 +185,9 @@ agentrace/
    - 各DBのマイグレーション/スキーマ
    - DB_TYPE環境変数で切り替え（`memory` / `sqlite` / `postgres` / `mongodb`）
 
-### Step 5: リアルタイム機能
-
-**目標**: 新規イベントのリアルタイム表示
-
-1. **server/** - WebSocket Hub実装、イベント保存時に配信
-2. **web/** - WebSocket接続、リアルタイム更新
-
 ## 将来の拡張（スコープ外）
 
+- リアルタイム機能（WebSocket）
 - コメント機能（セッション/イベントへのコメント）
 - セッションの再開機能（コンテキストをClaude Codeに渡す）
 - Slack/Discord通知
