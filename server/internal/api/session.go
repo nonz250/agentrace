@@ -69,6 +69,39 @@ func eventToResponse(e *domain.Event) *EventResponse {
 	}
 }
 
+// shouldFilterEvent returns true if the event should be hidden from the response
+func shouldFilterEvent(e *domain.Event) bool {
+	payloadType, _ := e.Payload["type"].(string)
+
+	// Filter out file-history-snapshot events
+	if payloadType == "file-history-snapshot" {
+		return true
+	}
+
+	// Filter out system events (internal events not useful for display)
+	if payloadType == "system" {
+		// All system subtypes are filtered for now:
+		// - stop_hook_summary
+		// - init
+		// - mcp_server_status
+		// - etc.
+		return true
+	}
+
+	return false
+}
+
+// filterEvents returns events that should be displayed
+func filterEvents(events []*domain.Event) []*domain.Event {
+	filtered := make([]*domain.Event, 0, len(events))
+	for _, e := range events {
+		if !shouldFilterEvent(e) {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
+}
+
 type SessionListResponse struct {
 	Sessions []*SessionResponse `json:"sessions"`
 }
@@ -93,11 +126,11 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Get event count
+		// Get event count (filtered)
 		events, err := h.repos.Event.FindBySessionID(ctx, s.ID)
 		eventCount := 0
 		if err == nil {
-			eventCount = len(events)
+			eventCount = len(filterEvents(events))
 		}
 
 		sessionResponses[i] = sessionToResponse(s, userName, eventCount)
@@ -141,13 +174,16 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	eventResponses := make([]*EventResponse, len(events))
-	for i, e := range events {
+	// Filter out internal events that shouldn't be displayed
+	filteredEvents := filterEvents(events)
+
+	eventResponses := make([]*EventResponse, len(filteredEvents))
+	for i, e := range filteredEvents {
 		eventResponses[i] = eventToResponse(e)
 	}
 
 	response := SessionDetailResponse{
-		SessionResponse: *sessionToResponse(session, userName, len(events)),
+		SessionResponse: *sessionToResponse(session, userName, len(filteredEvents)),
 		Events:          eventResponses,
 	}
 
