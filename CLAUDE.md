@@ -10,7 +10,7 @@ Claude Codeのやりとりをチームでレビューできるサービス
 | イントラネット | 社内サーバーにホストしてチームで使用 |
 | 開発 | DEV_MODEでデバッグログを出力しながら開発 |
 
-※ インターネット公開は想定しない（GitHub OAuthはオプションで対応予定、PLAN.md参照）
+※ インターネット公開は想定しない（GitHub OAuthはオプションで対応）
 
 ## 技術スタック
 
@@ -44,14 +44,22 @@ agentrace/
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│ CLI セットアップ                                             │
+│ CLI セットアップ（ブラウザ連携）                             │
 ├─────────────────────────────────────────────────────────────┤
-│  $ npx agentrace init                                       │
+│  $ npx agentrace init --url http://server:8080              │
 │      ↓                                                      │
-│  Server URL と APIキーを入力                                 │
+│  1. CLIがワンタイムトークンを生成                            │
+│  2. ブラウザで http://server:8080/setup?token=xxx を開く     │
+│  3. CLIはローカルでHTTPサーバーを起動して待機                │
 │      ↓                                                      │
-│  ~/.agentrace/config.json に保存                            │
-│  ~/.claude/settings.json に hooks 追加                      │
+│  Web: 未ログインなら登録/ログイン → セットアップ画面        │
+│      ↓                                                      │
+│  「Setup CLI」ボタン押下                                     │
+│      ↓                                                      │
+│  1. POST /api/keys でAPIキー生成                             │
+│  2. CLIのコールバックURLにAPIキーをPOST                      │
+│      ↓                                                      │
+│  CLI: APIキー受信 → config保存 → hooks追加 → 完了           │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -72,6 +80,7 @@ agentrace/
 ├─────────────────────────────────────────────────────────────┤
 │  方法1: $ npx agentrace login → URL発行 → ブラウザで開く    │
 │  方法2: Webでemail + passwordを入力してログイン              │
+│  方法3: GitHub OAuthでログイン（設定時のみ）                 │
 │      ↓                                                      │
 │  セッションCookie発行 → ダッシュボードへ                    │
 └─────────────────────────────────────────────────────────────┘
@@ -344,16 +353,29 @@ npx tsx src/index.ts login
 2. 「Register」→ email + password 入力 → APIキー発行
 3. APIキーをコピー（この1回のみ表示）
 
-### CLIセットアップ
+### CLIセットアップ（ブラウザ連携）
 
-1. `npx agentrace init`
-2. Server URLとAPIキーを入力
-3. hooks自動設定
+```bash
+npx agentrace init --url http://server:8080
+```
+
+1. CLIがワンタイムトークンを生成し、ローカルHTTPサーバー起動
+2. ブラウザで `/setup?token=xxx&callback=http://localhost:xxxxx/callback` を開く
+3. 未ログインなら登録/ログイン画面を経由
+4. セットアップ画面で「Setup CLI」ボタン押下
+5. WebがAPIキーを生成し、CLIのコールバックURLにPOST
+6. CLIがAPIキーを受信、config保存、hooks追加
+
+セキュリティ:
+- トークンは `crypto.randomUUID()` で生成（推測困難）
+- コールバックURLは `localhost` のみ許可
+- タイムアウト5分
 
 ### Webログイン
 
 - 方法1: `npx agentrace login` → URL発行 → ブラウザで開く
 - 方法2: Webでemail + passwordを入力してログイン
+- 方法3: GitHub OAuthでログイン（`GITHUB_CLIENT_ID/SECRET` 設定時のみ）
 
 ### Bearer認証（CLI用）
 
@@ -380,6 +402,22 @@ npx tsx src/index.ts login
   3. UserIDを取得
   4. コンテキストにUserを設定
 ```
+
+### GitHub OAuth
+
+環境変数 `GITHUB_CLIENT_ID` と `GITHUB_CLIENT_SECRET` が設定されている場合のみ有効。
+
+```
+1. ユーザーが「Continue with GitHub」をクリック
+2. GET /auth/github → GitHub認証画面にリダイレクト
+3. GitHub認証完了 → GET /auth/github/callback
+4. GitHubユーザー情報を取得
+5. 既存ユーザー（email一致 or OAuth連携済み）ならログイン
+   新規ならアカウント作成
+6. セッションCookie発行、ダッシュボードへリダイレクト
+```
+
+OAuthConnectionテーブルでGitHubのユーザーIDとローカルユーザーを紐付け管理。
 
 ### 複数APIキー
 
@@ -438,10 +476,10 @@ ContentBlockCardコンポーネントは以下のブロックタイプに対応�
 
 ## 将来の拡張（スコープ外）
 
-- GitHub OAuth（PLAN.md参照）
 - リアルタイム機能（WebSocket）
 - コメント機能（セッション/イベントへのコメント）
 - セッションの再開機能（コンテキストをClaude Codeに渡す）
 - Slack/Discord通知
 - 統計ダッシュボード
 - セッションのエクスポート（Markdown等）
+- Google OAuth
