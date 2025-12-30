@@ -68,6 +68,7 @@ agentrace/
 │  Claude Code → Stop hook 発火                               │
 │      ↓                                                      │
 │  npx agentrace send                                         │
+│      ↓ 環境変数 CLAUDE_PROJECT_DIR でプロジェクトパス取得   │
 │      ↓ transcript_path から差分読み取り                     │
 │      ↓ 初回送信時: git remote URL, branch も取得            │
 │      ↓ HTTP POST /api/ingest (Bearer認証)                   │
@@ -472,14 +473,24 @@ OAuthConnectionテーブルでGitHubのユーザーIDとローカルユーザー
 ## データフロー
 
 1. Claude Code が応答完了 → Stop hook 発火
-2. CLI: stdin から session_id, transcript_path, cwd を取得
-3. CLI: transcript_path のJSONLを読み、前回からの差分を抽出
-4. CLI: 初回送信時のみ、`git remote get-url origin` と `git branch --show-current` を実行してgit情報を取得
-5. CLI: 差分とgit情報をサーバーに POST /api/ingest（Bearer認証）
-6. Server: APIKey → User解決、UserIDをセッションに紐付け
-7. Server: project_path, git_remote_url, git_branch をセッションに保存（初回のみ）
-8. Server: 各行を Event として保存
-9. CLI: カーソル位置を更新（~/.agentrace/cursors/{session_id}.json）
+2. CLI: stdin から session_id, transcript_path を取得
+3. CLI: 環境変数 `CLAUDE_PROJECT_DIR` からプロジェクトルートを取得（フォールバック: stdin の cwd）
+4. CLI: transcript_path のJSONLを読み、前回からの差分を抽出
+5. CLI: 初回送信時のみ、プロジェクトルートで `git remote get-url origin` と `git branch --show-current` を実行してgit情報を取得
+6. CLI: 差分とgit情報をサーバーに POST /api/ingest（Bearer認証）
+7. Server: APIKey → User解決、UserIDをセッションに紐付け
+8. Server: project_path, git_remote_url, git_branch をセッションに保存（初回のみ）
+9. Server: 各行を Event として保存
+10. CLI: カーソル位置を更新（~/.agentrace/cursors/{session_id}.json）
+
+### プロジェクトパスについて
+
+| 変数 | 取得元 | 特徴 |
+| ---- | ------ | ---- |
+| `CLAUDE_PROJECT_DIR` | 環境変数 | Claude Code起動時のパス（固定） |
+| `cwd` | stdin JSON | ビルドコマンド等で変わる可能性あり |
+
+CLIは `CLAUDE_PROJECT_DIR` を優先して使用し、未設定時は `cwd` にフォールバックする。
 
 ## Web フロントエンド
 

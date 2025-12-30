@@ -98,19 +98,22 @@ export async function sendCommand(): Promise<void> {
     process.exit(0);
   }
 
+  // Use CLAUDE_PROJECT_DIR (stable project root) instead of cwd (can change during builds)
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || data.cwd;
+
   // Extract git info only on first send (when cursor doesn't exist yet)
   let gitRemoteUrl: string | undefined;
   let gitBranch: string | undefined;
-  if (data.cwd && !hasCursor(sessionId)) {
-    gitRemoteUrl = getGitRemoteUrl(data.cwd) ?? undefined;
-    gitBranch = getGitBranch(data.cwd) ?? undefined;
+  if (projectDir && !hasCursor(sessionId)) {
+    gitRemoteUrl = getGitRemoteUrl(projectDir) ?? undefined;
+    gitBranch = getGitBranch(projectDir) ?? undefined;
   }
 
   // Send to server
   const result = await sendIngest({
     session_id: sessionId,
     transcript_lines: transcriptLines,
-    cwd: data.cwd,
+    cwd: projectDir,
     git_remote_url: gitRemoteUrl,
     git_branch: gitBranch,
   });
