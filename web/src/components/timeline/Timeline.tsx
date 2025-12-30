@@ -27,9 +27,10 @@ function extractCommandName(content: string): string | null {
 }
 
 // Check if content is a local command input
+// Must start with <command-name>/ to avoid false positives from summaries that mention this pattern
 function isLocalCommand(content: unknown): boolean {
   if (typeof content !== 'string') return false
-  return content.includes('<command-name>/')
+  return content.trimStart().startsWith('<command-name>/')
 }
 
 // Check if content is a local command output
@@ -48,41 +49,60 @@ function isMetaMessage(event: Event): boolean {
   return event.payload?.isMeta === true
 }
 
-// Build a map of uuid -> event for quick lookup
-function buildEventMap(events: Event[]): Map<string, Event> {
-  const map = new Map<string, Event>()
-  for (const event of events) {
-    const uuid = event.payload?.uuid as string
-    if (uuid) {
-      map.set(uuid, event)
-    }
-  }
-  return map
-}
-
 // Build a map to associate related events with their local command
 // Returns: Map<event.id, localCommandEvent.id>
-function buildLocalCommandGroups(events: Event[], _eventMap: Map<string, Event>): Map<string, string> {
+function buildLocalCommandGroups(events: Event[]): Map<string, string> {
   const groups = new Map<string, string>()
 
+  // Filter to user events only
+  const userEvents = events.filter(e => e.event_type === 'user')
+
   // Sort events by timestamp
-  const sortedEvents = [...events].sort((a, b) => {
+  const sortedEvents = [...userEvents].sort((a, b) => {
     const tsA = (a.payload?.timestamp as string) || a.created_at
     const tsB = (b.payload?.timestamp as string) || b.created_at
     return tsA.localeCompare(tsB)
   })
 
-  let currentLocalCommand: Event | null = null
-
+  // First pass: find all local commands and their timestamps
+  const localCommandTimestamps = new Map<string, Event>() // timestamp -> command event
+  const localCommandIds = new Set<string>()
   for (const event of sortedEvents) {
     const message = event.payload?.message as Record<string, unknown> | undefined
     const content = message?.content
-
     if (isLocalCommand(content)) {
-      // This is a local command, start a new group
+      const ts = (event.payload?.timestamp as string) || event.created_at
+      localCommandTimestamps.set(ts, event)
+      localCommandIds.add(event.id)
+    }
+  }
+
+  // Second pass: group related events
+  let currentLocalCommand: Event | null = null
+
+  for (const event of sortedEvents) {
+    // Skip the local command itself
+    if (localCommandIds.has(event.id)) {
       currentLocalCommand = event
-    } else if (currentLocalCommand) {
-      // Check if this event should be grouped with the current local command
+      continue
+    }
+
+    const message = event.payload?.message as Record<string, unknown> | undefined
+    const content = message?.content
+    const eventTs = (event.payload?.timestamp as string) || event.created_at
+
+    // Check if this is a meta message with same timestamp as a local command
+    // (These come before the command in the array but should be grouped)
+    if (isMetaMessage(event)) {
+      const matchingCommand = localCommandTimestamps.get(eventTs)
+      if (matchingCommand) {
+        groups.set(event.id, matchingCommand.id)
+        continue
+      }
+    }
+
+    // Check if this event should be grouped with the current local command
+    if (currentLocalCommand) {
       if (isCompactSummary(event) || isMetaMessage(event) || isLocalCommandOutput(content)) {
         groups.set(event.id, currentLocalCommand.id)
       } else {
@@ -122,10 +142,9 @@ function buildToolResultMap(events: Event[]): Map<string, { content: unknown; ti
 // Expand events into individual display blocks
 function expandEvents(events: Event[]): DisplayBlock[] {
   const blocks: DisplayBlock[] = []
-  const eventMap = buildEventMap(events)
 
   // Build groups: Map<relatedEventId, localCommandId>
-  const eventToCommandMap = buildLocalCommandGroups(events, eventMap)
+  const eventToCommandMap = buildLocalCommandGroups(events)
 
   // Build tool result map: Map<tool_use_id, tool_result_content>
   const toolResultMap = buildToolResultMap(events)
