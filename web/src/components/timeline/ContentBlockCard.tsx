@@ -381,11 +381,41 @@ function renderContent(block: DisplayBlock) {
 }
 
 export function ContentBlockCard({ block }: ContentBlockCardProps) {
-  // Secondary blocks default to collapsed
-  const [expanded, setExpanded] = useState(!isSecondaryBlock(block))
-  const styles = getBlockContainerStyle(block)
   const isSecondary = isSecondaryBlock(block)
+  // Secondary blocks default to collapsed, primary blocks are always expanded
+  const [expanded, setExpanded] = useState(!isSecondary)
+  const styles = getBlockContainerStyle(block)
 
+  // Primary blocks (User/Assistant) don't have collapse functionality
+  if (!isSecondary) {
+    return (
+      <div className={styles.wrapper}>
+        <div className={cn('overflow-hidden rounded-xl', styles.container)}>
+          <div className={cn('flex items-center justify-between', styles.header)}>
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'flex h-6 w-6 items-center justify-center rounded-full',
+                  getIconStyle(block)
+                )}
+              >
+                {getIcon(block)}
+              </span>
+              <span className="font-medium text-gray-900">{block.label.text}</span>
+            </div>
+            <div className="text-sm text-gray-500">
+              <span>{format(new Date(block.timestamp), 'HH:mm:ss')}</span>
+            </div>
+          </div>
+          <div className="border-t border-gray-100 px-4 py-3">
+            {renderContent(block)}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Secondary blocks have collapse functionality
   return (
     <div className={styles.wrapper}>
       <div className={cn('overflow-hidden rounded-xl', styles.container)}>
@@ -400,46 +430,33 @@ export function ContentBlockCard({ block }: ContentBlockCardProps) {
           <div className="flex items-center gap-2">
             <span
               className={cn(
-                'flex items-center justify-center rounded-full',
-                isSecondary ? 'h-5 w-5' : 'h-6 w-6',
+                'flex h-5 w-5 items-center justify-center rounded-full',
                 getIconStyle(block)
               )}
             >
               {getIcon(block)}
             </span>
-            <span className={cn(
-              'font-medium',
-              isSecondary ? 'text-sm text-gray-600' : 'text-gray-900'
-            )}>
+            <span className="text-sm font-medium text-gray-600">
               {block.label.text}
             </span>
             {block.label.params && (
-              <code className={cn(
-                'rounded bg-gray-100 font-normal text-gray-700',
-                isSecondary ? 'px-1 py-0.5 text-xs' : 'px-1.5 py-0.5 text-sm'
-              )}>
+              <code className="rounded bg-gray-100 px-1 py-0.5 text-xs font-normal text-gray-700">
                 {block.label.params}
               </code>
             )}
           </div>
-          <div className={cn(
-            'flex items-center gap-2 text-gray-500',
-            isSecondary ? 'text-xs' : 'text-sm'
-          )}>
+          <div className="flex items-center gap-2 text-xs text-gray-500">
             <span>{format(new Date(block.timestamp), 'HH:mm:ss')}</span>
             {expanded ? (
-              <ChevronDown className={isSecondary ? 'h-3 w-3' : 'h-4 w-4'} />
+              <ChevronDown className="h-3 w-3" />
             ) : (
-              <ChevronRight className={isSecondary ? 'h-3 w-3' : 'h-4 w-4'} />
+              <ChevronRight className="h-3 w-3" />
             )}
           </div>
         </button>
 
         {expanded && (
-          <div className={cn(
-            'border-t border-gray-100',
-            isSecondary ? 'px-3 py-2' : 'px-4 py-3'
-          )}>
+          <div className="border-t border-gray-100 px-3 py-2">
             {renderContent(block)}
           </div>
         )}
