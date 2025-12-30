@@ -470,9 +470,27 @@ ContentBlockCardコンポーネントは以下のブロックタイプに対応�
 | -------------- | ---- |
 | text | Markdown対応テキスト表示（コードブロックはシンタックスハイライト） |
 | thinking | 折りたたみ可能なUI（紫色、デフォルト折りたたみ） |
+| tool_group | ツール呼び出しと結果をグループ化（Input/Result縦並び、デフォルト折りたたみ） |
 | tool_use | ツール名 + JSONハイライト表示（デフォルト折りたたみ） |
 | tool_result | ツール結果表示（デフォルト折りたたみ） |
+| local_command_group | ローカルコマンド（/compact等）と関連イベントをグループ化（デフォルト折りたたみ） |
+| compact_summary | compactコマンドのサマリー表示（amber背景） |
+| local_command_output | コマンド出力表示 |
 | その他 | ブロックタイプ名 + JSON表示 |
+
+### イベントのグルーピング
+
+タイムライン表示では関連イベントを自動的にグループ化：
+
+**Tool グループ化**
+- `tool_use`ブロックと対応する`tool_result`を1つのカードにまとめる
+- `tool_use.id`と`tool_result.tool_use_id`で紐付け
+
+**ローカルコマンド グループ化**
+- `/compact`等のローカルコマンドと関連イベントを1つのカードにまとめる
+- 対象: メタメッセージ（`payload.isMeta`）、サマリー（`payload.isCompactSummary`）、コマンド出力
+- コマンドの検出: コンテンツが`<command-name>/`で始まる
+- 出力の検出: コンテンツに`<local-command-stdout>`を含む
 
 ## 将来の拡張（スコープ外）
 
