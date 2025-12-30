@@ -536,16 +536,23 @@ ContentBlockCardコンポーネントは以下のブロックタイプに対応�
 | local_command_output | コマンド出力表示 |
 | その他 | ブロックタイプ名 + JSON表示 |
 
-### セッション詳細表示
+### セッション表示形式
 
-SessionDetailPageでは以下の情報を表示：
+セッション一覧（SessionCard）と詳細ページ（SessionDetailPage）は同じ形式で表示：
 
-- **プロジェクトパス**: 作業ディレクトリ（フォルダアイコン付き）
-- **Gitリポジトリ**: git remote URLからGitHub/GitLabリンクを生成（外部リンクアイコン付き）
-- **Gitブランチ**: 現在のブランチ名
-- **ユーザー**: セッションを作成したユーザー名
-- **開始時刻**: セッション開始日時
-- **イベントタイムライン**: 会話の全イベント
+**タイトル行**（目立つ表示）
+- 開始時刻: `YYYY/MM/DD HH:MM` 形式
+- ユーザー名
+
+**メタデータ行**（灰色小文字 `text-xs text-gray-400`）
+- 🔀 GitBranch: リポジトリ名:ブランチ（GitHub/GitLabリンク付き）
+- 📁 Folder: ディレクトリ名
+- 💬 MessageSquare: イベント数
+
+```
+2024/12/30 15:30  User
+🔀 owner/repo: main  📁 agentrace  💬 42
+```
 
 ### イベントのグルーピング
 
