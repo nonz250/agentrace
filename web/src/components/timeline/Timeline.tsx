@@ -10,7 +10,7 @@ export interface DisplayBlock {
   id: string
   eventType: 'user' | 'assistant' | 'tool_use' | 'tool_result'
   blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'tool_group', 'local_command', 'local_command_output', 'local_command_group', etc.
-  label: string // Display label like 'User', 'Assistant (Thinking)', 'Assistant (Tool: Edit)'
+  label: string // Display label like 'User', 'Thinking', 'Tool: Edit'
   timestamp: string
   content: unknown
   originalEvent: Event
@@ -276,7 +276,7 @@ function expandEvents(events: Event[]): DisplayBlock[] {
           let label = 'Assistant'
 
           if (blockType === 'thinking') {
-            label = 'Assistant (Thinking)'
+            label = 'Thinking'
           } else if (blockType === 'tool_use') {
             const toolName = blockObj?.name as string || 'Unknown'
             const toolUseId = blockObj?.id as string
