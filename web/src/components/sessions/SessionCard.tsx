@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/Card'
-import { Folder, User, Clock, GitBranch } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { GitBranch, Folder, MessageSquare } from 'lucide-react'
+import { format } from 'date-fns'
 import type { Session } from '@/types/session'
 
 interface SessionCardProps {
@@ -51,49 +51,49 @@ function getRepoUrl(remoteUrl: string): string | null {
 export function SessionCard({ session, onClick }: SessionCardProps) {
   const repoName = parseGitRepoName(session.git_remote_url)
   const repoUrl = getRepoUrl(session.git_remote_url)
+  const formattedDate = format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')
 
   return (
     <Card hover onClick={onClick}>
-      <div className="flex items-start gap-3">
-        <Folder className="mt-0.5 h-5 w-5 flex-shrink-0 text-gray-400" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-mono text-sm text-gray-900">
-            {getDirectoryName(session.project_path)}
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-            {session.git_remote_url && (
-              <span className="flex items-center gap-1">
-                <GitBranch className="h-4 w-4" />
-                {repoUrl && repoName ? (
-                  <a
-                    href={repoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {repoName}
-                  </a>
-                ) : (
-                  repoName || session.git_remote_url
-                )}
-                {session.git_branch && (
-                  <span className="text-gray-400">({session.git_branch})</span>
-                )}
-              </span>
-            )}
+      <div className="min-w-0">
+        {/* Title: Date and User */}
+        <p className="text-sm font-medium text-gray-900">
+          {formattedDate}
+          <span className="ml-2 text-gray-600">{session.user_name || 'Unknown'}</span>
+        </p>
+        {/* Metadata: repo, branch, path, events */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+          {repoName && (
             <span className="flex items-center gap-1">
-              <User className="h-4 w-4" />
-              {session.user_name || 'Unknown'}
+              <GitBranch className="h-3 w-3" />
+              {repoUrl ? (
+                <a
+                  href={repoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-gray-600 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {repoName}
+                </a>
+              ) : (
+                repoName
+              )}
+              {session.git_branch && (
+                <span>: {session.git_branch}</span>
+              )}
             </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              {formatDistanceToNow(new Date(session.started_at), {
-                addSuffix: true,
-              })}
+          )}
+          {session.project_path && (
+            <span className="flex items-center gap-1 truncate" title={session.project_path}>
+              <Folder className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate font-mono">{getDirectoryName(session.project_path)}</span>
             </span>
-            <span>{session.event_count} events</span>
-          </div>
+          )}
+          <span className="flex items-center gap-1">
+            <MessageSquare className="h-3 w-3" />
+            {session.event_count}
+          </span>
         </div>
       </div>
     </Card>
