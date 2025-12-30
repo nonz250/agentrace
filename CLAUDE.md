@@ -69,9 +69,11 @@ agentrace/
 │      ↓                                                      │
 │  npx agentrace send                                         │
 │      ↓ transcript_path から差分読み取り                     │
+│      ↓ 初回送信時: git remote URL, branch も取得            │
 │      ↓ HTTP POST /api/ingest (Bearer認証)                   │
 │  Agentrace Server                                           │
 │      ↓ APIKey → User 解決、UserIDをセッションに紐付け       │
+│      ↓ git情報をセッションに保存（初回のみ）                │
 │  Database（Memory / SQLite / PostgreSQL / MongoDB）         │
 └─────────────────────────────────────────────────────────────┘
 
@@ -133,7 +135,8 @@ agentrace/
 │       │   ├── middleware.go
 │       │   ├── ingest.go
 │       │   ├── session.go
-│       │   └── auth.go
+│       │   ├── auth.go
+│       │   └── github_oauth.go  # GitHub OAuth
 │       ├── config/config.go     # 環境変数管理
 │       ├── domain/              # ドメインモデル
 │       │   ├── session.go
@@ -163,9 +166,9 @@ agentrace/
     │   ├── components/          # UIコンポーネント
     │   │   ├── layout/          # Layout, Header
     │   │   ├── sessions/        # SessionCard, SessionList
-    │   │   ├── timeline/        # Timeline, ContentBlockCard
+    │   │   ├── timeline/        # Timeline, ContentBlockCard, EventCard, UserMessage, AssistantMessage, ToolUse
     │   │   ├── settings/        # ApiKeyList, ApiKeyForm
-    │   │   └── ui/              # Button, Input, Card, etc.
+    │   │   └── ui/              # Button, Input, Card, Modal, CopyButton, Spinner
     │   ├── hooks/               # カスタムHooks
     │   │   └── useAuth.ts       # 認証状態管理
     │   ├── lib/                 # ユーティリティ
@@ -316,6 +319,47 @@ npx tsx src/index.ts login
 | POST | `/api/keys` | Session | 新しいAPIキー発行 |
 | DELETE | `/api/keys/:id` | Session | APIキー削除 |
 
+### APIリクエスト/レスポンス形式
+
+**POST /api/ingest リクエスト**
+
+```json
+{
+  "session_id": "string",
+  "transcript_lines": [{"type": "...", ...}],
+  "cwd": "string (作業ディレクトリ)",
+  "git_remote_url": "string (git remote origin URL)",
+  "git_branch": "string (現在のブランチ名)"
+}
+```
+
+**Session レスポンス**
+
+```json
+{
+  "id": "string",
+  "user_id": "string | null",
+  "user_name": "string | null",
+  "claude_session_id": "string",
+  "project_path": "string",
+  "git_remote_url": "string",
+  "git_branch": "string",
+  "started_at": "ISO 8601",
+  "ended_at": "ISO 8601 | null",
+  "event_count": "number",
+  "created_at": "ISO 8601"
+}
+```
+
+### イベントフィルタリング
+
+セッション詳細APIでは、内部イベントをフィルタリングして返す：
+
+| フィルタ対象 | 理由 |
+| ------------ | ---- |
+| `file-history-snapshot` | Claude Code内部のファイル履歴追跡 |
+| `system` | システムイベント（init, mcp_server_status, stop_hook_summary等） |
+
 ## 環境変数（サーバー）
 
 | 変数名 | 説明 | デフォルト |
@@ -428,12 +472,14 @@ OAuthConnectionテーブルでGitHubのユーザーIDとローカルユーザー
 ## データフロー
 
 1. Claude Code が応答完了 → Stop hook 発火
-2. CLI: stdin から session_id, transcript_path を取得
+2. CLI: stdin から session_id, transcript_path, cwd を取得
 3. CLI: transcript_path のJSONLを読み、前回からの差分を抽出
-4. CLI: 差分をサーバーに POST /api/ingest（Bearer認証）
-5. Server: APIKey → User解決、UserIDをセッションに紐付け
-6. Server: 各行を Event として保存
-7. CLI: カーソル位置を更新（~/.agentrace/cursors/{session_id}.json）
+4. CLI: 初回送信時のみ、`git remote get-url origin` と `git branch --show-current` を実行してgit情報を取得
+5. CLI: 差分とgit情報をサーバーに POST /api/ingest（Bearer認証）
+6. Server: APIKey → User解決、UserIDをセッションに紐付け
+7. Server: project_path, git_remote_url, git_branch をセッションに保存（初回のみ）
+8. Server: 各行を Event として保存
+9. CLI: カーソル位置を更新（~/.agentrace/cursors/{session_id}.json）
 
 ## Web フロントエンド
 
@@ -441,12 +487,13 @@ OAuthConnectionテーブルでGitHubのユーザーIDとローカルユーザー
 
 | カテゴリ | 技術 |
 | -------- | ---- |
-| ビルドツール | Vite |
-| UIライブラリ | React 18 |
+| ビルドツール | Vite 7 |
+| UIライブラリ | React 19 |
 | 言語 | TypeScript |
-| スタイリング | Tailwind CSS |
-| ルーティング | React Router v6 |
-| 状態管理 | TanStack Query (React Query) + AuthContext |
+| スタイリング | Tailwind CSS 3 |
+| ルーティング | React Router v7 |
+| 状態管理 | TanStack Query (React Query) v5 + AuthContext |
+| フォーム | React Hook Form |
 | 日時処理 | date-fns |
 | アイコン | Lucide React |
 | コード表示 | react-syntax-highlighter |
@@ -478,6 +525,17 @@ ContentBlockCardコンポーネントは以下のブロックタイプに対応�
 | local_command_output | コマンド出力表示 |
 | その他 | ブロックタイプ名 + JSON表示 |
 
+### セッション詳細表示
+
+SessionDetailPageでは以下の情報を表示：
+
+- **プロジェクトパス**: 作業ディレクトリ（フォルダアイコン付き）
+- **Gitリポジトリ**: git remote URLからGitHub/GitLabリンクを生成（外部リンクアイコン付き）
+- **Gitブランチ**: 現在のブランチ名
+- **ユーザー**: セッションを作成したユーザー名
+- **開始時刻**: セッション開始日時
+- **イベントタイムライン**: 会話の全イベント
+
 ### イベントのグルーピング
 
 タイムライン表示では関連イベントを自動的にグループ化：
@@ -485,6 +543,7 @@ ContentBlockCardコンポーネントは以下のブロックタイプに対応�
 **Tool グループ化**
 - `tool_use`ブロックと対応する`tool_result`を1つのカードにまとめる
 - `tool_use.id`と`tool_result.tool_use_id`で紐付け
+- ファイル操作ツール（Read, Edit, Write, Glob, Grep等）はファイルパスを表示
 
 **ローカルコマンド グループ化**
 - `/compact`等のローカルコマンドと関連イベントを1つのカードにまとめる
