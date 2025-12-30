@@ -1,0 +1,17 @@
+services:
+  agentrace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "9080:9080"
+    volumes:
+      - ./data:/data
+    environment:
+      - DB_TYPE=sqlite
+      - DATABASE_URL=/data/agentrace.db
+      - DEV_MODE=false
+      - WEB_URL=
+      - GITHUB_CLIENT_ID=
+      - GITHUB_CLIENT_SECRET=
+    restart: unless-stopped

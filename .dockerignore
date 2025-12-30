@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# CLI (not needed in server container)
+cli/
+
+# Node.js
+web/node_modules
+
+# Go build artifacts
+server/server
+server/*.sqlite3
+server/db.sqlite3
+
+# Test files
+**/*_test.go
+
+# Local development
+.env
+.env.*
+*.local
+
+# Data directory
+data/
