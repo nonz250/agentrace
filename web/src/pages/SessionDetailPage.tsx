@@ -71,7 +71,7 @@ export function SessionDetailPage() {
       </div>
 
       <h2 className="mb-4 text-lg font-semibold text-gray-900">Timeline</h2>
-      <Timeline events={session.events || []} />
+      <Timeline events={session.events || []} projectPath={session.project_path} />
     </div>
   )
 }

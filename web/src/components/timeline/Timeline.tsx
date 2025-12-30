@@ -3,6 +3,7 @@ import type { Event } from '@/types/event'
 
 interface TimelineProps {
   events: Event[]
+  projectPath?: string
 }
 
 // Expanded block for display
@@ -188,7 +189,7 @@ function buildToolResultMap(events: Event[]): Map<string, { content: unknown; ti
 }
 
 // Expand events into individual display blocks
-function expandEvents(events: Event[]): DisplayBlock[] {
+function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
   const blocks: DisplayBlock[] = []
 
   // Build groups: Map<relatedEventId, localCommandId>
@@ -333,9 +334,10 @@ function expandEvents(events: Event[]): DisplayBlock[] {
             if (FILE_PATH_TOOLS.has(toolName)) {
               const input = blockObj?.input as Record<string, unknown> | undefined
               const filePath = input?.file_path as string | undefined
-              const cwd = event.payload?.cwd as string | undefined
+              // Use session's projectPath first, fall back to event's cwd
+              const basePath = projectPath || (event.payload?.cwd as string | undefined)
               if (filePath) {
-                const displayPath = getDisplayPath(filePath, cwd)
+                const displayPath = getDisplayPath(filePath, basePath)
                 label = `${toolName}: ${displayPath}`
               } else {
                 label = toolName
@@ -432,7 +434,7 @@ function expandEvents(events: Event[]): DisplayBlock[] {
   return blocks
 }
 
-export function Timeline({ events }: TimelineProps) {
+export function Timeline({ events, projectPath }: TimelineProps) {
   if (events.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
@@ -441,7 +443,7 @@ export function Timeline({ events }: TimelineProps) {
     )
   }
 
-  const displayBlocks = expandEvents(events)
+  const displayBlocks = expandEvents(events, projectPath)
 
   return (
     <div className="space-y-3">
