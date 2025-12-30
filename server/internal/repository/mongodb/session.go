@@ -143,6 +143,14 @@ func (r *SessionRepository) UpdateUserID(ctx context.Context, id string, userID 
 	return err
 }
 
+func (r *SessionRepository) UpdateProjectPath(ctx context.Context, id string, projectPath string) error {
+	_, err := r.collection.UpdateOne(ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{"project_path": projectPath}},
+	)
+	return err
+}
+
 func docToSession(doc *sessionDocument) *domain.Session {
 	return &domain.Session{
 		ID:              doc.ID,

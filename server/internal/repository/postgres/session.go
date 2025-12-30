@@ -130,6 +130,14 @@ func (r *SessionRepository) UpdateUserID(ctx context.Context, id string, userID 
 	return err
 }
 
+func (r *SessionRepository) UpdateProjectPath(ctx context.Context, id string, projectPath string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE sessions SET project_path = $1 WHERE id = $2`,
+		projectPath, id,
+	)
+	return err
+}
+
 func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	var session domain.Session
 	var userID, projectPath sql.NullString

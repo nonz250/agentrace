@@ -114,3 +114,15 @@ func (r *SessionRepository) UpdateUserID(ctx context.Context, id string, userID 
 	session.UserID = &userID
 	return nil
 }
+
+func (r *SessionRepository) UpdateProjectPath(ctx context.Context, id string, projectPath string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	session, ok := r.sessions[id]
+	if !ok {
+		return nil
+	}
+	session.ProjectPath = projectPath
+	return nil
+}

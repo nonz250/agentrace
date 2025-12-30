@@ -49,8 +49,12 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update project path if provided
+	// Update project path if provided and not already set
 	if req.Cwd != "" && session.ProjectPath == "" {
+		if err := h.repos.Session.UpdateProjectPath(ctx, session.ID, req.Cwd); err != nil {
+			http.Error(w, `{"error": "failed to update project path"}`, http.StatusInternalServerError)
+			return
+		}
 		session.ProjectPath = req.Cwd
 	}
 

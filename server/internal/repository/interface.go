@@ -13,6 +13,7 @@ type SessionRepository interface {
 	FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error)
 	FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error)
 	UpdateUserID(ctx context.Context, id string, userID string) error
+	UpdateProjectPath(ctx context.Context, id string, projectPath string) error
 }
 
 // EventRepository はイベントの永続化を担当する
