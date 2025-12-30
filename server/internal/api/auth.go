@@ -41,8 +41,7 @@ type RegisterRequest struct {
 
 // RegisterResponse is the response for user registration
 type RegisterResponse struct {
-	User   *domain.User `json:"user"`
-	APIKey string       `json:"api_key"`
+	User *domain.User `json:"user"`
 }
 
 // LoginRequest is the request body for login with email/password
@@ -205,30 +204,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate API key
-	rawKey, err := generateAPIKey()
-	if err != nil {
-		http.Error(w, `{"error": "failed to generate api key"}`, http.StatusInternalServerError)
-		return
-	}
-
-	keyHash, err := hashAPIKey(rawKey)
-	if err != nil {
-		http.Error(w, `{"error": "failed to hash api key"}`, http.StatusInternalServerError)
-		return
-	}
-
-	apiKey := &domain.APIKey{
-		UserID:    user.ID,
-		Name:      "Default",
-		KeyHash:   keyHash,
-		KeyPrefix: rawKey[:12] + "...",
-	}
-	if err := h.repos.APIKey.Create(ctx, apiKey); err != nil {
-		http.Error(w, `{"error": "failed to create api key"}`, http.StatusInternalServerError)
-		return
-	}
-
 	// Create web session for auto-login
 	sessionToken, err := generateToken()
 	if err != nil {
@@ -257,8 +232,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 
 	resp := RegisterResponse{
-		User:   user,
-		APIKey: rawKey,
+		User: user,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -11,7 +11,7 @@ export interface LoginParams {
   password: string
 }
 
-export async function register(params: RegisterParams): Promise<{ user: User; api_key: string }> {
+export async function register(params: RegisterParams): Promise<{ user: User }> {
   return fetchAPI('/auth/register', {
     method: 'POST',
     body: JSON.stringify(params),

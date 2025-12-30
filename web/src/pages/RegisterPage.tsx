@@ -4,14 +4,12 @@ import { useMutation } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { CopyButton } from '@/components/ui/CopyButton'
 import { useAuthContext } from '@/App'
 import * as authApi from '@/api/auth'
 
 export function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [apiKey, setApiKey] = useState<string | null>(null)
   const [githubEnabled, setGithubEnabled] = useState(false)
   const navigate = useNavigate()
   const { user, isLoading, refetch } = useAuthContext()
@@ -35,14 +33,14 @@ export function RegisterPage() {
 
   const registerMutation = useMutation({
     mutationFn: () => authApi.register({ email, password }),
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       // Update auth context to reflect logged-in state
       await refetch()
-      // If returnTo is provided, redirect there (skip API key display)
+      // Redirect to returnTo or dashboard
       if (returnTo && returnTo.startsWith('/')) {
         navigate(returnTo)
       } else {
-        setApiKey(data.api_key)
+        navigate('/')
       }
     },
   })
@@ -62,59 +60,6 @@ export function RegisterPage() {
       githubUrl.searchParams.set('returnTo', returnTo)
     }
     window.location.href = githubUrl.toString()
-  }
-
-  if (apiKey) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md">
-          <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="mb-6 text-center">
-              <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <span className="text-2xl text-green-600">&#10003;</span>
-              </div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                Account Created!
-              </h1>
-            </div>
-
-            <div className="mb-6">
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                Your API Key
-              </label>
-              <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2">
-                <code className="flex-1 break-all font-mono text-sm text-gray-900">
-                  {apiKey}
-                </code>
-                <CopyButton text={apiKey} />
-              </div>
-              <p className="mt-2 text-sm text-amber-600">
-                Save this key - it won't be shown again.
-              </p>
-            </div>
-
-            <div className="mb-6 border-t border-gray-200 pt-6">
-              <p className="mb-2 text-sm font-medium text-gray-700">
-                Set up CLI:
-              </p>
-              <div className="rounded-lg bg-gray-900 px-4 py-3">
-                <code className="font-mono text-sm text-gray-100">
-                  $ npx agentrace init
-                </code>
-              </div>
-            </div>
-
-            <Button
-              onClick={() => navigate('/')}
-              className="w-full"
-              size="lg"
-            >
-              Go to Dashboard
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
