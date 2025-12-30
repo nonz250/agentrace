@@ -17,7 +17,7 @@ function getIcon(block: DisplayBlock) {
     return <Terminal className="h-4 w-4" />
   }
   // Tool-related blocks use Wrench icon
-  if (block.blockType === 'tool_use' || block.blockType === 'tool_result') {
+  if (block.blockType === 'tool_use' || block.blockType === 'tool_result' || block.blockType === 'tool_group') {
     return <Wrench className="h-4 w-4" />
   }
   if (block.eventType === 'tool_use' || block.eventType === 'tool_result') {
@@ -41,7 +41,7 @@ function getIconStyle(block: DisplayBlock) {
     return 'bg-gray-100 text-gray-500'
   }
   // Tool-related blocks use orange
-  if (block.blockType === 'tool_use' || block.blockType === 'tool_result') {
+  if (block.blockType === 'tool_use' || block.blockType === 'tool_result' || block.blockType === 'tool_group') {
     return 'bg-orange-100 text-orange-600'
   }
   if (block.eventType === 'tool_use' || block.eventType === 'tool_result') {
@@ -101,6 +101,68 @@ function renderContent(block: DisplayBlock) {
                 )}
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Tool group - show tool input and result together
+  if (block.blockType === 'tool_group') {
+    const input = content?.input
+    const resultBlock = block.toolResultBlock
+    const resultContent = resultBlock?.content as Record<string, unknown> | undefined
+    const resultData = resultContent?.content
+
+    let displayResult: string
+    if (typeof resultData === 'string') {
+      displayResult = resultData
+    } else if (Array.isArray(resultData)) {
+      displayResult = resultData
+        .map((c) => {
+          if (typeof c === 'string') return c
+          if (c?.type === 'text' && typeof c.text === 'string') return c.text
+          return JSON.stringify(c, null, 2)
+        })
+        .join('\n')
+    } else {
+      displayResult = JSON.stringify(resultData, null, 2)
+    }
+
+    return (
+      <div className="space-y-3">
+        <div>
+          <div className="mb-1 text-xs font-medium text-gray-400">Input</div>
+          <SyntaxHighlighter
+            language="json"
+            style={oneLight}
+            customStyle={{
+              fontSize: '0.75rem',
+              borderRadius: '0.5rem',
+              margin: 0,
+              maxHeight: '300px',
+              overflow: 'auto',
+            }}
+          >
+            {JSON.stringify(input, null, 2)}
+          </SyntaxHighlighter>
+        </div>
+        {resultBlock && (
+          <div>
+            <div className="mb-1 text-xs font-medium text-gray-400">Result</div>
+            <SyntaxHighlighter
+              language="json"
+              style={oneLight}
+              customStyle={{
+                fontSize: '0.75rem',
+                borderRadius: '0.5rem',
+                margin: 0,
+                maxHeight: '300px',
+                overflow: 'auto',
+              }}
+            >
+              {displayResult}
+            </SyntaxHighlighter>
           </div>
         )}
       </div>
@@ -298,11 +360,12 @@ function renderContent(block: DisplayBlock) {
 }
 
 export function ContentBlockCard({ block }: ContentBlockCardProps) {
-  // Thinking, Tool Use, Tool Result, Local Command blocks default to collapsed
+  // Thinking, Tool Use, Tool Result, Tool Group, Local Command blocks default to collapsed
   const [expanded, setExpanded] = useState(
     block.blockType !== 'thinking' &&
       block.blockType !== 'tool_use' &&
       block.blockType !== 'tool_result' &&
+      block.blockType !== 'tool_group' &&
       block.blockType !== 'local_command' &&
       block.blockType !== 'local_command_output' &&
       block.blockType !== 'local_command_group'

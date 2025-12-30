@@ -9,13 +9,15 @@ interface TimelineProps {
 export interface DisplayBlock {
   id: string
   eventType: 'user' | 'assistant' | 'tool_use' | 'tool_result'
-  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'local_command', 'local_command_output', 'local_command_group', etc.
+  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'tool_group', 'local_command', 'local_command_output', 'local_command_group', etc.
   label: string // Display label like 'User', 'Assistant (Thinking)', 'Assistant (Tool: Edit)'
   timestamp: string
   content: unknown
   originalEvent: Event
-  // For grouped local commands
+  // For grouped local commands and tool groups
   childBlocks?: DisplayBlock[]
+  // For tool_group: the result block
+  toolResultBlock?: DisplayBlock
 }
 
 // Extract command name from local command content
@@ -93,6 +95,30 @@ function buildLocalCommandGroups(events: Event[], _eventMap: Map<string, Event>)
   return groups
 }
 
+// Build a map of tool_use_id -> tool_result content block
+function buildToolResultMap(events: Event[]): Map<string, { content: unknown; timestamp: string; event: Event }> {
+  const map = new Map<string, { content: unknown; timestamp: string; event: Event }>()
+
+  for (const event of events) {
+    if (event.event_type !== 'user') continue
+
+    const message = event.payload?.message as Record<string, unknown> | undefined
+    const content = message?.content
+    const timestamp = (event.payload?.timestamp as string) || event.created_at
+
+    if (Array.isArray(content)) {
+      for (const block of content) {
+        const blockObj = block as Record<string, unknown>
+        if (blockObj?.type === 'tool_result' && typeof blockObj?.tool_use_id === 'string') {
+          map.set(blockObj.tool_use_id, { content: block, timestamp, event })
+        }
+      }
+    }
+  }
+
+  return map
+}
+
 // Expand events into individual display blocks
 function expandEvents(events: Event[]): DisplayBlock[] {
   const blocks: DisplayBlock[] = []
@@ -100,6 +126,12 @@ function expandEvents(events: Event[]): DisplayBlock[] {
 
   // Build groups: Map<relatedEventId, localCommandId>
   const eventToCommandMap = buildLocalCommandGroups(events, eventMap)
+
+  // Build tool result map: Map<tool_use_id, tool_result_content>
+  const toolResultMap = buildToolResultMap(events)
+
+  // Track which tool_result blocks should be skipped (grouped with tool_use)
+  const groupedToolResultIds = new Set<string>()
 
   // Track which events should be skipped (they'll be grouped with their command)
   const relatedEventIds = new Set(eventToCommandMap.keys())
@@ -118,7 +150,17 @@ function expandEvents(events: Event[]): DisplayBlock[] {
       // User events: expand content blocks
       if (Array.isArray(content)) {
         content.forEach((block, i) => {
-          const blockType = (block as Record<string, unknown>)?.type as string || 'text'
+          const blockObj = block as Record<string, unknown>
+          const blockType = blockObj?.type as string || 'text'
+
+          // Skip tool_result blocks that have been grouped with their tool_use
+          if (blockType === 'tool_result') {
+            const toolUseId = blockObj?.tool_use_id as string
+            if (toolUseId && groupedToolResultIds.has(toolUseId)) {
+              return // Skip this block
+            }
+          }
+
           blocks.push({
             id: `${event.id}-${i}`,
             eventType: 'user',
@@ -218,7 +260,39 @@ function expandEvents(events: Event[]): DisplayBlock[] {
             label = 'Assistant (Thinking)'
           } else if (blockType === 'tool_use') {
             const toolName = blockObj?.name as string || 'Unknown'
+            const toolUseId = blockObj?.id as string
             label = `Tool: ${toolName}`
+
+            // Check if there's a matching tool_result
+            const toolResult = toolUseId ? toolResultMap.get(toolUseId) : undefined
+
+            if (toolResult) {
+              // Mark this tool_result as grouped
+              groupedToolResultIds.add(toolUseId)
+
+              // Create a tool_group block
+              const resultBlock: DisplayBlock = {
+                id: `${event.id}-${i}-result`,
+                eventType: 'user',
+                blockType: 'tool_result',
+                label: 'Result',
+                timestamp: toolResult.timestamp,
+                content: toolResult.content,
+                originalEvent: toolResult.event,
+              }
+
+              blocks.push({
+                id: `${event.id}-${i}`,
+                eventType: 'assistant',
+                blockType: 'tool_group',
+                label,
+                timestamp,
+                content: block,
+                originalEvent: event,
+                toolResultBlock: resultBlock,
+              })
+              return // Skip the normal push
+            }
           } else if (blockType === 'tool_result') {
             label = 'Tool Result'
           } else if (blockType === 'text') {
