@@ -33,8 +33,49 @@ function extractCommandName(content: string): string | null {
   return match ? match[1] : null
 }
 
-// Tools that should display file path in their label
-const FILE_PATH_TOOLS = new Set(['Read', 'Edit', 'Write'])
+// Tool params extractor configuration
+// Each tool can define how to extract display params from its input
+type ToolParamsExtractor = (
+  input: Record<string, unknown>,
+  context: { projectPath?: string; cwd?: string }
+) => string | undefined
+
+const TOOL_PARAMS_EXTRACTORS: Record<string, ToolParamsExtractor> = {
+  // File-based tools: show relative file path
+  Read: (input, ctx) => {
+    const filePath = input.file_path as string | undefined
+    return filePath ? getDisplayPath(filePath, ctx.projectPath || ctx.cwd) : undefined
+  },
+  Edit: (input, ctx) => {
+    const filePath = input.file_path as string | undefined
+    return filePath ? getDisplayPath(filePath, ctx.projectPath || ctx.cwd) : undefined
+  },
+  Write: (input, ctx) => {
+    const filePath = input.file_path as string | undefined
+    return filePath ? getDisplayPath(filePath, ctx.projectPath || ctx.cwd) : undefined
+  },
+  // Task tool: show description
+  Task: (input) => input.description as string | undefined,
+  // Bash tool: show truncated command
+  Bash: (input) => {
+    const command = input.command as string | undefined
+    if (!command) return undefined
+    const maxLength = 50
+    return command.length > maxLength ? command.slice(0, maxLength) + '...' : command
+  },
+  // Glob tool: show pattern
+  Glob: (input) => input.pattern as string | undefined,
+}
+
+function extractToolParams(
+  toolName: string,
+  input: Record<string, unknown> | undefined,
+  context: { projectPath?: string; cwd?: string }
+): string | undefined {
+  if (!input) return undefined
+  const extractor = TOOL_PARAMS_EXTRACTORS[toolName]
+  return extractor ? extractor(input, context) : undefined
+}
 
 // Extract display path from absolute file path
 // Returns relative path from cwd if possible, otherwise just the filename
@@ -336,18 +377,12 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
             const toolName = blockObj?.name as string || 'Unknown'
             const toolUseId = blockObj?.id as string
 
-            label = { text: `Tool: ${toolName}` }
-
-            // For file-based tools, extract the file path as tool params
-            if (FILE_PATH_TOOLS.has(toolName)) {
-              const input = blockObj?.input as Record<string, unknown> | undefined
-              const filePath = input?.file_path as string | undefined
-              // Use session's projectPath first, fall back to event's cwd
-              const basePath = projectPath || (event.payload?.cwd as string | undefined)
-              if (filePath) {
-                label.params = getDisplayPath(filePath, basePath)
-              }
-            }
+            const input = blockObj?.input as Record<string, unknown> | undefined
+            const params = extractToolParams(toolName, input, {
+              projectPath,
+              cwd: event.payload?.cwd as string | undefined,
+            })
+            label = { text: `Tool: ${toolName}`, params }
 
             // Check if there's a matching tool_result
             const toolResult = toolUseId ? toolResultMap.get(toolUseId) : undefined
