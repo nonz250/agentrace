@@ -21,6 +21,7 @@ type SessionRepository interface {
 type EventRepository interface {
 	Create(ctx context.Context, event *domain.Event) error
 	FindBySessionID(ctx context.Context, sessionID string) ([]*domain.Event, error)
+	CountBySessionID(ctx context.Context, sessionID string) (int, error)
 }
 
 // UserRepository はユーザーの永続化を担当する

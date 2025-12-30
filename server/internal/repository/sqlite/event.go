@@ -112,3 +112,15 @@ func getTimestampFromPayload(e *domain.Event) time.Time {
 	}
 	return e.CreatedAt
 }
+
+func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM events WHERE session_id = ?`,
+		sessionID,
+	).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}

@@ -80,3 +80,15 @@ func (r *EventRepository) scanEvent(rows *sql.Rows) (*domain.Event, error) {
 
 	return &event, nil
 }
+
+func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM events WHERE session_id = $1`,
+		sessionID,
+	).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}

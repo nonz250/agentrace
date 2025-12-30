@@ -68,3 +68,17 @@ func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string)
 
 	return events, nil
 }
+
+func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	count := 0
+	for _, e := range r.events {
+		if e.SessionID == sessionID {
+			count++
+		}
+	}
+
+	return count, nil
+}

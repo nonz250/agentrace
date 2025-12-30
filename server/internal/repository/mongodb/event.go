@@ -108,3 +108,11 @@ func getTimestampFromPayload(e *domain.Event) time.Time {
 	}
 	return e.CreatedAt
 }
+
+func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string) (int, error) {
+	count, err := r.collection.CountDocuments(ctx, bson.M{"session_id": sessionID})
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}

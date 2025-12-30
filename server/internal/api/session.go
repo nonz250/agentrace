@@ -131,11 +131,10 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Get event count (filtered)
-		events, err := h.repos.Event.FindBySessionID(ctx, s.ID)
-		eventCount := 0
-		if err == nil {
-			eventCount = len(filterEvents(events))
+		// Get event count using COUNT query (much faster than fetching all events)
+		eventCount, err := h.repos.Event.CountBySessionID(ctx, s.ID)
+		if err != nil {
+			eventCount = 0
 		}
 
 		sessionResponses[i] = sessionToResponse(s, userName, eventCount)
