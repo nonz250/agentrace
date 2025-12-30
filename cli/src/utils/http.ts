@@ -4,6 +4,8 @@ export interface IngestPayload {
   session_id: string;
   transcript_lines: unknown[];
   cwd?: string;
+  git_remote_url?: string;
+  git_branch?: string;
 }
 
 export interface IngestResponse {

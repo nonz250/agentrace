@@ -23,6 +23,8 @@ type SessionResponse struct {
 	UserName        *string `json:"user_name"`
 	ClaudeSessionID string  `json:"claude_session_id"`
 	ProjectPath     string  `json:"project_path"`
+	GitRemoteURL    string  `json:"git_remote_url"`
+	GitBranch       string  `json:"git_branch"`
 	StartedAt       string  `json:"started_at"`
 	EndedAt         *string `json:"ended_at"`
 	EventCount      int     `json:"event_count"`
@@ -53,6 +55,8 @@ func sessionToResponse(s *domain.Session, userName *string, eventCount int) *Ses
 		UserName:        userName,
 		ClaudeSessionID: s.ClaudeSessionID,
 		ProjectPath:     s.ProjectPath,
+		GitRemoteURL:    s.GitRemoteURL,
+		GitBranch:       s.GitBranch,
 		StartedAt:       s.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
 		EndedAt:         endedAt,
 		EventCount:      eventCount,

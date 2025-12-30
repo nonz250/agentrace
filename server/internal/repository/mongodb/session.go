@@ -26,6 +26,8 @@ type sessionDocument struct {
 	UserID          *string    `bson:"user_id,omitempty"`
 	ClaudeSessionID string     `bson:"claude_session_id"`
 	ProjectPath     string     `bson:"project_path"`
+	GitRemoteURL    string     `bson:"git_remote_url"`
+	GitBranch       string     `bson:"git_branch"`
 	StartedAt       time.Time  `bson:"started_at"`
 	EndedAt         *time.Time `bson:"ended_at,omitempty"`
 	CreatedAt       time.Time  `bson:"created_at"`
@@ -47,6 +49,8 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		UserID:          session.UserID,
 		ClaudeSessionID: session.ClaudeSessionID,
 		ProjectPath:     session.ProjectPath,
+		GitRemoteURL:    session.GitRemoteURL,
+		GitBranch:       session.GitBranch,
 		StartedAt:       session.StartedAt,
 		EndedAt:         session.EndedAt,
 		CreatedAt:       session.CreatedAt,
@@ -151,12 +155,22 @@ func (r *SessionRepository) UpdateProjectPath(ctx context.Context, id string, pr
 	return err
 }
 
+func (r *SessionRepository) UpdateGitInfo(ctx context.Context, id string, gitRemoteURL string, gitBranch string) error {
+	_, err := r.collection.UpdateOne(ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{"git_remote_url": gitRemoteURL, "git_branch": gitBranch}},
+	)
+	return err
+}
+
 func docToSession(doc *sessionDocument) *domain.Session {
 	return &domain.Session{
 		ID:              doc.ID,
 		UserID:          doc.UserID,
 		ClaudeSessionID: doc.ClaudeSessionID,
 		ProjectPath:     doc.ProjectPath,
+		GitRemoteURL:    doc.GitRemoteURL,
+		GitBranch:       doc.GitBranch,
 		StartedAt:       doc.StartedAt,
 		EndedAt:         doc.EndedAt,
 		CreatedAt:       doc.CreatedAt,

@@ -14,6 +14,7 @@ type SessionRepository interface {
 	FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error)
 	UpdateUserID(ctx context.Context, id string, userID string) error
 	UpdateProjectPath(ctx context.Context, id string, projectPath string) error
+	UpdateGitInfo(ctx context.Context, id string, gitRemoteURL string, gitBranch string) error
 }
 
 // EventRepository はイベントの永続化を担当する

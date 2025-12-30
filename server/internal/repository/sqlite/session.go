@@ -35,9 +35,10 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO sessions (id, user_id, claude_session_id, project_path, started_at, ended_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO sessions (id, user_id, claude_session_id, project_path, git_remote_url, git_branch, started_at, ended_at, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.UserID, session.ClaudeSessionID, session.ProjectPath,
+		session.GitRemoteURL, session.GitBranch,
 		session.StartedAt.Format(time.RFC3339), endedAt, session.CreatedAt.Format(time.RFC3339),
 	)
 	return err
@@ -45,14 +46,14 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 
 func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Session, error) {
 	return r.scanSession(r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, claude_session_id, project_path, started_at, ended_at, created_at
+		`SELECT id, user_id, claude_session_id, project_path, git_remote_url, git_branch, started_at, ended_at, created_at
 		 FROM sessions WHERE id = ?`,
 		id,
 	))
 }
 
 func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error) {
-	query := `SELECT id, user_id, claude_session_id, project_path, started_at, ended_at, created_at
+	query := `SELECT id, user_id, claude_session_id, project_path, git_remote_url, git_branch, started_at, ended_at, created_at
 		 FROM sessions ORDER BY started_at DESC`
 
 	if limit > 0 {
@@ -88,7 +89,7 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error) {
 	// First try to find existing session
 	session, err := r.scanSession(r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, claude_session_id, project_path, started_at, ended_at, created_at
+		`SELECT id, user_id, claude_session_id, project_path, git_remote_url, git_branch, started_at, ended_at, created_at
 		 FROM sessions WHERE claude_session_id = ?`,
 		claudeSessionID,
 	))
@@ -144,11 +145,19 @@ func (r *SessionRepository) UpdateProjectPath(ctx context.Context, id string, pr
 	return err
 }
 
+func (r *SessionRepository) UpdateGitInfo(ctx context.Context, id string, gitRemoteURL string, gitBranch string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE sessions SET git_remote_url = ?, git_branch = ? WHERE id = ?`,
+		gitRemoteURL, gitBranch, id,
+	)
+	return err
+}
+
 func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	var session domain.Session
-	var userID, projectPath, startedAt, endedAt, createdAt sql.NullString
+	var userID, projectPath, gitRemoteURL, gitBranch, startedAt, endedAt, createdAt sql.NullString
 
-	err := row.Scan(&session.ID, &userID, &session.ClaudeSessionID, &projectPath, &startedAt, &endedAt, &createdAt)
+	err := row.Scan(&session.ID, &userID, &session.ClaudeSessionID, &projectPath, &gitRemoteURL, &gitBranch, &startedAt, &endedAt, &createdAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -161,6 +170,12 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	}
 	if projectPath.Valid {
 		session.ProjectPath = projectPath.String
+	}
+	if gitRemoteURL.Valid {
+		session.GitRemoteURL = gitRemoteURL.String
+	}
+	if gitBranch.Valid {
+		session.GitBranch = gitBranch.String
 	}
 	if startedAt.Valid {
 		session.StartedAt, _ = time.Parse(time.RFC3339, startedAt.String)
@@ -178,9 +193,9 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 
 func (r *SessionRepository) scanSessionFromRows(rows *sql.Rows) (*domain.Session, error) {
 	var session domain.Session
-	var userID, projectPath, startedAt, endedAt, createdAt sql.NullString
+	var userID, projectPath, gitRemoteURL, gitBranch, startedAt, endedAt, createdAt sql.NullString
 
-	err := rows.Scan(&session.ID, &userID, &session.ClaudeSessionID, &projectPath, &startedAt, &endedAt, &createdAt)
+	err := rows.Scan(&session.ID, &userID, &session.ClaudeSessionID, &projectPath, &gitRemoteURL, &gitBranch, &startedAt, &endedAt, &createdAt)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +205,12 @@ func (r *SessionRepository) scanSessionFromRows(rows *sql.Rows) (*domain.Session
 	}
 	if projectPath.Valid {
 		session.ProjectPath = projectPath.String
+	}
+	if gitRemoteURL.Valid {
+		session.GitRemoteURL = gitRemoteURL.String
+	}
+	if gitBranch.Valid {
+		session.GitBranch = gitBranch.String
 	}
 	if startedAt.Valid {
 		session.StartedAt, _ = time.Parse(time.RFC3339, startedAt.String)

@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     claude_session_id TEXT,
     project_path TEXT,
+    git_remote_url TEXT,
+    git_branch TEXT,
     started_at TEXT,
     ended_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))

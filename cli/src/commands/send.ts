@@ -1,11 +1,38 @@
+import { execSync } from "child_process";
 import { loadConfig } from "../config/manager.js";
-import { getNewLines, saveCursor } from "../config/cursor.js";
+import { getNewLines, saveCursor, hasCursor } from "../config/cursor.js";
 import { sendIngest } from "../utils/http.js";
 
 interface HookInput {
   session_id?: string;
   transcript_path?: string;
   cwd?: string;
+}
+
+function getGitRemoteUrl(cwd: string): string | null {
+  try {
+    const url = execSync("git remote get-url origin", {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    return url || null;
+  } catch {
+    return null; // Not a git repo or no remote
+  }
+}
+
+function getGitBranch(cwd: string): string | null {
+  try {
+    const branch = execSync("git branch --show-current", {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    return branch || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function sendCommand(): Promise<void> {
@@ -71,11 +98,21 @@ export async function sendCommand(): Promise<void> {
     process.exit(0);
   }
 
+  // Extract git info only on first send (when cursor doesn't exist yet)
+  let gitRemoteUrl: string | undefined;
+  let gitBranch: string | undefined;
+  if (data.cwd && !hasCursor(sessionId)) {
+    gitRemoteUrl = getGitRemoteUrl(data.cwd) ?? undefined;
+    gitBranch = getGitBranch(data.cwd) ?? undefined;
+  }
+
   // Send to server
   const result = await sendIngest({
     session_id: sessionId,
     transcript_lines: transcriptLines,
     cwd: data.cwd,
+    git_remote_url: gitRemoteUrl,
+    git_branch: gitBranch,
   });
 
   if (result.ok) {

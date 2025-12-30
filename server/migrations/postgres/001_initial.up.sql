@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     claude_session_id VARCHAR(255),
     project_path VARCHAR(1024),
+    git_remote_url VARCHAR(1024),
+    git_branch VARCHAR(255),
     started_at TIMESTAMP WITH TIME ZONE,
     ended_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

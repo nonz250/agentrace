@@ -27,6 +27,11 @@ export function getCursor(sessionId: string): number {
   }
 }
 
+export function hasCursor(sessionId: string): boolean {
+  const cursorPath = getCursorPath(sessionId);
+  return fs.existsSync(cursorPath);
+}
+
 export function saveCursor(sessionId: string, lineCount: number): void {
   if (!fs.existsSync(CURSORS_DIR)) {
     fs.mkdirSync(CURSORS_DIR, { recursive: true });

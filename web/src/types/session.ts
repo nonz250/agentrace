@@ -6,6 +6,8 @@ export interface Session {
   user_name: string | null
   claude_session_id: string
   project_path: string
+  git_remote_url: string
+  git_branch: string
   started_at: string
   ended_at: string | null
   event_count: number

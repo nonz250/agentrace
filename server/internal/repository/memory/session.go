@@ -126,3 +126,16 @@ func (r *SessionRepository) UpdateProjectPath(ctx context.Context, id string, pr
 	session.ProjectPath = projectPath
 	return nil
 }
+
+func (r *SessionRepository) UpdateGitInfo(ctx context.Context, id string, gitRemoteURL string, gitBranch string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	session, ok := r.sessions[id]
+	if !ok {
+		return nil
+	}
+	session.GitRemoteURL = gitRemoteURL
+	session.GitBranch = gitBranch
+	return nil
+}

@@ -20,6 +20,8 @@ type IngestRequest struct {
 	SessionID       string                   `json:"session_id"`
 	TranscriptLines []map[string]interface{} `json:"transcript_lines"`
 	Cwd             string                   `json:"cwd"`
+	GitRemoteURL    string                   `json:"git_remote_url"`
+	GitBranch       string                   `json:"git_branch"`
 }
 
 type IngestResponse struct {
@@ -56,6 +58,16 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		session.ProjectPath = req.Cwd
+	}
+
+	// Update git info if provided and not already set
+	if (req.GitRemoteURL != "" || req.GitBranch != "") && session.GitRemoteURL == "" {
+		if err := h.repos.Session.UpdateGitInfo(ctx, session.ID, req.GitRemoteURL, req.GitBranch); err != nil {
+			http.Error(w, `{"error": "failed to update git info"}`, http.StatusInternalServerError)
+			return
+		}
+		session.GitRemoteURL = req.GitRemoteURL
+		session.GitBranch = req.GitBranch
 	}
 
 	// Create events from transcript lines
