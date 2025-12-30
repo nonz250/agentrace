@@ -28,7 +28,7 @@ function extractCommandName(content: string): string | null {
 }
 
 // Tools that should display file path in their label
-const FILE_PATH_TOOLS = new Set(['Read', 'Edit'])
+const FILE_PATH_TOOLS = new Set(['Read', 'Edit', 'Write'])
 
 // Extract display path from absolute file path
 // Returns relative path from cwd if possible, otherwise just the filename
@@ -338,9 +338,9 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
               const basePath = projectPath || (event.payload?.cwd as string | undefined)
               if (filePath) {
                 const displayPath = getDisplayPath(filePath, basePath)
-                label = `${toolName}: ${displayPath}`
+                label = `Tool: ${toolName} ${displayPath}`
               } else {
-                label = toolName
+                label = `Tool: ${toolName}`
               }
             } else {
               label = `Tool: ${toolName}`
