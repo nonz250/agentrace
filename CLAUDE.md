@@ -8,9 +8,8 @@ Claude Codeのやりとりをチームでレビューできるサービス
 | ------ | ---- |
 | ローカル | 個人でローカル起動してシングルユーザで使用 |
 | イントラネット | 社内サーバーにホストしてチームで使用 |
-| 開発 | DEV_MODEでデバッグログを出力しながら開発 |
 
-※ インターネット公開は想定しない（GitHub OAuthはオプションで対応）
+※ ClaudeCode の動作ログはコードそのものや実行環境に関する情報などが含まれているため、インターネット上に公開する形のホスティングは想定しない
 
 ## 技術スタック
 
@@ -33,16 +32,6 @@ agentrace/
 ## アーキテクチャ
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ ユーザー登録（Web）                                          │
-├─────────────────────────────────────────────────────────────┤
-│  ブラウザで http://server:8080 にアクセス                    │
-│      ↓                                                      │
-│  「Register」→ email + password 入力 → APIキー発行          │
-│      ↓                                                      │
-│  APIキーをコピー（この1回のみ表示）                          │
-└─────────────────────────────────────────────────────────────┘
-
 ┌─────────────────────────────────────────────────────────────┐
 │ CLI セットアップ（ブラウザ連携）                             │
 ├─────────────────────────────────────────────────────────────┤
@@ -261,39 +250,39 @@ agentrace/
 
 ## 開発環境での動作確認
 
-### 1. サーバー起動
+### Docker を使う場合
+
+ローカルでイメージをビルドして起動する。
+
+```bash
+# ビルド
+docker build -t agentrace:latest .
+
+# 起動
+docker run -d --name agentrace -p 9080:9080 -v $(pwd)/data:/data -e DEV_MODE=true agentrace:latest
+
+# CLI初期化
+npx agentrace init --url http://localhost:9080
+```
+
+アクセス: http://localhost:9080
+
+### Docker を使わない場合（個別起動）
+
+server, web, cli を別々に起動して開発する。
+
+#### 1. サーバー起動
 
 ```bash
 cd server
-DEV_MODE=true WEB_URL=http://localhost:5173 go run ./cmd/server
+DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./dev.db WEB_URL=http://localhost:5173 go run ./cmd/server
 ```
 
-- `DEV_MODE=true` でリクエストログを出力
-- `WEB_URL` でフロントエンドURLを指定（CLI init時のリダイレクト先）
+- `DEV_MODE=true`: リクエストログを出力
+- `DB_TYPE=sqlite DATABASE_URL=./dev.db`: SQLiteを使用
+- `WEB_URL`: フロントエンドURL（CLI init時のリダイレクト先）
 
-### 2. ユーザー登録
-
-```bash
-# curlでユーザー登録（APIキーが返される）
-curl -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "password": "yourpassword"}'
-# => {"user": {...}, "api_key": "agtr_xxxxx"}
-```
-
-### 3. CLI初期化（開発モード）
-
-```bash
-cd cli
-npm install
-npx tsx src/index.ts init --url http://localhost:8080 --dev
-# ブラウザが開く → ログイン/登録 → 自動的にAPIキー取得
-```
-
-- `--url` でサーバーURLを指定（必須）
-- `--dev` オプションでローカルCLIパスを使用
-
-### 4. Web UI起動
+#### 2. Web UI起動
 
 ```bash
 cd web
@@ -304,16 +293,24 @@ npm run dev
 - http://localhost:5173 でアクセス
 - Viteのプロキシ設定でAPIリクエストは自動的に localhost:8080 に転送
 
-### 5. 動作確認
-
-Claude Codeで操作すると、Stopイベントごとにtranscript差分がサーバーに送信される
+#### 3. CLI初期化（開発モード）
 
 ```bash
-# セッション一覧取得
-curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions
+cd cli
+npm install
+npx tsx src/index.ts init --url http://localhost:8080 --dev
+```
 
-# セッション詳細取得
-curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions/{id}
+- `--dev` オプションでローカルCLIパス（`npx tsx ...`）を使用
+- ブラウザが開く → 登録/ログイン → 自動的にAPIキー取得
+
+#### 4. 動作確認
+
+Claude Codeで操作すると、Stopイベントごとにtranscript差分がサーバーに送信される。
+
+```bash
+# セッション一覧取得（API）
+curl -H "Authorization: Bearer agtr_xxxxx" http://localhost:8080/api/sessions
 
 # Webダッシュボードにログイン
 npx tsx src/index.ts login
