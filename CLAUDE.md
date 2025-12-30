@@ -193,10 +193,21 @@ agentrace/
 
 Dockerを使って簡単にローカル環境を構築できる。
 
+### Docker Hub
+
+ビルド済みイメージを公開している。
+
+- **リポジトリ**: https://hub.docker.com/r/satetsu888/agentrace
+- **対応アーキテクチャ**: `linux/amd64`, `linux/arm64`
+
 ### イメージのビルド
 
 ```bash
+# ローカルビルド
 docker build -t agentrace:latest .
+
+# マルチアーキテクチャビルド & push
+docker buildx build --platform linux/amd64,linux/arm64 -t satetsu888/agentrace:latest --push .
 ```
 
 ### 起動
