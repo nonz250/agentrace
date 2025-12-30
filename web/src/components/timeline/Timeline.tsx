@@ -65,6 +65,8 @@ const TOOL_PARAMS_EXTRACTORS: Record<string, ToolParamsExtractor> = {
   },
   // Glob tool: show pattern
   Glob: (input) => input.pattern as string | undefined,
+  // Grep tool: show pattern
+  Grep: (input) => input.pattern as string | undefined,
 }
 
 function extractToolParams(
