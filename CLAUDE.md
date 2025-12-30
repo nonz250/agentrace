@@ -131,6 +131,7 @@ agentrace/
 │       │   ├── event.go
 │       │   ├── user.go
 │       │   ├── password_credential.go  # パスワード認証情報
+│       │   ├── oauth_connection.go     # OAuth連携
 │       │   ├── apikey.go
 │       │   └── websession.go
 │       └── repository/          # データアクセス層
@@ -295,6 +296,9 @@ npx tsx src/index.ts login
 | POST | `/auth/login` | なし | メール/パスワードでログイン |
 | POST | `/auth/login/apikey` | なし | APIキーでログイン |
 | GET | `/auth/session` | なし | トークンでログイン（CLI経由） |
+| GET | `/auth/config` | なし | OAuth設定確認（有効なプロバイダー） |
+| GET | `/auth/github` | なし | GitHub OAuth開始（リダイレクト） |
+| GET | `/auth/github/callback` | なし | GitHub OAuthコールバック |
 | POST | `/api/auth/web-session` | Bearer | Webログイントークン発行 |
 | POST | `/api/auth/logout` | Session | ログアウト |
 | GET | `/api/me` | Session | 自分の情報 |
@@ -312,6 +316,8 @@ npx tsx src/index.ts login
 | `DATABASE_URL` | DB接続文字列 | - |
 | `DEV_MODE` | デバッグログ有効化 | false |
 | `WEB_URL` | フロントエンドURL（開発時のリダイレクト用） | - |
+| `GITHUB_CLIENT_ID` | GitHub OAuth Client ID | - |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret | - |
 
 ### DATABASE_URL の形式
 

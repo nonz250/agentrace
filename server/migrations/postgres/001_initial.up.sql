@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS password_credentials (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- OAuth Connections table (for social login)
+CREATE TABLE IF NOT EXISTS oauth_connections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL,
+    provider_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(provider, provider_id)
+);
+
 -- API Keys table
 CREATE TABLE IF NOT EXISTS api_keys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -58,6 +68,8 @@ CREATE TABLE IF NOT EXISTS events (
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_password_credentials_user ON password_credentials(user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_connections_user ON oauth_connections(user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_connections_provider ON oauth_connections(provider, provider_id);
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(token);

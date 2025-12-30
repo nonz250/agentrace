@@ -55,6 +55,14 @@ type PasswordCredentialRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// OAuthConnectionRepository はOAuth連携の永続化を担当する
+type OAuthConnectionRepository interface {
+	Create(ctx context.Context, conn *domain.OAuthConnection) error
+	FindByProviderAndProviderID(ctx context.Context, provider, providerID string) (*domain.OAuthConnection, error)
+	FindByUserID(ctx context.Context, userID string) ([]*domain.OAuthConnection, error)
+	Delete(ctx context.Context, id string) error
+}
+
 // Repositories は全リポジトリをまとめる
 type Repositories struct {
 	Session            SessionRepository
@@ -63,4 +71,5 @@ type Repositories struct {
 	APIKey             APIKeyRepository
 	WebSession         WebSessionRepository
 	PasswordCredential PasswordCredentialRepository
+	OAuthConnection    OAuthConnectionRepository
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -27,6 +28,8 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	r.HandleFunc("/auth/login", authHandler.Login).Methods("POST")
 	r.HandleFunc("/auth/login/apikey", authHandler.LoginWithAPIKey).Methods("POST")
 	r.HandleFunc("/auth/session", authHandler.Session).Methods("GET")
+	r.HandleFunc("/auth/github", authHandler.GitHubAuth).Methods("GET")
+	r.HandleFunc("/auth/github/callback", authHandler.GitHubCallback).Methods("GET")
 
 	// API routes (Bearer auth - for CLI)
 	apiBearer := r.PathPrefix("/api").Subrouter()
@@ -54,6 +57,17 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status": "ok"}`))
+	}).Methods("GET")
+
+	// Auth config (no auth) - for frontend to check available OAuth providers
+	r.HandleFunc("/auth/config", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		response := struct {
+			GitHubEnabled bool `json:"github_enabled"`
+		}{
+			GitHubEnabled: cfg.IsGitHubOAuthEnabled(),
+		}
+		json.NewEncoder(w).Encode(response)
 	}).Methods("GET")
 
 	// Setup redirect (for CLI init flow)

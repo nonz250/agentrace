@@ -43,3 +43,11 @@ export async function getMe(): Promise<User> {
 export async function getUsers(): Promise<{ users: User[] }> {
   return fetchAPI('/api/users')
 }
+
+export interface AuthConfig {
+  github_enabled: boolean
+}
+
+export async function getAuthConfig(): Promise<AuthConfig> {
+  return fetchAPI('/auth/config')
+}

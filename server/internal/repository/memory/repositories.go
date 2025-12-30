@@ -10,5 +10,6 @@ func NewRepositories() *repository.Repositories {
 		APIKey:             NewAPIKeyRepository(),
 		WebSession:         NewWebSessionRepository(),
 		PasswordCredential: NewPasswordCredentialRepository(),
+		OAuthConnection:    NewOAuthConnectionRepository(),
 	}
 }

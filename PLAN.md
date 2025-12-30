@@ -252,13 +252,15 @@ type OAuthConnection struct {
 - [x] Web: LoginPage をメール/パスワード認証に変更
 - [x] Web: Header に display_name || email を表示
 
-**GitHub OAuth:**
-- [ ] OAuthConnection ドメインモデル追加
-- [ ] OAuthConnectionRepository 追加
-- [ ] GET `/auth/github` ハンドラ
-- [ ] GET `/auth/github/callback` ハンドラ
-- [ ] Web: LoginPage に「Login with GitHub」ボタン追加
-- [ ] Web: RegisterPage に「Sign up with GitHub」ボタン追加
+**GitHub OAuth:** ✅ 完了
+- [x] OAuthConnection ドメインモデル追加
+- [x] OAuthConnectionRepository 追加（memory, sqlite, postgres, mongodb）
+- [x] GET `/auth/github` ハンドラ（GitHub認証開始）
+- [x] GET `/auth/github/callback` ハンドラ（コールバック処理）
+- [x] GET `/auth/config` API（OAuth設定確認）
+- [x] Web: LoginPage に「Continue with GitHub」ボタン追加
+- [x] Web: RegisterPage に「Sign up with GitHub」ボタン追加
+- [x] ボタンは GITHUB_CLIENT_ID/SECRET が設定されている場合のみ表示
 
 **将来対応（スコープ外）:**
 - Google OAuth
@@ -325,11 +327,13 @@ npx agentrace on
 6. Web: App.tsx に /setup ルート追加
 7. useAuth フックで returnTo 対応
 
-### Phase 4: GitHub OAuth
+### Phase 4: GitHub OAuth ✅ 完了
 
-1. OAuthConnection モデル追加
-2. GitHub OAuth API実装
-3. Web: ソーシャルログインボタン追加
+1. OAuthConnection ドメインモデル追加
+2. OAuthConnectionRepository 追加（全DB）
+3. GitHub OAuth API実装（/auth/github, /auth/github/callback）
+4. OAuth設定確認API追加（/auth/config）
+5. Web: ソーシャルログインボタン追加（設定時のみ表示）
 
 ---
 
