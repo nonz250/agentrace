@@ -26,6 +26,54 @@ function extractCommandName(content: string): string | null {
   return match ? match[1] : null
 }
 
+// Tools that should display file path in their label
+const FILE_PATH_TOOLS = new Set(['Read', 'Edit'])
+
+// Extract display path from absolute file path
+// Returns relative path from cwd if possible, otherwise just the filename
+function getDisplayPath(filePath: string, cwd: string | undefined): string {
+  if (!filePath) return ''
+
+  // If no cwd, just return filename
+  if (!cwd) {
+    return filePath.split('/').pop() || filePath
+  }
+
+  // Normalize paths (remove trailing slashes)
+  const normalizedCwd = cwd.replace(/\/+$/, '')
+  const normalizedPath = filePath.replace(/\/+$/, '')
+
+  // Case 1: file_path is under cwd
+  if (normalizedPath.startsWith(normalizedCwd + '/')) {
+    return normalizedPath.slice(normalizedCwd.length + 1)
+  }
+
+  // Case 2: file_path is in parent directories of cwd
+  // Find common ancestor and build relative path
+  const cwdParts = normalizedCwd.split('/')
+  const pathParts = normalizedPath.split('/')
+
+  let commonLength = 0
+  for (let i = 0; i < Math.min(cwdParts.length, pathParts.length); i++) {
+    if (cwdParts[i] === pathParts[i]) {
+      commonLength = i + 1
+    } else {
+      break
+    }
+  }
+
+  if (commonLength > 0) {
+    const upCount = cwdParts.length - commonLength
+    const remainingPath = pathParts.slice(commonLength).join('/')
+    if (upCount <= 3) { // Only use ../ if not too deep
+      return '../'.repeat(upCount) + remainingPath
+    }
+  }
+
+  // Case 3: Fallback to just filename
+  return filePath.split('/').pop() || filePath
+}
+
 // Check if content is a local command input
 // Must start with <command-name>/ to avoid false positives from summaries that mention this pattern
 function isLocalCommand(content: unknown): boolean {
@@ -280,7 +328,21 @@ function expandEvents(events: Event[]): DisplayBlock[] {
           } else if (blockType === 'tool_use') {
             const toolName = blockObj?.name as string || 'Unknown'
             const toolUseId = blockObj?.id as string
-            label = `Tool: ${toolName}`
+
+            // For file-based tools, show the file path in the label
+            if (FILE_PATH_TOOLS.has(toolName)) {
+              const input = blockObj?.input as Record<string, unknown> | undefined
+              const filePath = input?.file_path as string | undefined
+              const cwd = event.payload?.cwd as string | undefined
+              if (filePath) {
+                const displayPath = getDisplayPath(filePath, cwd)
+                label = `${toolName}: ${displayPath}`
+              } else {
+                label = toolName
+              }
+            } else {
+              label = `Tool: ${toolName}`
+            }
 
             // Check if there's a matching tool_result
             const toolResult = toolUseId ? toolResultMap.get(toolUseId) : undefined
