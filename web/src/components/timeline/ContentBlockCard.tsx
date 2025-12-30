@@ -1,5 +1,5 @@
 import { cn } from '@/lib/cn'
-import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight } from 'lucide-react'
+import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal } from 'lucide-react'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -12,6 +12,10 @@ interface ContentBlockCardProps {
 }
 
 function getIcon(block: DisplayBlock) {
+  // Local command uses Terminal icon
+  if (block.blockType === 'local_command' || block.blockType === 'local_command_output') {
+    return <Terminal className="h-4 w-4" />
+  }
   // Tool-related blocks use Wrench icon
   if (block.blockType === 'tool_use' || block.blockType === 'tool_result') {
     return <Wrench className="h-4 w-4" />
@@ -32,6 +36,10 @@ function getIcon(block: DisplayBlock) {
 }
 
 function getIconStyle(block: DisplayBlock) {
+  // Local command uses gray (less prominent)
+  if (block.blockType === 'local_command' || block.blockType === 'local_command_output') {
+    return 'bg-gray-100 text-gray-500'
+  }
   // Tool-related blocks use orange
   if (block.blockType === 'tool_use' || block.blockType === 'tool_result') {
     return 'bg-orange-100 text-orange-600'
@@ -51,8 +59,44 @@ function getIconStyle(block: DisplayBlock) {
   return 'bg-green-100 text-green-600'
 }
 
+// Extract content from local command output tags
+function extractCommandOutput(content: string): string {
+  const match = content.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
+  return match ? match[1].trim() : content
+}
+
 function renderContent(block: DisplayBlock) {
   const content = block.content as Record<string, unknown>
+
+  // Local command input - show command name only (content is minimal)
+  if (block.blockType === 'local_command') {
+    return (
+      <div className="text-sm text-gray-500 italic">
+        Command executed
+      </div>
+    )
+  }
+
+  // Local command output - extract and display the output
+  if (block.blockType === 'local_command_output') {
+    const output = typeof block.content === 'string'
+      ? extractCommandOutput(block.content)
+      : ''
+
+    if (!output) {
+      return (
+        <div className="text-sm text-gray-400 italic">
+          (no output)
+        </div>
+      )
+    }
+
+    return (
+      <pre className="max-h-[300px] overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 font-mono text-xs text-gray-600">
+        {output}
+      </pre>
+    )
+  }
 
   // Text content (user or assistant)
   if (block.blockType === 'text') {
@@ -215,11 +259,13 @@ function renderContent(block: DisplayBlock) {
 }
 
 export function ContentBlockCard({ block }: ContentBlockCardProps) {
-  // Thinking, Tool Use, Tool Result blocks default to collapsed
+  // Thinking, Tool Use, Tool Result, Local Command blocks default to collapsed
   const [expanded, setExpanded] = useState(
     block.blockType !== 'thinking' &&
       block.blockType !== 'tool_use' &&
-      block.blockType !== 'tool_result'
+      block.blockType !== 'tool_result' &&
+      block.blockType !== 'local_command' &&
+      block.blockType !== 'local_command_output'
   )
 
   return (

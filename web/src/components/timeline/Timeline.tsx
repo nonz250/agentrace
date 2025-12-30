@@ -9,11 +9,29 @@ interface TimelineProps {
 export interface DisplayBlock {
   id: string
   eventType: 'user' | 'assistant' | 'tool_use' | 'tool_result'
-  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', etc.
+  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'local_command', 'local_command_output', etc.
   label: string // Display label like 'User', 'Assistant (Thinking)', 'Assistant (Tool: Edit)'
   timestamp: string
   content: unknown
   originalEvent: Event
+}
+
+// Extract command name from local command content
+function extractCommandName(content: string): string | null {
+  const match = content.match(/<command-name>\/([\w-]+)<\/command-name>/)
+  return match ? match[1] : null
+}
+
+// Check if content is a local command input
+function isLocalCommand(content: unknown): boolean {
+  if (typeof content !== 'string') return false
+  return content.includes('<command-name>/')
+}
+
+// Check if content is a local command output
+function isLocalCommandOutput(content: unknown): boolean {
+  if (typeof content !== 'string') return false
+  return content.includes('<local-command-stdout>')
 }
 
 // Expand events into individual display blocks
@@ -39,6 +57,29 @@ function expandEvents(events: Event[]): DisplayBlock[] {
             content: block,
             originalEvent: event,
           })
+        })
+      } else if (isLocalCommand(content)) {
+        // Local command input (e.g., /compact, /clear, /hooks)
+        const commandName = extractCommandName(content as string) || 'command'
+        blocks.push({
+          id: event.id,
+          eventType: 'user',
+          blockType: 'local_command',
+          label: `/${commandName}`,
+          timestamp,
+          content: content,
+          originalEvent: event,
+        })
+      } else if (isLocalCommandOutput(content)) {
+        // Local command output
+        blocks.push({
+          id: event.id,
+          eventType: 'user',
+          blockType: 'local_command_output',
+          label: 'Command Output',
+          timestamp,
+          content: content,
+          originalEvent: event,
         })
       } else {
         // Simple string content
