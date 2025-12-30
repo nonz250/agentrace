@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { Spinner } from '@/components/ui/Spinner'
 import * as sessionsApi from '@/api/sessions'
 
-export function SessionListPage() {
+export function HomePage() {
   const { data, isLoading, error } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: sessionsApi.getSessions,
+    queryKey: ['sessions', 'recent'],
+    queryFn: () => sessionsApi.getSessions({ limit: 5 }),
   })
 
   if (isLoading) {
@@ -27,7 +29,16 @@ export function SessionListPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Sessions</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Recent Sessions</h1>
+        <Link
+          to="/sessions"
+          className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+        >
+          View all
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
       <SessionList sessions={data?.sessions || []} />
     </div>
   )

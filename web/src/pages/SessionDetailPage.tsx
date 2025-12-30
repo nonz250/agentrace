@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Folder, GitBranch, MessageSquare } from 'lucide-react'
 import { format } from 'date-fns'
@@ -48,6 +48,7 @@ function getGitHubUrl(remoteUrl: string): string | null {
 
 export function SessionDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
 
   const { data: session, isLoading, error } = useQuery({
     queryKey: ['session', id],
@@ -81,13 +82,13 @@ export function SessionDetailPage() {
 
   return (
     <div>
-      <Link
-        to="/"
+      <button
+        onClick={() => navigate(-1)}
         className="mb-6 inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
       >
         <ArrowLeft className="h-4 w-4" />
-        Sessions
-      </Link>
+        Back
+      </button>
 
       <div className="mb-6">
         {/* Title: Date and User */}

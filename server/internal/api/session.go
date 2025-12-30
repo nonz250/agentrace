@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/satetsu888/agentrace/server/internal/domain"
@@ -113,7 +114,21 @@ type SessionListResponse struct {
 func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	sessions, err := h.repos.Session.FindAll(ctx, 100, 0)
+	// Parse query parameters
+	limit := 100
+	offset := 0
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	sessions, err := h.repos.Session.FindAll(ctx, limit, offset)
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch sessions"}`, http.StatusInternalServerError)
 		return

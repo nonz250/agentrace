@@ -6,7 +6,8 @@ import { WelcomePage } from '@/pages/WelcomePage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SetupPage } from '@/pages/SetupPage'
-import { SessionListPage } from '@/pages/SessionListPage'
+import { HomePage } from '@/pages/HomePage'
+import { SessionsPage } from '@/pages/SessionsPage'
 import { SessionDetailPage } from '@/pages/SessionDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { MembersPage } from '@/pages/MembersPage'
@@ -131,7 +132,8 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<SessionListPage />} />
+          <Route index element={<HomePage />} />
+          <Route path="sessions" element={<SessionsPage />} />
           <Route path="sessions/:id" element={<SessionDetailPage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="settings" element={<SettingsPage />} />
