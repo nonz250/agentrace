@@ -11,6 +11,38 @@ interface ContentBlockCardProps {
   block: DisplayBlock
 }
 
+// Check if block is secondary (less prominent) - Thinking, Tool, LocalCommand
+function isSecondaryBlock(block: DisplayBlock): boolean {
+  const secondaryBlockTypes = [
+    'thinking',
+    'tool_use',
+    'tool_result',
+    'tool_group',
+    'local_command',
+    'local_command_output',
+    'local_command_group',
+  ]
+  return secondaryBlockTypes.includes(block.blockType)
+}
+
+// Get container style based on block prominence
+function getBlockContainerStyle(block: DisplayBlock) {
+  if (isSecondaryBlock(block)) {
+    return {
+      wrapper: 'ml-4',
+      container: 'border border-gray-200 bg-gray-50/50',
+      header: 'px-3 py-2',
+    }
+  }
+  // Primary blocks (User/Assistant text)
+  const borderColor = block.eventType === 'user' ? 'border-blue-200' : 'border-green-200'
+  return {
+    wrapper: '',
+    container: `border-2 ${borderColor} bg-white`,
+    header: 'px-4 py-3',
+  }
+}
+
 function getIcon(block: DisplayBlock) {
   // Local command uses Terminal icon
   if (block.blockType === 'local_command' || block.blockType === 'local_command_output' || block.blockType === 'local_command_group') {
@@ -36,20 +68,9 @@ function getIcon(block: DisplayBlock) {
 }
 
 function getIconStyle(block: DisplayBlock) {
-  // Local command uses gray (less prominent)
-  if (block.blockType === 'local_command' || block.blockType === 'local_command_output' || block.blockType === 'local_command_group') {
-    return 'bg-gray-100 text-gray-500'
-  }
-  // Tool-related blocks use orange
-  if (block.blockType === 'tool_use' || block.blockType === 'tool_result' || block.blockType === 'tool_group') {
-    return 'bg-orange-100 text-orange-600'
-  }
-  if (block.eventType === 'tool_use' || block.eventType === 'tool_result') {
-    return 'bg-orange-100 text-orange-600'
-  }
-  // Thinking uses purple
-  if (block.blockType === 'thinking') {
-    return 'bg-purple-100 text-purple-600'
+  // Secondary blocks use muted gray
+  if (isSecondaryBlock(block)) {
+    return 'bg-gray-200 text-gray-500'
   }
   // User (non-tool) uses blue
   if (block.eventType === 'user') {
@@ -360,57 +381,69 @@ function renderContent(block: DisplayBlock) {
 }
 
 export function ContentBlockCard({ block }: ContentBlockCardProps) {
-  // Thinking, Tool Use, Tool Result, Tool Group, Local Command blocks default to collapsed
-  const [expanded, setExpanded] = useState(
-    block.blockType !== 'thinking' &&
-      block.blockType !== 'tool_use' &&
-      block.blockType !== 'tool_result' &&
-      block.blockType !== 'tool_group' &&
-      block.blockType !== 'local_command' &&
-      block.blockType !== 'local_command_output' &&
-      block.blockType !== 'local_command_group'
-  )
+  // Secondary blocks default to collapsed
+  const [expanded, setExpanded] = useState(!isSecondaryBlock(block))
+  const styles = getBlockContainerStyle(block)
+  const isSecondary = isSecondaryBlock(block)
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <button
-        className={cn(
-          'flex w-full items-center justify-between px-4 py-3',
-          'text-left transition-colors hover:bg-gray-50'
-        )}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-full',
-              getIconStyle(block)
+    <div className={styles.wrapper}>
+      <div className={cn('overflow-hidden rounded-xl', styles.container)}>
+        <button
+          className={cn(
+            'flex w-full items-center justify-between',
+            styles.header,
+            'text-left transition-colors hover:bg-gray-50/50'
+          )}
+          onClick={() => setExpanded(!expanded)}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'flex items-center justify-center rounded-full',
+                isSecondary ? 'h-5 w-5' : 'h-6 w-6',
+                getIconStyle(block)
+              )}
+            >
+              {getIcon(block)}
+            </span>
+            <span className={cn(
+              'font-medium',
+              isSecondary ? 'text-sm text-gray-600' : 'text-gray-900'
+            )}>
+              {block.label.text}
+            </span>
+            {block.label.params && (
+              <code className={cn(
+                'rounded bg-gray-100 font-normal text-gray-700',
+                isSecondary ? 'px-1 py-0.5 text-xs' : 'px-1.5 py-0.5 text-sm'
+              )}>
+                {block.label.params}
+              </code>
             )}
-          >
-            {getIcon(block)}
-          </span>
-          <span className="font-medium text-gray-900">{block.label.text}</span>
-          {block.label.params && (
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-normal text-gray-700">
-              {block.label.params}
-            </code>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span>{format(new Date(block.timestamp), 'HH:mm:ss')}</span>
-          {expanded ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </div>
-      </button>
+          </div>
+          <div className={cn(
+            'flex items-center gap-2 text-gray-500',
+            isSecondary ? 'text-xs' : 'text-sm'
+          )}>
+            <span>{format(new Date(block.timestamp), 'HH:mm:ss')}</span>
+            {expanded ? (
+              <ChevronDown className={isSecondary ? 'h-3 w-3' : 'h-4 w-4'} />
+            ) : (
+              <ChevronRight className={isSecondary ? 'h-3 w-3' : 'h-4 w-4'} />
+            )}
+          </div>
+        </button>
 
-      {expanded && (
-        <div className="border-t border-gray-100 px-4 py-3">
-          {renderContent(block)}
-        </div>
-      )}
+        {expanded && (
+          <div className={cn(
+            'border-t border-gray-100',
+            isSecondary ? 'px-3 py-2' : 'px-4 py-3'
+          )}>
+            {renderContent(block)}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

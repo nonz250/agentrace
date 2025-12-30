@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Folder, GitBranch, MessageSquare } from 'lucide-react'
 import { format } from 'date-fns'
-import { Timeline } from '@/components/timeline/Timeline'
+import { TimelineContainer } from '@/components/timeline/TimelineContainer'
 import { Spinner } from '@/components/ui/Spinner'
 import * as sessionsApi from '@/api/sessions'
 
@@ -137,7 +137,7 @@ export function SessionDetailPage() {
       </div>
 
       <h2 className="mb-4 text-lg font-semibold text-gray-900">Timeline</h2>
-      <Timeline events={session.events || []} projectPath={session.project_path} />
+      <TimelineContainer events={session.events || []} projectPath={session.project_path} />
     </div>
   )
 }

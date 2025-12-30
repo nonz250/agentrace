@@ -1,11 +1,6 @@
 import { ContentBlockCard } from './ContentBlockCard'
 import type { Event } from '@/types/event'
 
-interface TimelineProps {
-  events: Event[]
-  projectPath?: string
-}
-
 // Label structure for display blocks
 export interface BlockLabel {
   text: string       // Main label text like 'User', 'Thinking', 'Tool: Edit'
@@ -474,7 +469,41 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
   return blocks
 }
 
-export function Timeline({ events, projectPath }: TimelineProps) {
+// Extract user block info for navigation
+export function extractUserBlocks(blocks: DisplayBlock[]): Array<{ id: string; preview: string; timestamp: string }> {
+  return blocks
+    .filter((block) => block.eventType === 'user' && block.blockType === 'text')
+    .map((block) => {
+      let preview = ''
+      const content = block.content
+      if (typeof content === 'string') {
+        preview = content
+      } else if (content && typeof content === 'object') {
+        const text = (content as Record<string, unknown>).text
+        if (typeof text === 'string') {
+          preview = text
+        }
+      }
+      // Truncate to 50 characters
+      preview = preview.slice(0, 50) + (preview.length > 50 ? '...' : '')
+      return {
+        id: block.id,
+        preview,
+        timestamp: block.timestamp,
+      }
+    })
+}
+
+// Re-export expandEvents for use in TimelineContainer
+export { expandEvents }
+
+interface TimelineProps {
+  events: Event[]
+  projectPath?: string
+  blockRefs?: Map<string, React.RefObject<HTMLDivElement | null>>
+}
+
+export function Timeline({ events, projectPath, blockRefs }: TimelineProps) {
   if (events.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
@@ -487,9 +516,21 @@ export function Timeline({ events, projectPath }: TimelineProps) {
 
   return (
     <div className="space-y-3">
-      {displayBlocks.map((block) => (
-        <ContentBlockCard key={block.id} block={block} />
-      ))}
+      {displayBlocks.map((block) => {
+        const isUserText = block.eventType === 'user' && block.blockType === 'text'
+        const ref = isUserText ? blockRefs?.get(block.id) : undefined
+
+        return (
+          <div
+            key={block.id}
+            ref={ref}
+            data-block-id={isUserText ? block.id : undefined}
+            className={isUserText ? 'scroll-mt-20' : undefined}
+          >
+            <ContentBlockCard block={block} />
+          </div>
+        )
+      })}
     </div>
   )
 }
