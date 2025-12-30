@@ -80,7 +80,7 @@ function renderContent(block: DisplayBlock) {
             {block.childBlocks.map((child) => (
               <div key={child.id}>
                 <div className="mb-1 text-xs font-medium text-gray-400">
-                  {child.label}
+                  {child.label.text}
                 </div>
                 {child.blockType === 'local_command_output' ? (
                   <pre className="max-h-[200px] overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 font-mono text-xs text-gray-600">
@@ -389,7 +389,12 @@ export function ContentBlockCard({ block }: ContentBlockCardProps) {
           >
             {getIcon(block)}
           </span>
-          <span className="font-medium text-gray-900">{block.label}</span>
+          <span className="font-medium text-gray-900">{block.label.text}</span>
+          {block.label.params && (
+            <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-normal text-gray-700">
+              {block.label.params}
+            </code>
+          )}
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <span>{format(new Date(block.timestamp), 'HH:mm:ss')}</span>

@@ -6,12 +6,18 @@ interface TimelineProps {
   projectPath?: string
 }
 
+// Label structure for display blocks
+export interface BlockLabel {
+  text: string       // Main label text like 'User', 'Thinking', 'Tool: Edit'
+  params?: string    // Optional parameter to display (e.g., file path, command)
+}
+
 // Expanded block for display
 export interface DisplayBlock {
   id: string
   eventType: 'user' | 'assistant' | 'tool_use' | 'tool_result'
   blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'tool_group', 'local_command', 'local_command_output', 'local_command_group', etc.
-  label: string // Display label like 'User', 'Thinking', 'Tool: Edit'
+  label: BlockLabel
   timestamp: string
   content: unknown
   originalEvent: Event
@@ -233,7 +239,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
             id: `${event.id}-${i}`,
             eventType: 'user',
             blockType,
-            label: blockType === 'tool_result' ? 'Tool Result' : 'User',
+            label: { text: blockType === 'tool_result' ? 'Tool Result' : 'User' },
             timestamp,
             content: block,
             originalEvent: event,
@@ -260,7 +266,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
                 id: relatedEvent.id,
                 eventType: 'user',
                 blockType: 'compact_summary',
-                label: 'Summary',
+                label: { text: 'Summary' },
                 timestamp: childTimestamp,
                 content: childContent,
                 originalEvent: relatedEvent,
@@ -274,7 +280,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
                 id: relatedEvent.id,
                 eventType: 'user',
                 blockType: 'local_command_output',
-                label: 'Output',
+                label: { text: 'Output' },
                 timestamp: childTimestamp,
                 content: childContent,
                 originalEvent: relatedEvent,
@@ -287,7 +293,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
           id: event.id,
           eventType: 'user',
           blockType: 'local_command_group',
-          label: `/${commandName}`,
+          label: { text: `/${commandName}` },
           timestamp,
           content: content,
           originalEvent: event,
@@ -299,7 +305,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
           id: event.id,
           eventType: 'user',
           blockType: 'local_command_output',
-          label: 'Command Output',
+          label: { text: 'Command Output' },
           timestamp,
           content: content,
           originalEvent: event,
@@ -310,7 +316,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
           id: event.id,
           eventType: 'user',
           blockType: 'text',
-          label: 'User',
+          label: { text: 'User' },
           timestamp,
           content: content,
           originalEvent: event,
@@ -322,28 +328,25 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
         content.forEach((block, i) => {
           const blockObj = block as Record<string, unknown>
           const blockType = blockObj?.type as string || 'text'
-          let label = 'Assistant'
+          let label: BlockLabel = { text: 'Assistant' }
 
           if (blockType === 'thinking') {
-            label = 'Thinking'
+            label = { text: 'Thinking' }
           } else if (blockType === 'tool_use') {
             const toolName = blockObj?.name as string || 'Unknown'
             const toolUseId = blockObj?.id as string
 
-            // For file-based tools, show the file path in the label
+            label = { text: `Tool: ${toolName}` }
+
+            // For file-based tools, extract the file path as tool params
             if (FILE_PATH_TOOLS.has(toolName)) {
               const input = blockObj?.input as Record<string, unknown> | undefined
               const filePath = input?.file_path as string | undefined
               // Use session's projectPath first, fall back to event's cwd
               const basePath = projectPath || (event.payload?.cwd as string | undefined)
               if (filePath) {
-                const displayPath = getDisplayPath(filePath, basePath)
-                label = `Tool: ${toolName} ${displayPath}`
-              } else {
-                label = `Tool: ${toolName}`
+                label.params = getDisplayPath(filePath, basePath)
               }
-            } else {
-              label = `Tool: ${toolName}`
             }
 
             // Check if there's a matching tool_result
@@ -358,7 +361,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
                 id: `${event.id}-${i}-result`,
                 eventType: 'user',
                 blockType: 'tool_result',
-                label: 'Result',
+                label: { text: 'Result' },
                 timestamp: toolResult.timestamp,
                 content: toolResult.content,
                 originalEvent: toolResult.event,
@@ -377,11 +380,11 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
               return // Skip the normal push
             }
           } else if (blockType === 'tool_result') {
-            label = 'Tool Result'
+            label = { text: 'Tool Result' }
           } else if (blockType === 'text') {
-            label = 'Assistant'
+            label = { text: 'Assistant' }
           } else {
-            label = `Assistant (${blockType})`
+            label = { text: `Assistant (${blockType})` }
           }
 
           blocks.push({
@@ -399,7 +402,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
           id: event.id,
           eventType: 'assistant',
           blockType: 'text',
-          label: 'Assistant',
+          label: { text: 'Assistant' },
           timestamp,
           content: content,
           originalEvent: event,
@@ -410,7 +413,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
           id: event.id,
           eventType: 'assistant',
           blockType: 'unknown',
-          label: 'Assistant',
+          label: { text: 'Assistant' },
           timestamp,
           content: event.payload,
           originalEvent: event,
@@ -423,7 +426,7 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
         id: event.id,
         eventType: event.event_type as 'tool_use' | 'tool_result',
         blockType: event.event_type,
-        label: event.event_type === 'tool_use' ? `Tool: ${toolName}` : 'Tool Result',
+        label: { text: event.event_type === 'tool_use' ? `Tool: ${toolName}` : 'Tool Result' },
         timestamp,
         content: event.payload,
         originalEvent: event,
