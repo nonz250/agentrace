@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Settings, LogOut, ChevronDown } from 'lucide-react'
+import { Settings, LogOut, ChevronDown, Users } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -26,40 +26,47 @@ export function Header() {
           Agentrace
         </Link>
 
-        <div className="flex items-center gap-4">
-          <Link
-            to="/settings"
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
             className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
           >
-            <Settings className="h-4 w-4" />
-            Settings
-          </Link>
+            {user?.display_name || user?.email}
+            <ChevronDown className="h-4 w-4" />
+          </button>
 
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-            >
-              {user?.display_name || user?.email}
-              <ChevronDown className="h-4 w-4" />
-            </button>
-
-            {menuOpen && (
-              <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                <button
-                  onClick={() => {
-                    logout()
-                    setMenuOpen(false)
-                  }}
-                  disabled={isLoggingOut}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  <LogOut className="h-4 w-4" />
-                  {isLoggingOut ? 'Logging out...' : 'Logout'}
-                </button>
-              </div>
-            )}
-          </div>
+          {menuOpen && (
+            <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              <Link
+                to="/members"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                <Users className="h-4 w-4" />
+                Members
+              </Link>
+              <Link
+                to="/settings"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+              <div className="my-1 border-t border-gray-200" />
+              <button
+                onClick={() => {
+                  logout()
+                  setMenuOpen(false)
+                }}
+                disabled={isLoggingOut}
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                <LogOut className="h-4 w-4" />
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

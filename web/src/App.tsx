@@ -9,6 +9,7 @@ import { SetupPage } from '@/pages/SetupPage'
 import { SessionListPage } from '@/pages/SessionListPage'
 import { SessionDetailPage } from '@/pages/SessionDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { MembersPage } from '@/pages/MembersPage'
 import { Spinner } from '@/components/ui/Spinner'
 import * as authApi from '@/api/auth'
 import type { User } from '@/types/auth'
@@ -132,6 +133,7 @@ export default function App() {
         >
           <Route index element={<SessionListPage />} />
           <Route path="sessions/:id" element={<SessionDetailPage />} />
+          <Route path="members" element={<MembersPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 
