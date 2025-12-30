@@ -1,45 +1,103 @@
-# Agentrace
+# AgenTrace
 
-Claude Codeのやりとりをチームでレビューできるサービス
+A service for reviewing Claude Code conversations with your team.
 
-## クイックスタート
+## Quick Start
+
+### 1. Start the Server
 
 ```bash
-# 起動（ポート9080、データは./dataに保存）
 docker run -d --name agentrace -p 9080:9080 -v $(pwd)/data:/data satetsu888/agentrace:latest
 ```
 
-http://localhost:9080 にアクセス
+Open http://localhost:9080 in your browser.
 
-### CLIセットアップ
+### 2. Setup CLI
 
 ```bash
 npx agentrace init --url http://localhost:9080
 ```
 
-ブラウザが開くので、ユーザー登録/ログイン後「Setup CLI」をクリック
+This will:
+1. Open your browser for registration/login
+2. Automatically configure API key
+3. Install Claude Code hooks
 
-### 停止
+Once setup is complete, your Claude Code sessions will be automatically sent to the server.
+
+### 3. View Sessions
+
+Open http://localhost:9080 to browse and review your sessions.
+
+## CLI Commands
+
+| Command | Description |
+| ------- | ----------- |
+| `npx agentrace init --url <url>` | Initial setup with browser authentication |
+| `npx agentrace login` | Open web dashboard in browser |
+| `npx agentrace on` | Enable hooks (keeps credentials) |
+| `npx agentrace off` | Disable hooks temporarily (keeps credentials) |
+| `npx agentrace uninstall` | Remove all hooks and configuration |
+
+### Temporarily Disable Tracking
+
+If you want to pause session tracking without removing your configuration:
+
+```bash
+# Disable hooks
+npx agentrace off
+
+# Re-enable hooks later
+npx agentrace on
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+| -------- | ------- | ----------- |
+| `DB_TYPE` | sqlite | Database type |
+| `DATABASE_URL` | /data/agentrace.db | Database path |
+| `DEV_MODE` | false | Enable debug logging |
+| `GITHUB_CLIENT_ID` | (empty) | GitHub OAuth Client ID |
+| `GITHUB_CLIENT_SECRET` | (empty) | GitHub OAuth Client Secret |
+
+```bash
+# Example: Enable debug mode
+docker run -d -p 9080:9080 -v $(pwd)/data:/data -e DEV_MODE=true satetsu888/agentrace:latest
+```
+
+## Cleanup
+
+To completely remove AgenTrace:
+
+### 1. Remove CLI Configuration and Hooks
+
+```bash
+npx agentrace uninstall
+```
+
+This removes:
+- Claude Code hooks from `~/.claude/settings.json`
+- Configuration from `~/.agentrace/`
+
+### 2. Stop and Remove Docker Container
 
 ```bash
 docker stop agentrace && docker rm agentrace
 ```
 
-## 環境変数
-
-| 変数                    | デフォルト          | 説明             |
-| ----------------------- | ------------------- | ---------------- |
-| `DB_TYPE`               | sqlite              | データベース種類 |
-| `DATABASE_URL`          | /data/agentrace.db  | DBパス           |
-| `DEV_MODE`              | false               | デバッグログ     |
-| `GITHUB_CLIENT_ID`      | (空)                | GitHub OAuth     |
-| `GITHUB_CLIENT_SECRET`  | (空)                | GitHub OAuth     |
+### 3. Remove Docker Image (Optional)
 
 ```bash
-# 例: デバッグモードで起動
-docker run -d -p 9080:9080 -v $(pwd)/data:/data -e DEV_MODE=true satetsu888/agentrace:latest
+docker rmi satetsu888/agentrace:latest
 ```
 
-## 詳細ドキュメント
+### 4. Remove Data (Optional)
 
-詳細は [CLAUDE.md](./CLAUDE.md) を参照
+```bash
+rm -rf ./data
+```
+
+## License
+
+MIT
