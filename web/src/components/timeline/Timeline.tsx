@@ -9,11 +9,13 @@ interface TimelineProps {
 export interface DisplayBlock {
   id: string
   eventType: 'user' | 'assistant' | 'tool_use' | 'tool_result'
-  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'local_command', 'local_command_output', etc.
+  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'local_command', 'local_command_output', 'local_command_group', etc.
   label: string // Display label like 'User', 'Assistant (Thinking)', 'Assistant (Tool: Edit)'
   timestamp: string
   content: unknown
   originalEvent: Event
+  // For grouped local commands
+  childBlocks?: DisplayBlock[]
 }
 
 // Extract command name from local command content
@@ -34,9 +36,73 @@ function isLocalCommandOutput(content: unknown): boolean {
   return content.includes('<local-command-stdout>')
 }
 
+// Check if event is a compact summary
+function isCompactSummary(event: Event): boolean {
+  return event.payload?.isCompactSummary === true
+}
+
+// Check if event is a meta message for local commands
+function isMetaMessage(event: Event): boolean {
+  return event.payload?.isMeta === true
+}
+
+// Build a map of uuid -> event for quick lookup
+function buildEventMap(events: Event[]): Map<string, Event> {
+  const map = new Map<string, Event>()
+  for (const event of events) {
+    const uuid = event.payload?.uuid as string
+    if (uuid) {
+      map.set(uuid, event)
+    }
+  }
+  return map
+}
+
+// Build a map to associate related events with their local command
+// Returns: Map<event.id, localCommandEvent.id>
+function buildLocalCommandGroups(events: Event[], _eventMap: Map<string, Event>): Map<string, string> {
+  const groups = new Map<string, string>()
+
+  // Sort events by timestamp
+  const sortedEvents = [...events].sort((a, b) => {
+    const tsA = (a.payload?.timestamp as string) || a.created_at
+    const tsB = (b.payload?.timestamp as string) || b.created_at
+    return tsA.localeCompare(tsB)
+  })
+
+  let currentLocalCommand: Event | null = null
+
+  for (const event of sortedEvents) {
+    const message = event.payload?.message as Record<string, unknown> | undefined
+    const content = message?.content
+
+    if (isLocalCommand(content)) {
+      // This is a local command, start a new group
+      currentLocalCommand = event
+    } else if (currentLocalCommand) {
+      // Check if this event should be grouped with the current local command
+      if (isCompactSummary(event) || isMetaMessage(event) || isLocalCommandOutput(content)) {
+        groups.set(event.id, currentLocalCommand.id)
+      } else {
+        // Regular user message, end the current group
+        currentLocalCommand = null
+      }
+    }
+  }
+
+  return groups
+}
+
 // Expand events into individual display blocks
 function expandEvents(events: Event[]): DisplayBlock[] {
   const blocks: DisplayBlock[] = []
+  const eventMap = buildEventMap(events)
+
+  // Build groups: Map<relatedEventId, localCommandId>
+  const eventToCommandMap = buildLocalCommandGroups(events, eventMap)
+
+  // Track which events should be skipped (they'll be grouped with their command)
+  const relatedEventIds = new Set(eventToCommandMap.keys())
 
   for (const event of events) {
     const timestamp = (event.payload?.timestamp as string) || event.created_at
@@ -44,6 +110,11 @@ function expandEvents(events: Event[]): DisplayBlock[] {
     const content = message?.content
 
     if (event.event_type === 'user') {
+      // Skip events related to local commands (they'll be grouped with the command)
+      if (relatedEventIds.has(event.id)) {
+        continue
+      }
+
       // User events: expand content blocks
       if (Array.isArray(content)) {
         content.forEach((block, i) => {
@@ -61,17 +132,59 @@ function expandEvents(events: Event[]): DisplayBlock[] {
       } else if (isLocalCommand(content)) {
         // Local command input (e.g., /compact, /clear, /hooks)
         const commandName = extractCommandName(content as string) || 'command'
+
+        // Find related events using the pre-built map
+        const childBlocks: DisplayBlock[] = []
+        for (const relatedEvent of events) {
+          // Check if this event belongs to this local command
+          const commandId = eventToCommandMap.get(relatedEvent.id)
+
+          if (commandId === event.id) {
+            const childTimestamp = (relatedEvent.payload?.timestamp as string) || relatedEvent.created_at
+            const childMessage = relatedEvent.payload?.message as Record<string, unknown> | undefined
+            const childContent = childMessage?.content
+
+            if (isCompactSummary(relatedEvent)) {
+              // Compact summary
+              childBlocks.push({
+                id: relatedEvent.id,
+                eventType: 'user',
+                blockType: 'compact_summary',
+                label: 'Summary',
+                timestamp: childTimestamp,
+                content: childContent,
+                originalEvent: relatedEvent,
+              })
+            } else if (isMetaMessage(relatedEvent)) {
+              // Meta message - skip display (it's just a system note)
+              continue
+            } else if (isLocalCommandOutput(childContent)) {
+              // Command output
+              childBlocks.push({
+                id: relatedEvent.id,
+                eventType: 'user',
+                blockType: 'local_command_output',
+                label: 'Output',
+                timestamp: childTimestamp,
+                content: childContent,
+                originalEvent: relatedEvent,
+              })
+            }
+          }
+        }
+
         blocks.push({
           id: event.id,
           eventType: 'user',
-          blockType: 'local_command',
+          blockType: 'local_command_group',
           label: `/${commandName}`,
           timestamp,
           content: content,
           originalEvent: event,
+          childBlocks: childBlocks.length > 0 ? childBlocks : undefined,
         })
       } else if (isLocalCommandOutput(content)) {
-        // Local command output
+        // Standalone local command output (not grouped)
         blocks.push({
           id: event.id,
           eventType: 'user',

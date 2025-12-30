@@ -13,7 +13,7 @@ interface ContentBlockCardProps {
 
 function getIcon(block: DisplayBlock) {
   // Local command uses Terminal icon
-  if (block.blockType === 'local_command' || block.blockType === 'local_command_output') {
+  if (block.blockType === 'local_command' || block.blockType === 'local_command_output' || block.blockType === 'local_command_group') {
     return <Terminal className="h-4 w-4" />
   }
   // Tool-related blocks use Wrench icon
@@ -37,7 +37,7 @@ function getIcon(block: DisplayBlock) {
 
 function getIconStyle(block: DisplayBlock) {
   // Local command uses gray (less prominent)
-  if (block.blockType === 'local_command' || block.blockType === 'local_command_output') {
+  if (block.blockType === 'local_command' || block.blockType === 'local_command_output' || block.blockType === 'local_command_group') {
     return 'bg-gray-100 text-gray-500'
   }
   // Tool-related blocks use orange
@@ -67,6 +67,45 @@ function extractCommandOutput(content: string): string {
 
 function renderContent(block: DisplayBlock) {
   const content = block.content as Record<string, unknown>
+
+  // Local command group - show command and its children together
+  if (block.blockType === 'local_command_group') {
+    return (
+      <div className="space-y-3">
+        <div className="text-sm text-gray-500 italic">
+          Command executed
+        </div>
+        {block.childBlocks && block.childBlocks.length > 0 && (
+          <div className="space-y-2 border-l-2 border-gray-200 pl-3">
+            {block.childBlocks.map((child) => (
+              <div key={child.id}>
+                <div className="mb-1 text-xs font-medium text-gray-400">
+                  {child.label}
+                </div>
+                {child.blockType === 'local_command_output' ? (
+                  <pre className="max-h-[200px] overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 font-mono text-xs text-gray-600">
+                    {typeof child.content === 'string'
+                      ? extractCommandOutput(child.content)
+                      : ''}
+                  </pre>
+                ) : child.blockType === 'compact_summary' ? (
+                  <div className="max-h-[300px] overflow-auto rounded-lg bg-amber-50 p-3 text-xs text-gray-700">
+                    <pre className="whitespace-pre-wrap font-mono">
+                      {typeof child.content === 'string' ? child.content : ''}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="prose prose-sm max-w-none text-gray-600">
+                    {typeof child.content === 'string' ? child.content : ''}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // Local command input - show command name only (content is minimal)
   if (block.blockType === 'local_command') {
@@ -265,7 +304,8 @@ export function ContentBlockCard({ block }: ContentBlockCardProps) {
       block.blockType !== 'tool_use' &&
       block.blockType !== 'tool_result' &&
       block.blockType !== 'local_command' &&
-      block.blockType !== 'local_command_output'
+      block.blockType !== 'local_command_output' &&
+      block.blockType !== 'local_command_group'
   )
 
   return (
