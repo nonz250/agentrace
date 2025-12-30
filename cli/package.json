@@ -1,14 +1,38 @@
 {
   "name": "agentrace",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "CLI for Agentrace - Claude Code session tracker",
   "type": "module",
   "bin": {
     "agentrace": "./dist/index.js"
   },
+  "main": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "agentrace",
+    "session",
+    "tracker",
+    "cli"
+  ],
+  "author": "satetsu888",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/satetsu888/agentrace.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/satetsu888/agentrace",
+  "bugs": {
+    "url": "https://github.com/satetsu888/agentrace/issues"
   },
   "dependencies": {
     "commander": "^12.0.0"
