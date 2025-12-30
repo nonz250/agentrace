@@ -3,10 +3,10 @@ package domain
 import "time"
 
 type User struct {
-	ID          string
-	Email       string
-	DisplayName string // 空の場合はEmailを表示
-	CreatedAt   time.Time
+	ID          string    `json:"id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // GetDisplayName returns DisplayName if set, otherwise Email

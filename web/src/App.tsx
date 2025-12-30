@@ -113,22 +113,10 @@ export default function App() {
             </PublicRoute>
           }
         />
-        <Route
-          path="/register"
-          element={
-            <PublicRoute>
-              <RegisterPage />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <LoginPage />
-            </PublicRoute>
-          }
-        />
+        {/* Register handles auth internally to support returnTo flow */}
+        <Route path="/register" element={<RegisterPage />} />
+        {/* Login handles auth internally to support returnTo flow */}
+        <Route path="/login" element={<LoginPage />} />
 
         {/* Setup route - handles auth internally */}
         <Route path="/setup" element={<SetupPage />} />

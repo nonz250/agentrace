@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useAuth } from '@/hooks/useAuth'
+import { useAuthContext } from '@/App'
 import * as authApi from '@/api/auth'
 
 export function LoginPage() {
@@ -11,8 +12,17 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [githubEnabled, setGithubEnabled] = useState(false)
   const { login, loginError, isLoggingIn } = useAuth()
+  const { user, isLoading } = useAuthContext()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const returnTo = searchParams.get('returnTo')
+
+  // If already logged in and no returnTo, redirect to dashboard
+  useEffect(() => {
+    if (!isLoading && user && !returnTo) {
+      navigate('/', { replace: true })
+    }
+  }, [isLoading, user, returnTo, navigate])
 
   useEffect(() => {
     authApi.getAuthConfig().then((config) => {

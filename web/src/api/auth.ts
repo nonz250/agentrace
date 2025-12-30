@@ -37,7 +37,8 @@ export async function logout(): Promise<void> {
 }
 
 export async function getMe(): Promise<User> {
-  return fetchAPI('/api/me')
+  const response = await fetchAPI<{ user: User }>('/api/me')
+  return response.user
 }
 
 export async function getUsers(): Promise<{ users: User[] }> {

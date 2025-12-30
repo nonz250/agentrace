@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { CopyButton } from '@/components/ui/CopyButton'
+import { useAuthContext } from '@/App'
 import * as authApi from '@/api/auth'
 
 export function RegisterPage() {
@@ -13,9 +14,16 @@ export function RegisterPage() {
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [githubEnabled, setGithubEnabled] = useState(false)
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
+  const { user, isLoading, refetch } = useAuthContext()
   const [searchParams] = useSearchParams()
   const returnTo = searchParams.get('returnTo')
+
+  // If already logged in and no returnTo, redirect to dashboard
+  useEffect(() => {
+    if (!isLoading && user && !returnTo) {
+      navigate('/', { replace: true })
+    }
+  }, [isLoading, user, returnTo, navigate])
 
   useEffect(() => {
     authApi.getAuthConfig().then((config) => {
@@ -27,8 +35,9 @@ export function RegisterPage() {
 
   const registerMutation = useMutation({
     mutationFn: () => authApi.register({ email, password }),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['me'] })
+    onSuccess: async (data) => {
+      // Update auth context to reflect logged-in state
+      await refetch()
       // If returnTo is provided, redirect there (skip API key display)
       if (returnTo && returnTo.startsWith('/')) {
         navigate(returnTo)
