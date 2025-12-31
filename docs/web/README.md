@@ -25,12 +25,14 @@ web/src/
 │   ├── client.ts            # fetch ラッパー
 │   ├── auth.ts              # 認証API
 │   ├── sessions.ts          # セッションAPI
+│   ├── plan-documents.ts    # PlanDocument API
 │   └── keys.ts              # APIキーAPI
 ├── components/              # UIコンポーネント
 │   ├── ui/                  # 基本UIコンポーネント
 │   ├── layout/              # レイアウト
 │   ├── sessions/            # セッション表示
 │   ├── timeline/            # イベントタイムライン
+│   ├── plans/               # Plan表示
 │   ├── settings/            # 設定画面
 │   └── members/             # メンバー表示
 ├── hooks/                   # カスタムフック
@@ -77,7 +79,11 @@ const queryClient = new QueryClient({
 |--------|----------|
 | 最新セッション | `['sessions', 'recent']` |
 | セッション一覧 | `['sessions', 'list', page]` |
-| セッション詳細 | `['sessions', id]` |
+| セッション詳細 | `['session', id]` |
+| 最新Plan | `['plans', 'recent']` |
+| Plan一覧 | `['plans', 'list', page]` |
+| Plan詳細 | `['plan', id]` |
+| Plan履歴 | `['plan', id, 'events']` |
 | APIキー一覧 | `['keys']` |
 | ユーザー一覧 | `['users']` |
 
@@ -155,9 +161,11 @@ ContentBlockCard コンポーネントは以下のブロックタイプに対応
 | `/register` | ユーザー登録 | Public |
 | `/login` | ログイン | Public |
 | `/setup` | CLIセットアップ | Public |
-| `/` | ホーム（最新セッション） | Protected |
+| `/` | ホーム（最新セッション + 最新Plans） | Protected |
 | `/sessions` | セッション一覧 | Protected |
 | `/sessions/:id` | セッション詳細 | Protected |
+| `/plans` | Plan一覧 | Protected |
+| `/plans/:id` | Plan詳細（Content + History タブ） | Protected |
 | `/members` | メンバー一覧 | Protected |
 | `/settings` | APIキー管理 | Protected |
 

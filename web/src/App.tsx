@@ -9,6 +9,8 @@ import { SetupPage } from '@/pages/SetupPage'
 import { HomePage } from '@/pages/HomePage'
 import { SessionsPage } from '@/pages/SessionsPage'
 import { SessionDetailPage } from '@/pages/SessionDetailPage'
+import { PlansPage } from '@/pages/PlansPage'
+import { PlanDetailPage } from '@/pages/PlanDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { MembersPage } from '@/pages/MembersPage'
 import { Spinner } from '@/components/ui/Spinner'
@@ -135,6 +137,8 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="sessions/:id" element={<SessionDetailPage />} />
+          <Route path="plans" element={<PlansPage />} />
+          <Route path="plans/:id" element={<PlanDetailPage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

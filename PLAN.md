@@ -181,7 +181,7 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 1. **Phase 1**: Server ドメイン・Repository（memory + sqlite） ✅ 完了
 2. **Phase 2**: Server API ハンドラー・ルーティング ✅ 完了
 3. **Phase 3**: CLI MCP Server コマンド ✅ 完了
-4. **Phase 4**: Web フロントエンド
+4. **Phase 4**: Web フロントエンド ✅ 完了
 
 各Phase完了後に動作確認を行う。
 
@@ -244,5 +244,24 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 - `cli/src/commands/uninstall.ts` - MCPサーバー設定削除追加
 - `docs/cli/commands.md` - mcp-serverコマンドのドキュメント追記
 - `docs/cli/configuration.md` - mcpServers設定のドキュメント追記
+
+**確認:** `npm run build` 成功
+
+### Phase 4 完了
+
+**作成したファイル:**
+- `web/src/types/plan-document.ts`
+- `web/src/api/plan-documents.ts`
+- `web/src/pages/PlansPage.tsx`
+- `web/src/pages/PlanDetailPage.tsx`
+- `web/src/components/plans/PlanList.tsx`
+- `web/src/components/plans/PlanCard.tsx`
+- `web/src/components/plans/PlanEventHistory.tsx`
+
+**修正したファイル:**
+- `web/src/App.tsx` - ルート追加（/plans, /plans/:id）
+- `web/src/pages/HomePage.tsx` - Recent Plansセクション追加
+- `docs/web/README.md` - Plansページのドキュメント追記
+- `web/package.json` - remark-gfm 依存追加
 
 **確認:** `npm run build` 成功
