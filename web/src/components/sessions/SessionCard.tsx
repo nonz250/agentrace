@@ -84,7 +84,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
               )}
             </span>
           )}
-          {session.project_path && (
+          {!repoName && session.project_path && (
             <span className="flex items-center gap-1 truncate" title={session.project_path}>
               <Folder className="h-3 w-3 flex-shrink-0" />
               <span className="truncate font-mono">{getDirectoryName(session.project_path)}</span>

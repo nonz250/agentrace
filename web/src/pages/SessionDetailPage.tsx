@@ -123,7 +123,7 @@ export function SessionDetailPage() {
             }
             return null
           })()}
-          {session.project_path && (
+          {!parseGitRepoName(session.git_remote_url) && session.project_path && (
             <span className="flex items-center gap-1" title={session.project_path}>
               <Folder className="h-3 w-3 flex-shrink-0" />
               <span className="font-mono">{getDirectoryName(session.project_path)}</span>
