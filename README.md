@@ -1,6 +1,8 @@
 # AgenTrace
 
-A service for reviewing Claude Code conversations with your team.
+A self-hosted service for reviewing Claude Code conversations with your team.
+
+Since Claude Code logs contain source code and environment information, AgenTrace is designed to run on your local machine or internal network rather than on the public internet.
 
 ## Quick Start
 
