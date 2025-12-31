@@ -68,3 +68,15 @@ func (r *UserRepository) FindAll(ctx context.Context) ([]*domain.User, error) {
 	}
 	return users, nil
 }
+
+func (r *UserRepository) UpdateDisplayName(ctx context.Context, id string, displayName string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	user, ok := r.users[id]
+	if !ok {
+		return nil
+	}
+	user.DisplayName = displayName
+	return nil
+}

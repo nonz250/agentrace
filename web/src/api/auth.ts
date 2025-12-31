@@ -41,6 +41,18 @@ export async function getMe(): Promise<User> {
   return response.user
 }
 
+export interface UpdateMeParams {
+  display_name: string
+}
+
+export async function updateMe(params: UpdateMeParams): Promise<User> {
+  const response = await fetchAPI<{ user: User }>('/api/me', {
+    method: 'PATCH',
+    body: JSON.stringify(params),
+  })
+  return response.user
+}
+
 export async function getUsers(): Promise<{ users: User[] }> {
   return fetchAPI('/api/users')
 }

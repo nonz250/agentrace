@@ -30,6 +30,7 @@ type UserRepository interface {
 	FindByID(ctx context.Context, id string) (*domain.User, error)
 	FindByEmail(ctx context.Context, email string) (*domain.User, error)
 	FindAll(ctx context.Context) ([]*domain.User, error)
+	UpdateDisplayName(ctx context.Context, id string, displayName string) error
 }
 
 // APIKeyRepository はAPIキーの永続化を担当する

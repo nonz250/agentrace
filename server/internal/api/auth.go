@@ -554,6 +554,40 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// UpdateMe updates the current user's profile
+func (h *AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	user := GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, `{"error": "user not found"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+	if err := h.repos.User.UpdateDisplayName(ctx, user.ID, req.DisplayName); err != nil {
+		http.Error(w, `{"error": "failed to update user"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch updated user
+	updatedUser, err := h.repos.User.FindByID(ctx, user.ID)
+	if err != nil || updatedUser == nil {
+		http.Error(w, `{"error": "failed to fetch updated user"}`, http.StatusInternalServerError)
+		return
+	}
+
+	resp := MeResponse{User: updatedUser}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 // ListUsers returns all users
 func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

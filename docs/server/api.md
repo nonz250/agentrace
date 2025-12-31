@@ -23,6 +23,7 @@
 | POST | `/api/auth/web-session` | Bearer | Webログイントークン発行 |
 | POST | `/api/auth/logout` | Session | ログアウト |
 | GET | `/api/me` | Session | 自分の情報 |
+| PATCH | `/api/me` | Session | 自分の情報を更新 |
 | GET | `/api/users` | Session | ユーザー一覧 |
 | GET | `/api/keys` | Session | 自分のAPIキー一覧 |
 | POST | `/api/keys` | Session | 新しいAPIキー発行 |
@@ -137,5 +138,5 @@
 |---------------|-------------|
 | `/api/ingest` | AuthenticateBearer |
 | `/api/auth/web-session` | AuthenticateBearer |
-| `/api/me`, `/api/keys` | AuthenticateSession |
+| `/api/me`, `/api/keys`, `/api/users` | AuthenticateSession |
 | `/api/sessions` | AuthenticateBearerOrSession |

@@ -42,6 +42,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiSession.Use(mw.AuthenticateSession)
 	apiSession.HandleFunc("/auth/logout", authHandler.Logout).Methods("POST")
 	apiSession.HandleFunc("/me", authHandler.Me).Methods("GET")
+	apiSession.HandleFunc("/me", authHandler.UpdateMe).Methods("PATCH")
 	apiSession.HandleFunc("/users", authHandler.ListUsers).Methods("GET")
 	apiSession.HandleFunc("/keys", authHandler.ListKeys).Methods("GET")
 	apiSession.HandleFunc("/keys", authHandler.CreateKey).Methods("POST")

@@ -107,3 +107,12 @@ func (r *UserRepository) FindAll(ctx context.Context) ([]*domain.User, error) {
 
 	return users, cursor.Err()
 }
+
+func (r *UserRepository) UpdateDisplayName(ctx context.Context, id string, displayName string) error {
+	_, err := r.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{"display_name": displayName}},
+	)
+	return err
+}

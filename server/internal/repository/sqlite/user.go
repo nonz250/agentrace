@@ -100,3 +100,11 @@ func (r *UserRepository) FindAll(ctx context.Context) ([]*domain.User, error) {
 
 	return users, rows.Err()
 }
+
+func (r *UserRepository) UpdateDisplayName(ctx context.Context, id string, displayName string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET display_name = ? WHERE id = ?`,
+		displayName, id,
+	)
+	return err
+}
