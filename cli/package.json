@@ -1,7 +1,7 @@
 {
   "name": "agentrace",
   "version": "0.0.1",
-  "description": "CLI for Agentrace - Claude Code session tracker",
+  "description": "CLI for AgenTrace - Claude Code session tracker",
   "type": "module",
   "bin": {
     "agentrace": "./dist/index.js"
