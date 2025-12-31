@@ -92,17 +92,24 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 
 **修正:**
 - `server/internal/api/router.go` - ルート追加
+- `docs/server/api.md` - PlanDocument APIドキュメント追記
 
 ### Phase 3: CLI MCP Server
 
 **新規作成:**
-- `cli/src/commands/mcp-server.ts`
-- `cli/src/mcp/plan-document-client.ts`
+- `cli/src/commands/mcp-server.ts` - MCPサーバーコマンド実装
+- `cli/src/mcp/plan-document-client.ts` - PlanDocument APIクライアント
 
 **修正:**
 - `cli/package.json` - 依存追加（@modelcontextprotocol/server, zod, diff-match-patch-es）
-- `cli/src/index.ts` - コマンド追加
-- `cli/src/hooks/installer.ts` - MCP サーバー設定のインストール処理追加
+- `cli/src/index.ts` - mcp-serverコマンド追加
+- `cli/src/hooks/installer.ts` - installMcpServer/uninstallMcpServer関数追加
+- `cli/src/commands/init.ts` - MCPサーバー設定のインストール処理追加
+- `cli/src/commands/on.ts` - MCPサーバー有効化も追加
+- `cli/src/commands/off.ts` - MCPサーバー無効化も追加
+- `cli/src/commands/uninstall.ts` - MCPサーバー設定削除も追加
+- `docs/cli/commands.md` - mcp-serverコマンドのドキュメント追記
+- `docs/cli/configuration.md` - mcpServers設定のドキュメント追記
 
 **init時のMCPサーバー設定:**
 
@@ -133,17 +140,18 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 ### Phase 4: Web フロントエンド
 
 **新規作成:**
-- `web/src/types/plan-document.ts`
-- `web/src/api/plan-documents.ts`
-- `web/src/pages/PlansPage.tsx`
-- `web/src/pages/PlanDetailPage.tsx`
-- `web/src/components/plans/PlanList.tsx`
-- `web/src/components/plans/PlanCard.tsx`
-- `web/src/components/plans/PlanEventHistory.tsx`
+- `web/src/types/plan-document.ts` - 型定義
+- `web/src/api/plan-documents.ts` - APIクライアント
+- `web/src/pages/PlansPage.tsx` - Plan一覧ページ
+- `web/src/pages/PlanDetailPage.tsx` - Plan詳細ページ（履歴タブ含む）
+- `web/src/components/plans/PlanList.tsx` - Plan一覧コンポーネント
+- `web/src/components/plans/PlanCard.tsx` - Planカードコンポーネント
+- `web/src/components/plans/PlanEventHistory.tsx` - 変更履歴コンポーネント
 
 **修正:**
-- `web/src/App.tsx` - ルート追加
-- `web/src/components/layout/Header.tsx` - ナビゲーション追加
+- `web/src/App.tsx` - ルート追加（/plans, /plans/:id）
+- `web/src/pages/HomePage.tsx` - Plansセクション追加（Recent Plansを表示）
+- `docs/web/README.md` - Plansページのドキュメント追記
 
 ---
 
