@@ -20,12 +20,12 @@ export function UserMessageNav({ userBlocks, activeBlockId, onNavigate }: UserMe
   }
 
   return (
-    <nav className="sticky top-20 space-y-1">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+    <nav className="sticky top-20 flex max-h-[calc(100vh-6rem)] flex-col">
+      <div className="mb-2 flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-500">
         <User className="h-3 w-3" />
         <span>User Messages ({userBlocks.length})</span>
       </div>
-      <div className="space-y-1">
+      <div className="space-y-1 overflow-y-auto">
         {userBlocks.map((block) => (
           <button
             key={block.id}
