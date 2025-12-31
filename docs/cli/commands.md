@@ -4,18 +4,19 @@
 
 | コマンド | 説明 |
 |---------|------|
-| `agentrace init --url <url>` | ブラウザ連携で設定 + hooks インストール |
+| `agentrace init --url <url>` | ブラウザ連携で設定 + hooks + MCP インストール |
 | `agentrace init --url <url> --dev` | 開発モード（ローカルCLIパス使用） |
 | `agentrace login` | WebログインURL発行 |
 | `agentrace send` | transcript差分送信（hooks用） |
-| `agentrace on` | hooks有効化（認証情報は保持） |
-| `agentrace on --dev` | hooks有効化（開発モード） |
-| `agentrace off` | hooks無効化（認証情報は保持） |
-| `agentrace uninstall` | hooks/config 削除 |
+| `agentrace mcp-server` | MCPサーバー起動（stdio通信） |
+| `agentrace on` | hooks + MCP 有効化（認証情報は保持） |
+| `agentrace on --dev` | hooks + MCP 有効化（開発モード） |
+| `agentrace off` | hooks + MCP 無効化（認証情報は保持） |
+| `agentrace uninstall` | hooks/MCP/config 削除 |
 
 ## init コマンド
 
-サーバーの初期設定、API キー取得、hooks インストールを行う。
+サーバーの初期設定、API キー取得、hooks インストール、MCPサーバー設定を行う。
 
 ```bash
 npx agentrace init --url http://server:8080
@@ -32,7 +33,7 @@ npx agentrace init --url http://server:8080
        ↓
 4. callback URLにAPIキーをPOST
        ↓
-5. config保存 → hooks インストール
+5. config保存 → hooks インストール → MCPサーバー設定
 ```
 
 ### セキュリティ
@@ -96,9 +97,52 @@ npx agentrace login
 4. Enter キーでブラウザ起動
 ```
 
+## mcp-server コマンド
+
+Claude Code の MCP (Model Context Protocol) サーバーとして動作し、PlanDocument の操作を提供する。
+
+```bash
+npx agentrace mcp-server
+```
+
+### 提供するツール
+
+| ツール | 説明 | 引数 |
+|--------|------|------|
+| `list_plans` | リポジトリのPlan一覧取得 | `git_remote_url` |
+| `read_plan` | Plan読み込み | `id` |
+| `create_plan` | Plan作成 | `description`, `body`, `git_remote_url`, `session_id?` |
+| `update_plan` | Plan更新（パッチ自動生成） | `id`, `body`, `session_id?` |
+
+### 通信方式
+
+- stdio（標準入出力）でMCPプロトコル通信
+- Claude Code の `mcpServers` 設定で自動起動
+
+### 使用例
+
+Claude Code 内で:
+```
+# Planの一覧を取得
+list_plans(git_remote_url: "https://github.com/user/repo.git")
+
+# Planを読み込み
+read_plan(id: "plan-uuid")
+
+# 新規Planを作成
+create_plan(
+  description: "実装計画",
+  body: "# 実装ステップ\n\n1. ...",
+  git_remote_url: "https://github.com/user/repo.git"
+)
+
+# Planを更新
+update_plan(id: "plan-uuid", body: "# 更新後の内容")
+```
+
 ## on / off コマンド
 
-hooks の有効化/無効化。config は保持したまま。
+hooks と MCP サーバーの有効化/無効化。config は保持したまま。
 
 ```bash
 # hooks 有効化

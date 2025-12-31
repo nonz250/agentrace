@@ -29,7 +29,7 @@
 }
 ```
 
-## Hooks 設定
+## Claude Code 設定
 
 ### ~/.claude/settings.json
 
@@ -51,6 +51,37 @@ Claude Code の hooks 設定。`init` または `on` コマンドで自動追加
   }
 }
 ```
+
+### ~/.claude.json
+
+MCP サーバー設定。`init` または `on` コマンドで自動追加される。
+
+**注意**: MCPサーバーは `settings.json` ではなく `~/.claude.json` に設定する必要があります。
+
+```json
+{
+  "mcpServers": {
+    "agentrace": {
+      "command": "npx",
+      "args": ["agentrace", "mcp-server"]
+    }
+  }
+}
+```
+
+開発モード（`--dev`）の場合:
+```json
+{
+  "mcpServers": {
+    "agentrace": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/cli/src/index.ts", "mcp-server"]
+    }
+  }
+}
+```
+
+## Hooks 設定
 
 ### Hooks の仕組み
 
@@ -91,3 +122,4 @@ CLI は `CLAUDE_PROJECT_DIR` を優先して使用し、未設定時は `cwd` �
 | `~/.agentrace/config.json` | メイン設定 |
 | `~/.agentrace/cursors/` | セッションごとのカーソル位置 |
 | `~/.claude/settings.json` | Claude Code hooks 設定 |
+| `~/.claude.json` | Claude Code MCP サーバー設定 |

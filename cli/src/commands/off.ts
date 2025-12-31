@@ -1,4 +1,4 @@
-import { uninstallHooks } from "../hooks/installer.js";
+import { uninstallHooks, uninstallMcpServer } from "../hooks/installer.js";
 import { loadConfig } from "../config/manager.js";
 
 export async function offCommand(): Promise<void> {
@@ -15,5 +15,12 @@ export async function offCommand(): Promise<void> {
     console.log(`  Run 'npx agentrace on' to re-enable.`);
   } else {
     console.error(`✗ ${result.message}`);
+  }
+
+  const mcpResult = uninstallMcpServer();
+  if (mcpResult.success) {
+    console.log(`✓ ${mcpResult.message}`);
+  } else {
+    console.error(`✗ ${mcpResult.message}`);
   }
 }

@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { installHooks } from "../hooks/installer.js";
+import { installHooks, installMcpServer } from "../hooks/installer.js";
 import { loadConfig } from "../config/manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,5 +32,21 @@ export async function onCommand(options: OnOptions = {}): Promise<void> {
     console.log(`✓ Hooks enabled. Session data will be sent to ${config.server_url}`);
   } else {
     console.error(`✗ ${result.message}`);
+  }
+
+  // Install MCP server
+  let mcpCommand: string | undefined;
+  let mcpArgs: string[] | undefined;
+  if (options.dev) {
+    const cliRoot = path.resolve(__dirname, "../..");
+    const indexPath = path.join(cliRoot, "src/index.ts");
+    mcpCommand = "npx";
+    mcpArgs = ["tsx", indexPath, "mcp-server"];
+  }
+  const mcpResult = installMcpServer({ command: mcpCommand, args: mcpArgs });
+  if (mcpResult.success) {
+    console.log(`✓ ${mcpResult.message}`);
+  } else {
+    console.error(`✗ ${mcpResult.message}`);
   }
 }

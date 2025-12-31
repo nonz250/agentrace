@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { saveConfig, getConfigPath } from "../config/manager.js";
-import { installHooks } from "../hooks/installer.js";
+import { installHooks, installMcpServer } from "../hooks/installer.js";
 import {
   startCallbackServer,
   getRandomPort,
@@ -103,6 +103,22 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       console.log(`✓ ${hookResult.message}`);
     } else {
       console.error(`✗ ${hookResult.message}`);
+    }
+
+    // Install MCP server
+    let mcpCommand: string | undefined;
+    let mcpArgs: string[] | undefined;
+    if (options.dev) {
+      const cliRoot = path.resolve(__dirname, "../..");
+      const indexPath = path.join(cliRoot, "src/index.ts");
+      mcpCommand = "npx";
+      mcpArgs = ["tsx", indexPath, "mcp-server"];
+    }
+    const mcpResult = installMcpServer({ command: mcpCommand, args: mcpArgs });
+    if (mcpResult.success) {
+      console.log(`✓ ${mcpResult.message}`);
+    } else {
+      console.error(`✗ ${mcpResult.message}`);
     }
 
     console.log("\n✓ Setup complete!");

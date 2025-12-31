@@ -180,7 +180,7 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 
 1. **Phase 1**: Server ドメイン・Repository（memory + sqlite） ✅ 完了
 2. **Phase 2**: Server API ハンドラー・ルーティング ✅ 完了
-3. **Phase 3**: CLI MCP Server コマンド
+3. **Phase 3**: CLI MCP Server コマンド ✅ 完了
 4. **Phase 4**: Web フロントエンド
 
 各Phase完了後に動作確認を行う。
@@ -227,3 +227,22 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 - `docs/server/api.md`
 
 **確認:** `go build ./...` 成功
+
+### Phase 3 完了
+
+**作成したファイル:**
+- `cli/src/commands/mcp-server.ts`
+- `cli/src/mcp/plan-document-client.ts`
+
+**修正したファイル:**
+- `cli/package.json` - 依存追加（@modelcontextprotocol/sdk, zod, diff-match-patch-es）
+- `cli/src/index.ts` - mcp-serverコマンド追加
+- `cli/src/hooks/installer.ts` - installMcpServer/uninstallMcpServer関数追加
+- `cli/src/commands/init.ts` - MCPサーバー設定のインストール処理追加
+- `cli/src/commands/on.ts` - MCPサーバー有効化追加
+- `cli/src/commands/off.ts` - MCPサーバー無効化追加
+- `cli/src/commands/uninstall.ts` - MCPサーバー設定削除追加
+- `docs/cli/commands.md` - mcp-serverコマンドのドキュメント追記
+- `docs/cli/configuration.md` - mcpServers設定のドキュメント追記
+
+**確認:** `npm run build` 成功
