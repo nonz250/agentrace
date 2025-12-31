@@ -179,7 +179,7 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 ## 実装順序
 
 1. **Phase 1**: Server ドメイン・Repository（memory + sqlite） ✅ 完了
-2. **Phase 2**: Server API ハンドラー・ルーティング
+2. **Phase 2**: Server API ハンドラー・ルーティング ✅ 完了
 3. **Phase 3**: CLI MCP Server コマンド
 4. **Phase 4**: Web フロントエンド
 
@@ -214,5 +214,16 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 - `server/internal/repository/postgres/db.go`
 - `server/internal/repository/mongodb/repositories.go`
 - `server/migrations/embed.go`
+
+**確認:** `go build ./...` 成功
+
+### Phase 2 完了
+
+**作成したファイル:**
+- `server/internal/api/plan_document.go`
+
+**修正したファイル:**
+- `server/internal/api/router.go`
+- `docs/server/api.md`
 
 **確認:** `go build ./...` 成功

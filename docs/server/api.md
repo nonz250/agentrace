@@ -9,6 +9,17 @@
 | GET | `/api/sessions/:id` | Bearer/Session | セッション詳細（イベント含む） |
 | GET | `/health` | なし | ヘルスチェック |
 
+## PlanDocument
+
+| Method | Path | 認証 | 説明 |
+|--------|------|------|------|
+| GET | `/api/plans` | Bearer/Session | Plan一覧（?git_remote_url=でフィルタ） |
+| GET | `/api/plans/:id` | Bearer/Session | Plan詳細 |
+| GET | `/api/plans/:id/events` | Bearer/Session | Plan変更履歴 |
+| POST | `/api/plans` | Bearer | Plan作成 |
+| PATCH | `/api/plans/:id` | Bearer | Plan更新 |
+| DELETE | `/api/plans/:id` | Bearer | Plan削除 |
+
 ## 認証
 
 | Method | Path | 認証 | 説明 |
@@ -140,3 +151,115 @@
 | `/api/auth/web-session` | AuthenticateBearer |
 | `/api/me`, `/api/keys`, `/api/users` | AuthenticateSession |
 | `/api/sessions` | AuthenticateBearerOrSession |
+| `/api/plans` (GET) | AuthenticateBearerOrSession |
+| `/api/plans` (POST), `/api/plans/:id` (PATCH, DELETE) | AuthenticateBearer |
+
+## PlanDocument API詳細
+
+### GET /api/plans
+
+**クエリパラメータ**
+
+| パラメータ | 説明 | デフォルト |
+|-----------|------|-----------|
+| `git_remote_url` | リポジトリURLでフィルタ | なし（全件） |
+| `limit` | 取得件数 | 100 |
+| `offset` | オフセット | 0 |
+
+**レスポンス**
+
+```json
+{
+  "plans": [
+    {
+      "id": "string",
+      "description": "string",
+      "body": "string (Markdown)",
+      "git_remote_url": "string",
+      "collaborators": [
+        {
+          "id": "string",
+          "display_name": "string"
+        }
+      ],
+      "created_at": "ISO 8601",
+      "updated_at": "ISO 8601"
+    }
+  ]
+}
+```
+
+### GET /api/plans/:id
+
+**レスポンス**
+
+```json
+{
+  "id": "string",
+  "description": "string",
+  "body": "string (Markdown)",
+  "git_remote_url": "string",
+  "collaborators": [
+    {
+      "id": "string",
+      "display_name": "string"
+    }
+  ],
+  "created_at": "ISO 8601",
+  "updated_at": "ISO 8601"
+}
+```
+
+### GET /api/plans/:id/events
+
+**レスポンス**
+
+```json
+{
+  "events": [
+    {
+      "id": "string",
+      "plan_document_id": "string",
+      "session_id": "string | null",
+      "user_id": "string | null",
+      "user_name": "string | null",
+      "patch": "string (diff-match-patch形式)",
+      "created_at": "ISO 8601"
+    }
+  ]
+}
+```
+
+### POST /api/plans
+
+**リクエスト**
+
+```json
+{
+  "description": "string (必須)",
+  "body": "string (Markdown)",
+  "git_remote_url": "string",
+  "session_id": "string | null (Claude Codeセッションとの関連付け)"
+}
+```
+
+**レスポンス**: `201 Created` + Plan詳細（GET /api/plans/:id と同形式）
+
+### PATCH /api/plans/:id
+
+**リクエスト**
+
+```json
+{
+  "description": "string | null (更新する場合のみ)",
+  "body": "string | null (更新する場合のみ)",
+  "patch": "string | null (diff-match-patch形式、履歴用)",
+  "session_id": "string | null (Claude Codeセッションとの関連付け)"
+}
+```
+
+**レスポンス**: `200 OK` + Plan詳細（GET /api/plans/:id と同形式）
+
+### DELETE /api/plans/:id
+
+**レスポンス**: `204 No Content`

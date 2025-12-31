@@ -22,6 +22,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	ingestHandler := NewIngestHandler(repos)
 	sessionHandler := NewSessionHandler(repos)
 	authHandler := NewAuthHandler(cfg, repos)
+	planDocumentHandler := NewPlanDocumentHandler(repos)
 
 	// Auth routes (no auth required)
 	r.HandleFunc("/auth/register", authHandler.Register).Methods("POST")
@@ -36,6 +37,9 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiBearer.Use(mw.AuthenticateBearer)
 	apiBearer.HandleFunc("/ingest", ingestHandler.Handle).Methods("POST")
 	apiBearer.HandleFunc("/auth/web-session", authHandler.CreateWebSession).Methods("POST")
+	apiBearer.HandleFunc("/plans", planDocumentHandler.Create).Methods("POST")
+	apiBearer.HandleFunc("/plans/{id}", planDocumentHandler.Update).Methods("PATCH")
+	apiBearer.HandleFunc("/plans/{id}", planDocumentHandler.Delete).Methods("DELETE")
 
 	// API routes (Session auth - for Web)
 	apiSession := r.PathPrefix("/api").Subrouter()
@@ -53,6 +57,9 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiBoth.Use(mw.AuthenticateBearerOrSession)
 	apiBoth.HandleFunc("/sessions", sessionHandler.List).Methods("GET")
 	apiBoth.HandleFunc("/sessions/{id}", sessionHandler.Get).Methods("GET")
+	apiBoth.HandleFunc("/plans", planDocumentHandler.List).Methods("GET")
+	apiBoth.HandleFunc("/plans/{id}", planDocumentHandler.Get).Methods("GET")
+	apiBoth.HandleFunc("/plans/{id}/events", planDocumentHandler.GetEvents).Methods("GET")
 
 	// Health check (no auth)
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
