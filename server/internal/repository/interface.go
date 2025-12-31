@@ -67,6 +67,24 @@ type OAuthConnectionRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// PlanDocumentRepository はPlanDocumentの永続化を担当する
+type PlanDocumentRepository interface {
+	Create(ctx context.Context, doc *domain.PlanDocument) error
+	FindByID(ctx context.Context, id string) (*domain.PlanDocument, error)
+	FindAll(ctx context.Context, limit int, offset int) ([]*domain.PlanDocument, error)
+	FindByGitRemoteURL(ctx context.Context, gitRemoteURL string, limit int, offset int) ([]*domain.PlanDocument, error)
+	Update(ctx context.Context, doc *domain.PlanDocument) error
+	Delete(ctx context.Context, id string) error
+}
+
+// PlanDocumentEventRepository はPlanDocumentEventの永続化を担当する
+type PlanDocumentEventRepository interface {
+	Create(ctx context.Context, event *domain.PlanDocumentEvent) error
+	FindByPlanDocumentID(ctx context.Context, planDocumentID string) ([]*domain.PlanDocumentEvent, error)
+	FindBySessionID(ctx context.Context, sessionID string) ([]*domain.PlanDocumentEvent, error)
+	GetCollaboratorUserIDs(ctx context.Context, planDocumentID string) ([]string, error)
+}
+
 // Repositories は全リポジトリをまとめる
 type Repositories struct {
 	Session            SessionRepository
@@ -76,4 +94,6 @@ type Repositories struct {
 	WebSession         WebSessionRepository
 	PasswordCredential PasswordCredentialRepository
 	OAuthConnection    OAuthConnectionRepository
+	PlanDocument       PlanDocumentRepository
+	PlanDocumentEvent  PlanDocumentEventRepository
 }

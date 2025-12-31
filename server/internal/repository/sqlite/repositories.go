@@ -14,5 +14,7 @@ func NewRepositories(db *DB) *repository.Repositories {
 		WebSession:         NewWebSessionRepository(db),
 		PasswordCredential: NewPasswordCredentialRepository(db),
 		OAuthConnection:    NewOAuthConnectionRepository(db),
+		PlanDocument:       NewPlanDocumentRepository(db),
+		PlanDocumentEvent:  NewPlanDocumentEventRepository(db),
 	}
 }
