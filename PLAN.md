@@ -265,3 +265,38 @@ Claude Codeが実装や変更の計画を記録・管理するための新しい
 - `web/package.json` - remark-gfm 依存追加
 
 **確認:** `npm run build` 成功
+
+---
+
+## バグ修正
+
+### user_id がPlanDocumentEventに保存されない問題
+
+**問題:**
+PlanDocument作成・更新時に、Bearer認証（APIキー）から特定したユーザーIDが `PlanDocumentEvent.user_id` に保存されていなかった。
+
+**原因:**
+`server/internal/api/plan_document.go` で `ctx.Value("user_id")` を使用してユーザーIDを取得しようとしていたが、認証ミドルウェアは異なるコンテキストキーを使用していた。
+
+- ミドルウェア: `context.WithValue(ctx, userIDContextKey, user.ID)`
+  - `userIDContextKey` は `contextKey("userID")` （カスタム型）
+- plan_document.go: `ctx.Value("user_id").(string)`
+  - キーの型が異なる（`contextKey` vs `string`）
+  - キーの値も異なる（`"userID"` vs `"user_id"`）
+
+**修正:**
+`ctx.Value("user_id").(string)` を `GetUserIDFromContext(ctx)` に変更。
+ミドルウェアで提供されているヘルパー関数を使用することで正しくユーザーIDを取得できるようになった。
+
+**修正ファイル:**
+- `server/internal/api/plan_document.go` - Create, Update 両ハンドラーを修正
+
+### update_plan の session_id を必須化
+
+**変更:**
+MCPツールの `update_plan` で `session_id` パラメータを必須に変更。
+AIエージェントは自分のセッションIDを渡すことで、変更履歴にセッション情報が紐付けられる。
+
+**修正ファイル:**
+- `cli/src/commands/mcp-server.ts` - UpdatePlanSchemaのsession_idを必須に変更、説明を追加
+- `docs/cli/commands.md` - ドキュメント更新

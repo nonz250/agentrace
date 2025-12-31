@@ -23,7 +23,7 @@ const CreatePlanSchema = z.object({
 const UpdatePlanSchema = z.object({
   id: z.string().describe("Plan document ID"),
   body: z.string().describe("Updated plan content in Markdown format"),
-  session_id: z.string().optional().describe("Claude Code session ID (optional)"),
+  session_id: z.string().describe("Claude Code session ID (required - pass your current session ID)"),
 });
 
 // Tool descriptions with usage guidance
@@ -60,7 +60,9 @@ WHEN TO USE:
 - When you need to add progress notes or completion status to a plan
 - When marking a plan as completed after finishing implementation
 
-Changes are tracked with diff patches for history.`,
+Changes are tracked with diff patches for history.
+
+IMPORTANT: You MUST pass your current session_id parameter. This links the update to your session for tracking collaboration history.`,
 };
 
 export async function mcpServerCommand(): Promise<void> {

@@ -112,7 +112,7 @@ npx agentrace mcp-server
 | `list_plans` | リポジトリのPlan一覧取得 | `git_remote_url` |
 | `read_plan` | Plan読み込み | `id` |
 | `create_plan` | Plan作成 | `description`, `body`, `git_remote_url`, `session_id?` |
-| `update_plan` | Plan更新（パッチ自動生成） | `id`, `body`, `session_id?` |
+| `update_plan` | Plan更新（パッチ自動生成） | `id`, `body`, `session_id` (必須) |
 
 ### 通信方式
 
@@ -136,8 +136,8 @@ create_plan(
   git_remote_url: "https://github.com/user/repo.git"
 )
 
-# Planを更新
-update_plan(id: "plan-uuid", body: "# 更新後の内容")
+# Planを更新（session_id必須）
+update_plan(id: "plan-uuid", body: "# 更新後の内容", session_id: "your-session-id")
 ```
 
 ## on / off コマンド

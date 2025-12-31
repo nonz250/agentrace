@@ -251,7 +251,7 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from context (set by auth middleware)
-	userID, _ := ctx.Value("user_id").(string)
+	userID := GetUserIDFromContext(ctx)
 
 	doc := &domain.PlanDocument{
 		Description:  req.Description,
@@ -313,7 +313,7 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from context (set by auth middleware)
-	userID, _ := ctx.Value("user_id").(string)
+	userID := GetUserIDFromContext(ctx)
 
 	// Update fields if provided
 	if req.Description != nil {
