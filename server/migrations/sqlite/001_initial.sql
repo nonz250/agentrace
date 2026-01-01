@@ -45,13 +45,25 @@ CREATE TABLE IF NOT EXISTS web_sessions (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Projects table
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    canonical_git_repository TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(canonical_git_repository)
+);
+
+-- Default project (no project)
+INSERT OR IGNORE INTO projects (id, canonical_git_repository)
+VALUES ('00000000-0000-0000-0000-000000000000', '');
+
 -- Sessions table (Claude Code sessions)
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    project_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES projects(id),
     claude_session_id TEXT,
     project_path TEXT,
-    git_remote_url TEXT,
     git_branch TEXT,
     started_at TEXT,
     ended_at TEXT,
@@ -70,9 +82,9 @@ CREATE TABLE IF NOT EXISTS events (
 -- Plan Documents table
 CREATE TABLE IF NOT EXISTS plan_documents (
     id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000' REFERENCES projects(id),
     description TEXT NOT NULL,
     body TEXT NOT NULL DEFAULT '',
-    git_remote_url TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'planning',
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -97,12 +109,14 @@ CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(token);
 CREATE INDEX IF NOT EXISTS idx_web_sessions_expires ON web_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_projects_canonical ON projects(canonical_git_repository);
 CREATE INDEX IF NOT EXISTS idx_sessions_claude_id ON sessions(claude_session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
-CREATE INDEX IF NOT EXISTS idx_plan_documents_git_remote ON plan_documents(git_remote_url);
+CREATE INDEX IF NOT EXISTS idx_plan_documents_project ON plan_documents(project_id);
 CREATE INDEX IF NOT EXISTS idx_plan_documents_updated ON plan_documents(updated_at);
 CREATE INDEX IF NOT EXISTS idx_plan_documents_status ON plan_documents(status);
 CREATE INDEX IF NOT EXISTS idx_plan_document_events_doc ON plan_document_events(plan_document_id);

@@ -21,11 +21,11 @@ func (s PlanDocumentStatus) IsValid() bool {
 }
 
 type PlanDocument struct {
-	ID           string
-	Description  string
-	Body         string
-	GitRemoteURL string
-	Status       PlanDocumentStatus
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID          string
+	ProjectID   string // reference to Project
+	Description string
+	Body        string
+	Status      PlanDocumentStatus
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }

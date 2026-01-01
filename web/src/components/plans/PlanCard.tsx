@@ -3,49 +3,17 @@ import { PlanStatusBadge } from './PlanStatusBadge'
 import { GitBranch, Users, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import type { PlanDocument } from '@/types/plan-document'
+import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 
 interface PlanCardProps {
   plan: PlanDocument
   onClick: () => void
 }
 
-// Parse git remote URL to get repo name (e.g., "owner/repo")
-function parseGitRepoName(remoteUrl: string): string | null {
-  if (!remoteUrl) return null
-
-  // Handle SSH URL format: ssh://git@github.com/owner/repo.git
-  let match = remoteUrl.match(/ssh:\/\/git@[^/]+\/(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  // Handle SSH format: git@github.com:owner/repo.git
-  match = remoteUrl.match(/git@[^:]+:(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  // Handle HTTPS format: https://github.com/owner/repo.git
-  match = remoteUrl.match(/https?:\/\/[^/]+\/(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  return null
-}
-
-// Get GitHub/GitLab URL from remote URL
-function getRepoUrl(remoteUrl: string): string | null {
-  const repoName = parseGitRepoName(remoteUrl)
-  if (!repoName) return null
-
-  if (remoteUrl.includes('github.com')) {
-    return `https://github.com/${repoName}`
-  }
-  if (remoteUrl.includes('gitlab.com')) {
-    return `https://gitlab.com/${repoName}`
-  }
-
-  return null
-}
-
 export function PlanCard({ plan, onClick }: PlanCardProps) {
-  const repoName = parseGitRepoName(plan.git_remote_url)
-  const repoUrl = getRepoUrl(plan.git_remote_url)
+  const repoName = parseRepoName(plan.project)
+  const repoUrl = getRepoUrl(plan.project)
+  const hasProject = !isDefaultProject(plan.project)
   const formattedDate = format(new Date(plan.updated_at), 'yyyy/MM/dd HH:mm')
   const collaboratorNames = plan.collaborators.map((c) => c.display_name).join(', ')
 
@@ -59,7 +27,7 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
         </div>
         {/* Metadata: repo, collaborators, updated_at */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
-          {repoName && (
+          {hasProject && repoName && (
             <span className="flex items-center gap-1">
               <GitBranch className="h-3 w-3" />
               {repoUrl ? (
@@ -75,6 +43,12 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
               ) : (
                 repoName
               )}
+            </span>
+          )}
+          {!hasProject && (
+            <span className="flex items-center gap-1 text-gray-300">
+              <GitBranch className="h-3 w-3" />
+              (no project)
             </span>
           )}
           {collaboratorNames && (

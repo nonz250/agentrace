@@ -5,45 +5,12 @@ import { format } from 'date-fns'
 import { TimelineContainer } from '@/components/timeline/TimelineContainer'
 import { Spinner } from '@/components/ui/Spinner'
 import * as sessionsApi from '@/api/sessions'
+import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 
 // Extract directory name from absolute path
 function getDirectoryName(path: string): string {
   if (!path) return ''
   return path.split('/').pop() || path
-}
-
-// Parse git remote URL to get repo name (e.g., "owner/repo")
-function parseGitRepoName(remoteUrl: string): string | null {
-  if (!remoteUrl) return null
-
-  // Handle SSH URL format: ssh://git@github.com/owner/repo.git
-  let match = remoteUrl.match(/ssh:\/\/git@[^/]+\/(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  // Handle SSH format: git@github.com:owner/repo.git
-  match = remoteUrl.match(/git@[^:]+:(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  // Handle HTTPS format: https://github.com/owner/repo.git
-  match = remoteUrl.match(/https?:\/\/[^/]+\/(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  return null
-}
-
-// Get GitHub/GitLab URL from remote URL
-function getGitHubUrl(remoteUrl: string): string | null {
-  const repoName = parseGitRepoName(remoteUrl)
-  if (!repoName) return null
-
-  if (remoteUrl.includes('github.com')) {
-    return `https://github.com/${repoName}`
-  }
-  if (remoteUrl.includes('gitlab.com')) {
-    return `https://gitlab.com/${repoName}`
-  }
-
-  return null
 }
 
 export function SessionDetailPage() {
@@ -80,6 +47,10 @@ export function SessionDetailPage() {
     )
   }
 
+  const repoName = parseRepoName(session.project)
+  const repoUrl = getRepoUrl(session.project)
+  const hasProject = !isDefaultProject(session.project)
+
   return (
     <div>
       <button
@@ -98,32 +69,25 @@ export function SessionDetailPage() {
         </h1>
         {/* Metadata: repo, branch, path, events */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
-          {(() => {
-            const repoName = parseGitRepoName(session.git_remote_url)
-            const repoUrl = getGitHubUrl(session.git_remote_url)
-            if (repoName) {
-              return (
-                <span className="flex items-center gap-1">
-                  <GitBranch className="h-3 w-3" />
-                  {repoUrl ? (
-                    <a
-                      href={repoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-gray-600 hover:underline"
-                    >
-                      {repoName}
-                    </a>
-                  ) : (
-                    repoName
-                  )}
-                  {session.git_branch && <span>: {session.git_branch}</span>}
-                </span>
-              )
-            }
-            return null
-          })()}
-          {!parseGitRepoName(session.git_remote_url) && session.project_path && (
+          {hasProject && repoName && (
+            <span className="flex items-center gap-1">
+              <GitBranch className="h-3 w-3" />
+              {repoUrl ? (
+                <a
+                  href={repoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-gray-600 hover:underline"
+                >
+                  {repoName}
+                </a>
+              ) : (
+                repoName
+              )}
+              {session.git_branch && <span>: {session.git_branch}</span>}
+            </span>
+          )}
+          {!hasProject && session.project_path && (
             <span className="flex items-center gap-1" title={session.project_path}>
               <Folder className="h-3 w-3 flex-shrink-0" />
               <span className="font-mono">{getDirectoryName(session.project_path)}</span>

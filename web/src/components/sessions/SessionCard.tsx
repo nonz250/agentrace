@@ -2,6 +2,7 @@ import { Card } from '@/components/ui/Card'
 import { GitBranch, Folder, MessageSquare } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Session } from '@/types/session'
+import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 
 interface SessionCardProps {
   session: Session
@@ -14,43 +15,10 @@ function getDirectoryName(path: string): string {
   return path.split('/').pop() || path
 }
 
-// Parse git remote URL to get repo name (e.g., "owner/repo")
-function parseGitRepoName(remoteUrl: string): string | null {
-  if (!remoteUrl) return null
-
-  // Handle SSH URL format: ssh://git@github.com/owner/repo.git
-  let match = remoteUrl.match(/ssh:\/\/git@[^/]+\/(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  // Handle SSH format: git@github.com:owner/repo.git
-  match = remoteUrl.match(/git@[^:]+:(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  // Handle HTTPS format: https://github.com/owner/repo.git
-  match = remoteUrl.match(/https?:\/\/[^/]+\/(.+?)(?:\.git)?$/)
-  if (match) return match[1]
-
-  return null
-}
-
-// Get GitHub/GitLab URL from remote URL
-function getRepoUrl(remoteUrl: string): string | null {
-  const repoName = parseGitRepoName(remoteUrl)
-  if (!repoName) return null
-
-  if (remoteUrl.includes('github.com')) {
-    return `https://github.com/${repoName}`
-  }
-  if (remoteUrl.includes('gitlab.com')) {
-    return `https://gitlab.com/${repoName}`
-  }
-
-  return null
-}
-
 export function SessionCard({ session, onClick }: SessionCardProps) {
-  const repoName = parseGitRepoName(session.git_remote_url)
-  const repoUrl = getRepoUrl(session.git_remote_url)
+  const repoName = parseRepoName(session.project)
+  const repoUrl = getRepoUrl(session.project)
+  const hasProject = !isDefaultProject(session.project)
   const formattedDate = format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')
 
   return (
@@ -63,7 +31,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
         </p>
         {/* Metadata: repo, branch, path, events */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
-          {repoName && (
+          {hasProject && repoName && (
             <span className="flex items-center gap-1">
               <GitBranch className="h-3 w-3" />
               {repoUrl ? (
@@ -84,7 +52,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
               )}
             </span>
           )}
-          {!repoName && session.project_path && (
+          {!hasProject && session.project_path && (
             <span className="flex items-center gap-1 truncate" title={session.project_path}>
               <Folder className="h-3 w-3 flex-shrink-0" />
               <span className="truncate font-mono">{getDirectoryName(session.project_path)}</span>

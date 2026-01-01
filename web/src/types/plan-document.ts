@@ -1,3 +1,5 @@
+import type { Project } from './project'
+
 export interface Collaborator {
   id: string
   display_name: string
@@ -7,9 +9,9 @@ export type PlanDocumentStatus = 'draft' | 'planning' | 'pending' | 'implementat
 
 export interface PlanDocument {
   id: string
+  project: Project | null
   description: string
   body: string
-  git_remote_url: string
   status: PlanDocumentStatus
   collaborators: Collaborator[]
   created_at: string

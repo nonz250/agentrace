@@ -31,11 +31,14 @@ func (r *PlanDocumentRepository) Create(ctx context.Context, doc *domain.PlanDoc
 	if doc.Status == "" {
 		doc.Status = domain.PlanDocumentStatusPlanning
 	}
+	if doc.ProjectID == "" {
+		doc.ProjectID = domain.DefaultProjectID
+	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO plan_documents (id, description, body, git_remote_url, status, created_at, updated_at)
+		`INSERT INTO plan_documents (id, project_id, description, body, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		doc.ID, doc.Description, doc.Body, doc.GitRemoteURL, string(doc.Status),
+		doc.ID, doc.ProjectID, doc.Description, doc.Body, string(doc.Status),
 		doc.CreatedAt.Format(time.RFC3339), doc.UpdatedAt.Format(time.RFC3339),
 	)
 	return err
@@ -43,14 +46,14 @@ func (r *PlanDocumentRepository) Create(ctx context.Context, doc *domain.PlanDoc
 
 func (r *PlanDocumentRepository) FindByID(ctx context.Context, id string) (*domain.PlanDocument, error) {
 	return r.scanDocument(r.db.QueryRowContext(ctx,
-		`SELECT id, description, body, git_remote_url, status, created_at, updated_at
+		`SELECT id, project_id, description, body, status, created_at, updated_at
 		 FROM plan_documents WHERE id = ?`,
 		id,
 	))
 }
 
 func (r *PlanDocumentRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.PlanDocument, error) {
-	query := `SELECT id, description, body, git_remote_url, status, created_at, updated_at
+	query := `SELECT id, project_id, description, body, status, created_at, updated_at
 		 FROM plan_documents ORDER BY updated_at DESC`
 
 	if limit > 0 {
@@ -83,9 +86,9 @@ func (r *PlanDocumentRepository) FindAll(ctx context.Context, limit int, offset 
 	return docs, rows.Err()
 }
 
-func (r *PlanDocumentRepository) FindByGitRemoteURL(ctx context.Context, gitRemoteURL string, limit int, offset int) ([]*domain.PlanDocument, error) {
-	query := `SELECT id, description, body, git_remote_url, status, created_at, updated_at
-		 FROM plan_documents WHERE git_remote_url = ? ORDER BY updated_at DESC`
+func (r *PlanDocumentRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
+	query := `SELECT id, project_id, description, body, status, created_at, updated_at
+		 FROM plan_documents WHERE project_id = ? ORDER BY updated_at DESC`
 
 	if limit > 0 {
 		query += ` LIMIT ? OFFSET ?`
@@ -95,9 +98,9 @@ func (r *PlanDocumentRepository) FindByGitRemoteURL(ctx context.Context, gitRemo
 	var err error
 
 	if limit > 0 {
-		rows, err = r.db.QueryContext(ctx, query, gitRemoteURL, limit, offset)
+		rows, err = r.db.QueryContext(ctx, query, projectID, limit, offset)
 	} else {
-		rows, err = r.db.QueryContext(ctx, query, gitRemoteURL)
+		rows, err = r.db.QueryContext(ctx, query, projectID)
 	}
 
 	if err != nil {
@@ -121,9 +124,9 @@ func (r *PlanDocumentRepository) Update(ctx context.Context, doc *domain.PlanDoc
 	doc.UpdatedAt = time.Now()
 
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE plan_documents SET description = ?, body = ?, git_remote_url = ?, status = ?, updated_at = ?
+		`UPDATE plan_documents SET project_id = ?, description = ?, body = ?, status = ?, updated_at = ?
 		 WHERE id = ?`,
-		doc.Description, doc.Body, doc.GitRemoteURL, string(doc.Status), doc.UpdatedAt.Format(time.RFC3339), doc.ID,
+		doc.ProjectID, doc.Description, doc.Body, string(doc.Status), doc.UpdatedAt.Format(time.RFC3339), doc.ID,
 	)
 	return err
 }
@@ -146,10 +149,11 @@ func (r *PlanDocumentRepository) SetStatus(ctx context.Context, id string, statu
 
 func (r *PlanDocumentRepository) scanDocument(row *sql.Row) (*domain.PlanDocument, error) {
 	var doc domain.PlanDocument
+	var projectID sql.NullString
 	var status string
 	var createdAt, updatedAt string
 
-	err := row.Scan(&doc.ID, &doc.Description, &doc.Body, &doc.GitRemoteURL, &status, &createdAt, &updatedAt)
+	err := row.Scan(&doc.ID, &projectID, &doc.Description, &doc.Body, &status, &createdAt, &updatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -157,6 +161,11 @@ func (r *PlanDocumentRepository) scanDocument(row *sql.Row) (*domain.PlanDocumen
 		return nil, err
 	}
 
+	if projectID.Valid {
+		doc.ProjectID = projectID.String
+	} else {
+		doc.ProjectID = domain.DefaultProjectID
+	}
 	doc.Status = domain.PlanDocumentStatus(status)
 	doc.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	doc.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
@@ -166,14 +175,20 @@ func (r *PlanDocumentRepository) scanDocument(row *sql.Row) (*domain.PlanDocumen
 
 func (r *PlanDocumentRepository) scanDocumentFromRows(rows *sql.Rows) (*domain.PlanDocument, error) {
 	var doc domain.PlanDocument
+	var projectID sql.NullString
 	var status string
 	var createdAt, updatedAt string
 
-	err := rows.Scan(&doc.ID, &doc.Description, &doc.Body, &doc.GitRemoteURL, &status, &createdAt, &updatedAt)
+	err := rows.Scan(&doc.ID, &projectID, &doc.Description, &doc.Body, &status, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, err
 	}
 
+	if projectID.Valid {
+		doc.ProjectID = projectID.String
+	} else {
+		doc.ProjectID = domain.DefaultProjectID
+	}
 	doc.Status = domain.PlanDocumentStatus(status)
 	doc.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	doc.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)

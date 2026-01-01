@@ -34,6 +34,9 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	if session.StartedAt.IsZero() {
 		session.StartedAt = time.Now()
 	}
+	if session.ProjectID == "" {
+		session.ProjectID = domain.DefaultProjectID
+	}
 
 	r.sessions[session.ID] = session
 	return nil
@@ -76,6 +79,34 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 	return sessions, nil
 }
 
+func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.Session, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	sessions := make([]*domain.Session, 0)
+	for _, s := range r.sessions {
+		if s.ProjectID == projectID {
+			sessions = append(sessions, s)
+		}
+	}
+
+	// Sort by StartedAt descending (newest first)
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].StartedAt.After(sessions[j].StartedAt)
+	})
+
+	// Apply offset and limit
+	if offset >= len(sessions) {
+		return []*domain.Session{}, nil
+	}
+	sessions = sessions[offset:]
+	if limit > 0 && limit < len(sessions) {
+		sessions = sessions[:limit]
+	}
+
+	return sessions, nil
+}
+
 func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -95,6 +126,7 @@ func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, c
 	session := &domain.Session{
 		ID:              uuid.New().String(),
 		UserID:          userID,
+		ProjectID:       domain.DefaultProjectID,
 		ClaudeSessionID: claudeSessionID,
 		StartedAt:       time.Now(),
 		CreatedAt:       time.Now(),
@@ -127,7 +159,7 @@ func (r *SessionRepository) UpdateProjectPath(ctx context.Context, id string, pr
 	return nil
 }
 
-func (r *SessionRepository) UpdateGitInfo(ctx context.Context, id string, gitRemoteURL string, gitBranch string) error {
+func (r *SessionRepository) UpdateProjectID(ctx context.Context, id string, projectID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -135,7 +167,18 @@ func (r *SessionRepository) UpdateGitInfo(ctx context.Context, id string, gitRem
 	if !ok {
 		return nil
 	}
-	session.GitRemoteURL = gitRemoteURL
+	session.ProjectID = projectID
+	return nil
+}
+
+func (r *SessionRepository) UpdateGitBranch(ctx context.Context, id string, gitBranch string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	session, ok := r.sessions[id]
+	if !ok {
+		return nil
+	}
 	session.GitBranch = gitBranch
 	return nil
 }

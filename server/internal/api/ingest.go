@@ -60,13 +60,30 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		session.ProjectPath = req.Cwd
 	}
 
-	// Update git info if provided and not already set
-	if (req.GitRemoteURL != "" || req.GitBranch != "") && session.GitRemoteURL == "" {
-		if err := h.repos.Session.UpdateGitInfo(ctx, session.ID, req.GitRemoteURL, req.GitBranch); err != nil {
-			http.Error(w, `{"error": "failed to update git info"}`, http.StatusInternalServerError)
+	// Update project and git branch if provided and project not already set
+	if req.GitRemoteURL != "" && session.ProjectID == domain.DefaultProjectID {
+		// Normalize the git URL and find or create the project
+		canonicalURL := domain.NormalizeGitURL(req.GitRemoteURL)
+		project, err := h.repos.Project.FindOrCreateByCanonicalGitRepository(ctx, canonicalURL)
+		if err != nil {
+			http.Error(w, `{"error": "failed to create project"}`, http.StatusInternalServerError)
 			return
 		}
-		session.GitRemoteURL = req.GitRemoteURL
+
+		// Update session's project ID
+		if err := h.repos.Session.UpdateProjectID(ctx, session.ID, project.ID); err != nil {
+			http.Error(w, `{"error": "failed to update project"}`, http.StatusInternalServerError)
+			return
+		}
+		session.ProjectID = project.ID
+	}
+
+	// Update git branch if provided and not already set
+	if req.GitBranch != "" && session.GitBranch == "" {
+		if err := h.repos.Session.UpdateGitBranch(ctx, session.ID, req.GitBranch); err != nil {
+			http.Error(w, `{"error": "failed to update git branch"}`, http.StatusInternalServerError)
+			return
+		}
 		session.GitBranch = req.GitBranch
 	}
 

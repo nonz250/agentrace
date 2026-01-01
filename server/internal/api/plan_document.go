@@ -26,15 +26,20 @@ type CollaboratorResponse struct {
 	DisplayName string `json:"display_name"`
 }
 
+type PlanDocumentProjectResponse struct {
+	ID                     string `json:"id"`
+	CanonicalGitRepository string `json:"canonical_git_repository"`
+}
+
 type PlanDocumentResponse struct {
-	ID            string                  `json:"id"`
-	Description   string                  `json:"description"`
-	Body          string                  `json:"body"`
-	GitRemoteURL  string                  `json:"git_remote_url"`
-	Status        string                  `json:"status"`
-	Collaborators []*CollaboratorResponse `json:"collaborators"`
-	CreatedAt     string                  `json:"created_at"`
-	UpdatedAt     string                  `json:"updated_at"`
+	ID            string                       `json:"id"`
+	Project       *PlanDocumentProjectResponse `json:"project"`
+	Description   string                       `json:"description"`
+	Body          string                       `json:"body"`
+	Status        string                       `json:"status"`
+	Collaborators []*CollaboratorResponse      `json:"collaborators"`
+	CreatedAt     string                       `json:"created_at"`
+	UpdatedAt     string                       `json:"updated_at"`
 }
 
 type PlanDocumentListResponse struct {
@@ -60,7 +65,8 @@ type PlanDocumentEventsResponse struct {
 type CreatePlanDocumentRequest struct {
 	Description  string  `json:"description"`
 	Body         string  `json:"body"`
-	GitRemoteURL string  `json:"git_remote_url"`
+	GitRemoteURL string  `json:"git_remote_url"` // For backward compatibility
+	ProjectID    string  `json:"project_id"`     // New field
 	SessionID    *string `json:"session_id"`
 }
 
@@ -96,11 +102,23 @@ func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *d
 		}
 	}
 
+	// Get project info
+	var projectResp *PlanDocumentProjectResponse
+	if doc.ProjectID != "" {
+		project, err := h.repos.Project.FindByID(ctx, doc.ProjectID)
+		if err == nil && project != nil {
+			projectResp = &PlanDocumentProjectResponse{
+				ID:                     project.ID,
+				CanonicalGitRepository: project.CanonicalGitRepository,
+			}
+		}
+	}
+
 	return &PlanDocumentResponse{
 		ID:            doc.ID,
+		Project:       projectResp,
 		Description:   doc.Description,
 		Body:          doc.Body,
-		GitRemoteURL:  doc.GitRemoteURL,
 		Status:        string(doc.Status),
 		Collaborators: collaborators,
 		CreatedAt:     doc.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -131,7 +149,7 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 
 // Handlers
 
-// List returns all plan documents, optionally filtered by git_remote_url
+// List returns all plan documents, optionally filtered by project_id or git_remote_url
 func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -149,13 +167,27 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	projectID := r.URL.Query().Get("project_id")
 	gitRemoteURL := r.URL.Query().Get("git_remote_url")
 
 	var docs []*domain.PlanDocument
 	var err error
 
-	if gitRemoteURL != "" {
-		docs, err = h.repos.PlanDocument.FindByGitRemoteURL(ctx, gitRemoteURL, limit, offset)
+	if projectID != "" {
+		docs, err = h.repos.PlanDocument.FindByProjectID(ctx, projectID, limit, offset)
+	} else if gitRemoteURL != "" {
+		// For backward compatibility: normalize git URL and find project
+		canonicalURL := domain.NormalizeGitURL(gitRemoteURL)
+		project, projErr := h.repos.Project.FindByCanonicalGitRepository(ctx, canonicalURL)
+		if projErr != nil {
+			http.Error(w, `{"error": "failed to find project"}`, http.StatusInternalServerError)
+			return
+		}
+		if project != nil {
+			docs, err = h.repos.PlanDocument.FindByProjectID(ctx, project.ID, limit, offset)
+		} else {
+			docs = []*domain.PlanDocument{}
+		}
 	} else {
 		docs, err = h.repos.PlanDocument.FindAll(ctx, limit, offset)
 	}
@@ -259,10 +291,26 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID := GetUserIDFromContext(ctx)
 
+	// Determine project ID
+	projectID := req.ProjectID
+	if projectID == "" && req.GitRemoteURL != "" {
+		// For backward compatibility: normalize git URL and find or create project
+		canonicalURL := domain.NormalizeGitURL(req.GitRemoteURL)
+		project, err := h.repos.Project.FindOrCreateByCanonicalGitRepository(ctx, canonicalURL)
+		if err != nil {
+			http.Error(w, `{"error": "failed to create project"}`, http.StatusInternalServerError)
+			return
+		}
+		projectID = project.ID
+	}
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+
 	doc := &domain.PlanDocument{
-		Description:  req.Description,
-		Body:         req.Body,
-		GitRemoteURL: req.GitRemoteURL,
+		ProjectID:   projectID,
+		Description: req.Description,
+		Body:        req.Body,
 	}
 
 	if err := h.repos.PlanDocument.Create(ctx, doc); err != nil {

@@ -22,13 +22,13 @@ func NewPlanDocumentRepository(db *DB) *PlanDocumentRepository {
 }
 
 type planDocumentDocument struct {
-	ID           string    `bson:"_id"`
-	Description  string    `bson:"description"`
-	Body         string    `bson:"body"`
-	GitRemoteURL string    `bson:"git_remote_url"`
-	Status       string    `bson:"status"`
-	CreatedAt    time.Time `bson:"created_at"`
-	UpdatedAt    time.Time `bson:"updated_at"`
+	ID          string    `bson:"_id"`
+	ProjectID   string    `bson:"project_id"`
+	Description string    `bson:"description"`
+	Body        string    `bson:"body"`
+	Status      string    `bson:"status"`
+	CreatedAt   time.Time `bson:"created_at"`
+	UpdatedAt   time.Time `bson:"updated_at"`
 }
 
 func (r *PlanDocumentRepository) Create(ctx context.Context, doc *domain.PlanDocument) error {
@@ -45,15 +45,18 @@ func (r *PlanDocumentRepository) Create(ctx context.Context, doc *domain.PlanDoc
 	if doc.Status == "" {
 		doc.Status = domain.PlanDocumentStatusPlanning
 	}
+	if doc.ProjectID == "" {
+		doc.ProjectID = domain.DefaultProjectID
+	}
 
 	mongoDoc := planDocumentDocument{
-		ID:           doc.ID,
-		Description:  doc.Description,
-		Body:         doc.Body,
-		GitRemoteURL: doc.GitRemoteURL,
-		Status:       string(doc.Status),
-		CreatedAt:    doc.CreatedAt,
-		UpdatedAt:    doc.UpdatedAt,
+		ID:          doc.ID,
+		ProjectID:   doc.ProjectID,
+		Description: doc.Description,
+		Body:        doc.Body,
+		Status:      string(doc.Status),
+		CreatedAt:   doc.CreatedAt,
+		UpdatedAt:   doc.UpdatedAt,
 	}
 
 	_, err := r.collection.InsertOne(ctx, mongoDoc)
@@ -98,14 +101,14 @@ func (r *PlanDocumentRepository) FindAll(ctx context.Context, limit int, offset 
 	return docs, cursor.Err()
 }
 
-func (r *PlanDocumentRepository) FindByGitRemoteURL(ctx context.Context, gitRemoteURL string, limit int, offset int) ([]*domain.PlanDocument, error) {
+func (r *PlanDocumentRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
 	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
 	if limit > 0 {
 		opts.SetLimit(int64(limit))
 		opts.SetSkip(int64(offset))
 	}
 
-	cursor, err := r.collection.Find(ctx, bson.M{"git_remote_url": gitRemoteURL}, opts)
+	cursor, err := r.collection.Find(ctx, bson.M{"project_id": projectID}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -129,11 +132,11 @@ func (r *PlanDocumentRepository) Update(ctx context.Context, doc *domain.PlanDoc
 	_, err := r.collection.UpdateOne(ctx,
 		bson.M{"_id": doc.ID},
 		bson.M{"$set": bson.M{
-			"description":    doc.Description,
-			"body":           doc.Body,
-			"git_remote_url": doc.GitRemoteURL,
-			"status":         string(doc.Status),
-			"updated_at":     doc.UpdatedAt,
+			"project_id":  doc.ProjectID,
+			"description": doc.Description,
+			"body":        doc.Body,
+			"status":      string(doc.Status),
+			"updated_at":  doc.UpdatedAt,
 		}},
 	)
 	return err
@@ -156,13 +159,18 @@ func (r *PlanDocumentRepository) SetStatus(ctx context.Context, id string, statu
 }
 
 func docToPlanDocument(doc *planDocumentDocument) *domain.PlanDocument {
+	projectID := doc.ProjectID
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+
 	return &domain.PlanDocument{
-		ID:           doc.ID,
-		Description:  doc.Description,
-		Body:         doc.Body,
-		GitRemoteURL: doc.GitRemoteURL,
-		Status:       domain.PlanDocumentStatus(doc.Status),
-		CreatedAt:    doc.CreatedAt,
-		UpdatedAt:    doc.UpdatedAt,
+		ID:          doc.ID,
+		ProjectID:   projectID,
+		Description: doc.Description,
+		Body:        doc.Body,
+		Status:      domain.PlanDocumentStatus(doc.Status),
+		CreatedAt:   doc.CreatedAt,
+		UpdatedAt:   doc.UpdatedAt,
 	}
 }

@@ -2,13 +2,15 @@ import { fetchAPI } from './client'
 import type { PlanDocument, PlanDocumentEvent, PlanDocumentStatus } from '@/types/plan-document'
 
 interface GetPlansParams {
-  gitRemoteUrl?: string
+  projectId?: string
+  gitRemoteUrl?: string // For backward compatibility
   limit?: number
   offset?: number
 }
 
 export async function getPlans(params?: GetPlansParams): Promise<{ plans: PlanDocument[] }> {
   const searchParams = new URLSearchParams()
+  if (params?.projectId) searchParams.set('project_id', params.projectId)
   if (params?.gitRemoteUrl) searchParams.set('git_remote_url', params.gitRemoteUrl)
   if (params?.limit) searchParams.set('limit', params.limit.toString())
   if (params?.offset) searchParams.set('offset', params.offset.toString())

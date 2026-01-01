@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -18,18 +19,23 @@ func NewSessionHandler(repos *repository.Repositories) *SessionHandler {
 	return &SessionHandler{repos: repos}
 }
 
+type ProjectResponse struct {
+	ID                     string `json:"id"`
+	CanonicalGitRepository string `json:"canonical_git_repository"`
+}
+
 type SessionResponse struct {
-	ID              string  `json:"id"`
-	UserID          *string `json:"user_id"`
-	UserName        *string `json:"user_name"`
-	ClaudeSessionID string  `json:"claude_session_id"`
-	ProjectPath     string  `json:"project_path"`
-	GitRemoteURL    string  `json:"git_remote_url"`
-	GitBranch       string  `json:"git_branch"`
-	StartedAt       string  `json:"started_at"`
-	EndedAt         *string `json:"ended_at"`
-	EventCount      int     `json:"event_count"`
-	CreatedAt       string  `json:"created_at"`
+	ID              string           `json:"id"`
+	UserID          *string          `json:"user_id"`
+	UserName        *string          `json:"user_name"`
+	Project         *ProjectResponse `json:"project"`
+	ClaudeSessionID string           `json:"claude_session_id"`
+	ProjectPath     string           `json:"project_path"`
+	GitBranch       string           `json:"git_branch"`
+	StartedAt       string           `json:"started_at"`
+	EndedAt         *string          `json:"ended_at"`
+	EventCount      int              `json:"event_count"`
+	CreatedAt       string           `json:"created_at"`
 }
 
 type SessionDetailResponse struct {
@@ -44,19 +50,32 @@ type EventResponse struct {
 	CreatedAt string                 `json:"created_at"`
 }
 
-func sessionToResponse(s *domain.Session, userName *string, eventCount int) *SessionResponse {
+func (h *SessionHandler) sessionToResponse(ctx context.Context, s *domain.Session, userName *string, eventCount int) *SessionResponse {
 	var endedAt *string
 	if s.EndedAt != nil {
 		t := s.EndedAt.Format("2006-01-02T15:04:05Z07:00")
 		endedAt = &t
 	}
+
+	// Get project info
+	var projectResp *ProjectResponse
+	if s.ProjectID != "" {
+		project, err := h.repos.Project.FindByID(ctx, s.ProjectID)
+		if err == nil && project != nil {
+			projectResp = &ProjectResponse{
+				ID:                     project.ID,
+				CanonicalGitRepository: project.CanonicalGitRepository,
+			}
+		}
+	}
+
 	return &SessionResponse{
 		ID:              s.ID,
 		UserID:          s.UserID,
 		UserName:        userName,
+		Project:         projectResp,
 		ClaudeSessionID: s.ClaudeSessionID,
 		ProjectPath:     s.ProjectPath,
-		GitRemoteURL:    s.GitRemoteURL,
 		GitBranch:       s.GitBranch,
 		StartedAt:       s.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
 		EndedAt:         endedAt,
@@ -152,7 +171,7 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 			eventCount = 0
 		}
 
-		sessionResponses[i] = sessionToResponse(s, userName, eventCount)
+		sessionResponses[i] = h.sessionToResponse(ctx, s, userName, eventCount)
 	}
 
 	response := SessionListResponse{
@@ -203,7 +222,7 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := SessionDetailResponse{
-		SessionResponse: *sessionToResponse(session, userName, len(filteredEvents)),
+		SessionResponse: *h.sessionToResponse(ctx, session, userName, len(filteredEvents)),
 		Events:          eventResponses,
 	}
 

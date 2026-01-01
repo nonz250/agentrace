@@ -24,9 +24,9 @@ func NewSessionRepository(db *DB) *SessionRepository {
 type sessionDocument struct {
 	ID              string     `bson:"_id"`
 	UserID          *string    `bson:"user_id,omitempty"`
+	ProjectID       string     `bson:"project_id"`
 	ClaudeSessionID string     `bson:"claude_session_id"`
 	ProjectPath     string     `bson:"project_path"`
-	GitRemoteURL    string     `bson:"git_remote_url"`
 	GitBranch       string     `bson:"git_branch"`
 	StartedAt       time.Time  `bson:"started_at"`
 	EndedAt         *time.Time `bson:"ended_at,omitempty"`
@@ -43,13 +43,16 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	if session.StartedAt.IsZero() {
 		session.StartedAt = time.Now()
 	}
+	if session.ProjectID == "" {
+		session.ProjectID = domain.DefaultProjectID
+	}
 
 	doc := sessionDocument{
 		ID:              session.ID,
 		UserID:          session.UserID,
+		ProjectID:       session.ProjectID,
 		ClaudeSessionID: session.ClaudeSessionID,
 		ProjectPath:     session.ProjectPath,
-		GitRemoteURL:    session.GitRemoteURL,
 		GitBranch:       session.GitBranch,
 		StartedAt:       session.StartedAt,
 		EndedAt:         session.EndedAt,
@@ -98,6 +101,31 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 	return sessions, cursor.Err()
 }
 
+func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.Session, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "started_at", Value: -1}})
+	if limit > 0 {
+		opts.SetLimit(int64(limit))
+		opts.SetSkip(int64(offset))
+	}
+
+	cursor, err := r.collection.Find(ctx, bson.M{"project_id": projectID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var sessions []*domain.Session
+	for cursor.Next(ctx) {
+		var doc sessionDocument
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, docToSession(&doc))
+	}
+
+	return sessions, cursor.Err()
+}
+
 func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error) {
 	// First try to find existing session
 	var doc sessionDocument
@@ -127,6 +155,7 @@ func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, c
 	newSession := &domain.Session{
 		ID:              uuid.New().String(),
 		UserID:          userID,
+		ProjectID:       domain.DefaultProjectID,
 		ClaudeSessionID: claudeSessionID,
 		StartedAt:       time.Now(),
 		CreatedAt:       time.Now(),
@@ -155,21 +184,34 @@ func (r *SessionRepository) UpdateProjectPath(ctx context.Context, id string, pr
 	return err
 }
 
-func (r *SessionRepository) UpdateGitInfo(ctx context.Context, id string, gitRemoteURL string, gitBranch string) error {
+func (r *SessionRepository) UpdateProjectID(ctx context.Context, id string, projectID string) error {
 	_, err := r.collection.UpdateOne(ctx,
 		bson.M{"_id": id},
-		bson.M{"$set": bson.M{"git_remote_url": gitRemoteURL, "git_branch": gitBranch}},
+		bson.M{"$set": bson.M{"project_id": projectID}},
+	)
+	return err
+}
+
+func (r *SessionRepository) UpdateGitBranch(ctx context.Context, id string, gitBranch string) error {
+	_, err := r.collection.UpdateOne(ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{"git_branch": gitBranch}},
 	)
 	return err
 }
 
 func docToSession(doc *sessionDocument) *domain.Session {
+	projectID := doc.ProjectID
+	if projectID == "" {
+		projectID = domain.DefaultProjectID
+	}
+
 	return &domain.Session{
 		ID:              doc.ID,
 		UserID:          doc.UserID,
+		ProjectID:       projectID,
 		ClaudeSessionID: doc.ClaudeSessionID,
 		ProjectPath:     doc.ProjectPath,
-		GitRemoteURL:    doc.GitRemoteURL,
 		GitBranch:       doc.GitBranch,
 		StartedAt:       doc.StartedAt,
 		EndedAt:         doc.EndedAt,

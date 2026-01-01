@@ -6,15 +6,27 @@ import (
 	"github.com/satetsu888/agentrace/server/internal/domain"
 )
 
+// ProjectRepository はプロジェクトの永続化を担当する
+type ProjectRepository interface {
+	Create(ctx context.Context, project *domain.Project) error
+	FindByID(ctx context.Context, id string) (*domain.Project, error)
+	FindByCanonicalGitRepository(ctx context.Context, canonicalGitRepo string) (*domain.Project, error)
+	FindOrCreateByCanonicalGitRepository(ctx context.Context, canonicalGitRepo string) (*domain.Project, error)
+	FindAll(ctx context.Context, limit int, offset int) ([]*domain.Project, error)
+	GetDefaultProject(ctx context.Context) (*domain.Project, error) // CanonicalGitRepository が空のプロジェクト
+}
+
 // SessionRepository はセッションの永続化を担当する
 type SessionRepository interface {
 	Create(ctx context.Context, session *domain.Session) error
 	FindByID(ctx context.Context, id string) (*domain.Session, error)
 	FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error)
+	FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.Session, error)
 	FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error)
 	UpdateUserID(ctx context.Context, id string, userID string) error
 	UpdateProjectPath(ctx context.Context, id string, projectPath string) error
-	UpdateGitInfo(ctx context.Context, id string, gitRemoteURL string, gitBranch string) error
+	UpdateProjectID(ctx context.Context, id string, projectID string) error
+	UpdateGitBranch(ctx context.Context, id string, gitBranch string) error
 }
 
 // EventRepository はイベントの永続化を担当する
@@ -72,7 +84,7 @@ type PlanDocumentRepository interface {
 	Create(ctx context.Context, doc *domain.PlanDocument) error
 	FindByID(ctx context.Context, id string) (*domain.PlanDocument, error)
 	FindAll(ctx context.Context, limit int, offset int) ([]*domain.PlanDocument, error)
-	FindByGitRemoteURL(ctx context.Context, gitRemoteURL string, limit int, offset int) ([]*domain.PlanDocument, error)
+	FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.PlanDocument, error)
 	Update(ctx context.Context, doc *domain.PlanDocument) error
 	Delete(ctx context.Context, id string) error
 	SetStatus(ctx context.Context, id string, status domain.PlanDocumentStatus) error
@@ -88,6 +100,7 @@ type PlanDocumentEventRepository interface {
 
 // Repositories は全リポジトリをまとめる
 type Repositories struct {
+	Project            ProjectRepository
 	Session            SessionRepository
 	Event              EventRepository
 	User               UserRepository

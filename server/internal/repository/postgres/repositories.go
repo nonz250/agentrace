@@ -7,6 +7,7 @@ import (
 // NewRepositories creates all PostgreSQL repositories
 func NewRepositories(db *DB) *repository.Repositories {
 	return &repository.Repositories{
+		Project:            NewProjectRepository(db),
 		Session:            NewSessionRepository(db),
 		Event:              NewEventRepository(db),
 		User:               NewUserRepository(db),

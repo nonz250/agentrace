@@ -38,6 +38,9 @@ func (r *PlanDocumentRepository) Create(ctx context.Context, doc *domain.PlanDoc
 	if doc.Status == "" {
 		doc.Status = domain.PlanDocumentStatusPlanning
 	}
+	if doc.ProjectID == "" {
+		doc.ProjectID = domain.DefaultProjectID
+	}
 
 	r.documents[doc.ID] = doc
 	return nil
@@ -80,13 +83,13 @@ func (r *PlanDocumentRepository) FindAll(ctx context.Context, limit int, offset 
 	return docs, nil
 }
 
-func (r *PlanDocumentRepository) FindByGitRemoteURL(ctx context.Context, gitRemoteURL string, limit int, offset int) ([]*domain.PlanDocument, error) {
+func (r *PlanDocumentRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	docs := make([]*domain.PlanDocument, 0)
 	for _, d := range r.documents {
-		if d.GitRemoteURL == gitRemoteURL {
+		if d.ProjectID == projectID {
 			docs = append(docs, d)
 		}
 	}

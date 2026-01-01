@@ -4,6 +4,7 @@ import "github.com/satetsu888/agentrace/server/internal/repository"
 
 func NewRepositories() *repository.Repositories {
 	return &repository.Repositories{
+		Project:            NewProjectRepository(),
 		Session:            NewSessionRepository(),
 		Event:              NewEventRepository(),
 		User:               NewUserRepository(),
