@@ -7,6 +7,7 @@ interface HookInput {
   session_id?: string;
   transcript_path?: string;
   cwd?: string;
+  hook_event_name?: string;
 }
 
 function getGitRemoteUrl(cwd: string): string | null {
@@ -76,6 +77,12 @@ export async function sendCommand(): Promise<void> {
     process.exit(0);
   }
 
+  // For UserPromptSubmit, wait for transcript to be written
+  // (Claude hasn't started processing yet, so transcript may not be updated)
+  if (data.hook_event_name === "UserPromptSubmit") {
+    await sleep(5000);
+  }
+
   // Get new lines from transcript
   const { lines, totalLineCount } = getNewLines(transcriptPath, sessionId);
 
@@ -127,6 +134,10 @@ export async function sendCommand(): Promise<void> {
 
   // Always exit 0 to not block hooks
   process.exit(0);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function readStdin(): Promise<string> {

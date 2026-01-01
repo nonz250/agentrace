@@ -110,6 +110,26 @@ cli/src/
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentrace send"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentrace send"
+          }
+        ]
+      }
     ]
   }
 }
@@ -159,10 +179,16 @@ create_plan(
 
 ## Hooks の仕組み
 
-1. Claude Code が応答完了（Stop イベント発火）
-2. `~/.claude/settings.json` の `hooks.Stop` を実行
-3. stdin に JSON を渡して `npx agentrace send` を実行
-4. CLI が stdin から JSON を読み取り、差分をサーバーに送信
+transcript送信は以下の3つのタイミングで発火:
+
+1. **UserPromptSubmit**: ユーザーがメッセージを送信した直後
+2. **Stop**: Claude Codeが応答を完了した時
+3. **SubagentStop**: Taskエージェント（explore, plan等）が完了した時
+
+どのイベントでも同じ処理:
+1. `~/.claude/settings.json` の該当hookを実行
+2. stdin に JSON を渡して `npx agentrace send` を実行
+3. CLI が stdin から JSON を読み取り、差分をサーバーに送信
 
 ### stdin JSON 形式
 

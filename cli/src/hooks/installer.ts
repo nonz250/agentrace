@@ -24,6 +24,8 @@ interface McpServerConfig {
 interface ClaudeSettings {
   hooks?: {
     Stop?: ClaudeHookMatcher[];
+    UserPromptSubmit?: ClaudeHookMatcher[];
+    SubagentStop?: ClaudeHookMatcher[];
     [key: string]: ClaudeHookMatcher[] | undefined;
   };
   [key: string]: unknown;
@@ -72,22 +74,54 @@ export function installHooks(options: InstallHooksOptions = {}): { success: bool
       settings.hooks = {};
     }
 
-    // Add Stop hook only (transcript diff is sent on each Stop)
+    // Add Stop hook (transcript diff is sent on each Stop)
     if (!settings.hooks.Stop) {
       settings.hooks.Stop = [];
+    }
+
+    // Add UserPromptSubmit hook (transcript is sent when user sends a message)
+    if (!settings.hooks.UserPromptSubmit) {
+      settings.hooks.UserPromptSubmit = [];
+    }
+
+    // Add SubagentStop hook (transcript is sent when a subagent task completes)
+    if (!settings.hooks.SubagentStop) {
+      settings.hooks.SubagentStop = [];
     }
 
     const hasStopHook = settings.hooks.Stop.some((matcher) =>
       matcher.hooks?.some(isAgentraceHook)
     );
 
-    if (hasStopHook) {
+    const hasUserPromptSubmitHook = settings.hooks.UserPromptSubmit.some((matcher) =>
+      matcher.hooks?.some(isAgentraceHook)
+    );
+
+    const hasSubagentStopHook = settings.hooks.SubagentStop.some((matcher) =>
+      matcher.hooks?.some(isAgentraceHook)
+    );
+
+    if (hasStopHook && hasUserPromptSubmitHook && hasSubagentStopHook) {
       return { success: true, message: "Hooks already installed (skipped)" };
     }
 
-    settings.hooks.Stop.push({
-      hooks: [agentraceHook],
-    });
+    if (!hasStopHook) {
+      settings.hooks.Stop.push({
+        hooks: [agentraceHook],
+      });
+    }
+
+    if (!hasUserPromptSubmitHook) {
+      settings.hooks.UserPromptSubmit.push({
+        hooks: [agentraceHook],
+      });
+    }
+
+    if (!hasSubagentStopHook) {
+      settings.hooks.SubagentStop.push({
+        hooks: [agentraceHook],
+      });
+    }
 
     // Ensure directory exists
     const dir = path.dirname(CLAUDE_SETTINGS_PATH);
@@ -128,6 +162,26 @@ export function uninstallHooks(): { success: boolean; message: string } {
       }
     }
 
+    // Remove agentrace hooks from UserPromptSubmit
+    if (settings.hooks.UserPromptSubmit) {
+      settings.hooks.UserPromptSubmit = settings.hooks.UserPromptSubmit.filter(
+        (matcher) => !matcher.hooks?.some(isAgentraceHook)
+      );
+      if (settings.hooks.UserPromptSubmit.length === 0) {
+        delete settings.hooks.UserPromptSubmit;
+      }
+    }
+
+    // Remove agentrace hooks from SubagentStop
+    if (settings.hooks.SubagentStop) {
+      settings.hooks.SubagentStop = settings.hooks.SubagentStop.filter(
+        (matcher) => !matcher.hooks?.some(isAgentraceHook)
+      );
+      if (settings.hooks.SubagentStop.length === 0) {
+        delete settings.hooks.SubagentStop;
+      }
+    }
+
     // Clean up empty hooks object
     if (Object.keys(settings.hooks).length === 0) {
       delete settings.hooks;
@@ -158,7 +212,15 @@ export function checkHooksInstalled(): boolean {
       matcher.hooks?.some(isAgentraceHook)
     );
 
-    return !!hasStopHook;
+    const hasUserPromptSubmitHook = settings.hooks?.UserPromptSubmit?.some((matcher) =>
+      matcher.hooks?.some(isAgentraceHook)
+    );
+
+    const hasSubagentStopHook = settings.hooks?.SubagentStop?.some((matcher) =>
+      matcher.hooks?.some(isAgentraceHook)
+    );
+
+    return !!hasStopHook && !!hasUserPromptSubmitHook && !!hasSubagentStopHook;
   } catch {
     return false;
   }
