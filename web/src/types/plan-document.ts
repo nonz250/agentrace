@@ -3,11 +3,14 @@ export interface Collaborator {
   display_name: string
 }
 
+export type PlanDocumentStatus = 'draft' | 'planning' | 'pending' | 'implementation' | 'complete'
+
 export interface PlanDocument {
   id: string
   description: string
   body: string
   git_remote_url: string
+  status: PlanDocumentStatus
   collaborators: Collaborator[]
   created_at: string
   updated_at: string

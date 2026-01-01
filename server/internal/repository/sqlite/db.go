@@ -52,5 +52,8 @@ func runMigrations(db *sql.DB) error {
 	if _, err := db.Exec(migrations.SQLitePlanDocuments); err != nil {
 		return err
 	}
+	if _, err := db.Exec(migrations.SQLitePlanDocumentStatus); err != nil {
+		return err
+	}
 	return nil
 }

@@ -26,6 +26,7 @@ type planDocumentDocument struct {
 	Description  string    `bson:"description"`
 	Body         string    `bson:"body"`
 	GitRemoteURL string    `bson:"git_remote_url"`
+	Status       string    `bson:"status"`
 	CreatedAt    time.Time `bson:"created_at"`
 	UpdatedAt    time.Time `bson:"updated_at"`
 }
@@ -41,12 +42,16 @@ func (r *PlanDocumentRepository) Create(ctx context.Context, doc *domain.PlanDoc
 	if doc.UpdatedAt.IsZero() {
 		doc.UpdatedAt = now
 	}
+	if doc.Status == "" {
+		doc.Status = domain.PlanDocumentStatusPlanning
+	}
 
 	mongoDoc := planDocumentDocument{
 		ID:           doc.ID,
 		Description:  doc.Description,
 		Body:         doc.Body,
 		GitRemoteURL: doc.GitRemoteURL,
+		Status:       string(doc.Status),
 		CreatedAt:    doc.CreatedAt,
 		UpdatedAt:    doc.UpdatedAt,
 	}
@@ -127,6 +132,7 @@ func (r *PlanDocumentRepository) Update(ctx context.Context, doc *domain.PlanDoc
 			"description":    doc.Description,
 			"body":           doc.Body,
 			"git_remote_url": doc.GitRemoteURL,
+			"status":         string(doc.Status),
 			"updated_at":     doc.UpdatedAt,
 		}},
 	)
@@ -138,12 +144,24 @@ func (r *PlanDocumentRepository) Delete(ctx context.Context, id string) error {
 	return err
 }
 
+func (r *PlanDocumentRepository) SetStatus(ctx context.Context, id string, status domain.PlanDocumentStatus) error {
+	_, err := r.collection.UpdateOne(ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{
+			"status":     string(status),
+			"updated_at": time.Now(),
+		}},
+	)
+	return err
+}
+
 func docToPlanDocument(doc *planDocumentDocument) *domain.PlanDocument {
 	return &domain.PlanDocument{
 		ID:           doc.ID,
 		Description:  doc.Description,
 		Body:         doc.Body,
 		GitRemoteURL: doc.GitRemoteURL,
+		Status:       domain.PlanDocumentStatus(doc.Status),
 		CreatedAt:    doc.CreatedAt,
 		UpdatedAt:    doc.UpdatedAt,
 	}

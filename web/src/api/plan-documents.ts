@@ -1,5 +1,5 @@
 import { fetchAPI } from './client'
-import type { PlanDocument, PlanDocumentEvent } from '@/types/plan-document'
+import type { PlanDocument, PlanDocumentEvent, PlanDocumentStatus } from '@/types/plan-document'
 
 interface GetPlansParams {
   gitRemoteUrl?: string
@@ -22,4 +22,11 @@ export async function getPlan(id: string): Promise<PlanDocument> {
 
 export async function getPlanEvents(id: string): Promise<{ events: PlanDocumentEvent[] }> {
   return fetchAPI(`/api/plans/${id}/events`)
+}
+
+export async function setPlanStatus(id: string, status: PlanDocumentStatus): Promise<PlanDocument> {
+  return fetchAPI(`/api/plans/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
 }

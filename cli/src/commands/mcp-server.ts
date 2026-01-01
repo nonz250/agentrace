@@ -26,6 +26,11 @@ const UpdatePlanSchema = z.object({
   session_id: z.string().describe("Claude Code session ID (required - pass your current session ID)"),
 });
 
+const SetPlanStatusSchema = z.object({
+  id: z.string().describe("Plan document ID"),
+  status: z.enum(["draft", "planning", "pending", "implementation", "complete"]).describe("New status for the plan"),
+});
+
 // Tool descriptions with usage guidance
 const TOOL_DESCRIPTIONS = {
   list_plans: `List plan documents for a repository.
@@ -58,11 +63,24 @@ WHEN TO USE:
 - When the user asks you to modify a specific plan by ID
 - When implementation details change and the plan needs updating
 - When you need to add progress notes or completion status to a plan
-- When marking a plan as completed after finishing implementation
 
 Changes are tracked with diff patches for history.
 
 IMPORTANT: You MUST pass your current session_id parameter. This links the update to your session for tracking collaboration history.`,
+
+  set_plan_status: `Set the status of a plan document.
+
+WHEN TO USE:
+- When transitioning a plan from planning to implementation phase
+- When marking a plan as complete after finishing the work
+- When the user explicitly asks to change the status of a plan
+
+Available statuses:
+- draft: Initial draft, not yet ready for review
+- planning: The plan is being designed/refined
+- pending: Waiting for approval or blocked
+- implementation: Active development is in progress
+- complete: The work described in the plan is finished`,
 };
 
 export async function mcpServerCommand(): Promise<void> {
@@ -230,6 +248,37 @@ IMPORTANT GUIDELINES:
             {
               type: "text" as const,
               text: `Plan updated successfully.\n\nID: ${plan.id}\nDescription: ${plan.description}`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // set_plan_status tool
+  server.tool(
+    "set_plan_status",
+    TOOL_DESCRIPTIONS.set_plan_status,
+    SetPlanStatusSchema.shape,
+    async (args) => {
+      try {
+        const plan = await getClient().setStatus(args.id, args.status);
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Plan status updated successfully.\n\nID: ${plan.id}\nDescription: ${plan.description}\nStatus: ${plan.status}`,
             },
           ],
         };

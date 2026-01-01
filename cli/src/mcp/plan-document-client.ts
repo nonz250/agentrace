@@ -1,10 +1,13 @@
 import { loadConfig } from "../config/manager.js";
 
+export type PlanDocumentStatus = "draft" | "planning" | "pending" | "implementation" | "complete";
+
 export interface PlanDocument {
   id: string;
   description: string;
   body: string;
   git_remote_url: string;
+  status: PlanDocumentStatus;
   collaborators: {
     id: string;
     display_name: string;
@@ -119,5 +122,9 @@ export class PlanDocumentClient {
 
   async deletePlan(id: string): Promise<void> {
     await this.request<void>("DELETE", `/api/plans/${id}`);
+  }
+
+  async setStatus(id: string, status: PlanDocumentStatus): Promise<PlanDocument> {
+    return this.request<PlanDocument>("PATCH", `/api/plans/${id}/status`, { status });
   }
 }

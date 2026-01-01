@@ -75,6 +75,7 @@ type PlanDocumentRepository interface {
 	FindByGitRemoteURL(ctx context.Context, gitRemoteURL string, limit int, offset int) ([]*domain.PlanDocument, error)
 	Update(ctx context.Context, doc *domain.PlanDocument) error
 	Delete(ctx context.Context, id string) error
+	SetStatus(ctx context.Context, id string, status domain.PlanDocumentStatus) error
 }
 
 // PlanDocumentEventRepository はPlanDocumentEventの永続化を担当する

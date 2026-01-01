@@ -31,6 +31,7 @@ type PlanDocumentResponse struct {
 	Description   string                  `json:"description"`
 	Body          string                  `json:"body"`
 	GitRemoteURL  string                  `json:"git_remote_url"`
+	Status        string                  `json:"status"`
 	Collaborators []*CollaboratorResponse `json:"collaborators"`
 	CreatedAt     string                  `json:"created_at"`
 	UpdatedAt     string                  `json:"updated_at"`
@@ -70,6 +71,10 @@ type UpdatePlanDocumentRequest struct {
 	SessionID   *string `json:"session_id"`
 }
 
+type SetPlanDocumentStatusRequest struct {
+	Status string `json:"status"`
+}
+
 // Helper functions
 
 func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *domain.PlanDocument) (*PlanDocumentResponse, error) {
@@ -96,6 +101,7 @@ func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *d
 		Description:   doc.Description,
 		Body:          doc.Body,
 		GitRemoteURL:  doc.GitRemoteURL,
+		Status:        string(doc.Status),
 		Collaborators: collaborators,
 		CreatedAt:     doc.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     doc.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -377,4 +383,54 @@ func (h *PlanDocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// SetStatus sets the status of a plan document
+func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	doc, err := h.repos.PlanDocument.FindByID(ctx, id)
+	if err != nil {
+		http.Error(w, `{"error": "failed to fetch plan document"}`, http.StatusInternalServerError)
+		return
+	}
+	if doc == nil {
+		http.Error(w, `{"error": "plan document not found"}`, http.StatusNotFound)
+		return
+	}
+
+	var req SetPlanDocumentStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	status := domain.PlanDocumentStatus(req.Status)
+	if !status.IsValid() {
+		http.Error(w, `{"error": "invalid status. must be one of: draft, planning, pending, implementation, complete"}`, http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repos.PlanDocument.SetStatus(ctx, id, status); err != nil {
+		http.Error(w, `{"error": "failed to update status"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch updated document
+	doc, err = h.repos.PlanDocument.FindByID(ctx, id)
+	if err != nil {
+		http.Error(w, `{"error": "failed to fetch updated plan document"}`, http.StatusInternalServerError)
+		return
+	}
+
+	resp, err := h.planDocumentToResponse(ctx, doc)
+	if err != nil {
+		http.Error(w, `{"error": "failed to build response"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }

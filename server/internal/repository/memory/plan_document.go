@@ -35,6 +35,9 @@ func (r *PlanDocumentRepository) Create(ctx context.Context, doc *domain.PlanDoc
 	if doc.UpdatedAt.IsZero() {
 		doc.UpdatedAt = now
 	}
+	if doc.Status == "" {
+		doc.Status = domain.PlanDocumentStatusPlanning
+	}
 
 	r.documents[doc.ID] = doc
 	return nil
@@ -123,5 +126,19 @@ func (r *PlanDocumentRepository) Delete(ctx context.Context, id string) error {
 	defer r.mu.Unlock()
 
 	delete(r.documents, id)
+	return nil
+}
+
+func (r *PlanDocumentRepository) SetStatus(ctx context.Context, id string, status domain.PlanDocumentStatus) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	doc, ok := r.documents[id]
+	if !ok {
+		return nil
+	}
+
+	doc.Status = status
+	doc.UpdatedAt = time.Now()
 	return nil
 }

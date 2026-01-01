@@ -42,5 +42,8 @@ func runMigrations(db *sql.DB) error {
 	if _, err := db.Exec(migrations.PostgresPlanDocuments); err != nil {
 		return err
 	}
+	if _, err := db.Exec(migrations.PostgresPlanDocumentStatus); err != nil {
+		return err
+	}
 	return nil
 }
