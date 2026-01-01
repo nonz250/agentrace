@@ -26,22 +26,24 @@ Claude Codeのやりとりをチームでレビューできるサービス
 agentrace/
 ├── cli/      # npx agentrace CLI
 ├── server/   # バックエンドサーバー
-├── web/      # フロントエンド
-└── docs/     # ドキュメント
+└── web/      # フロントエンド
 ```
 
-## ドキュメント
+## タスク別の必読ドキュメント
 
-詳細な設計・設定・APIについては以下のドキュメントを参照してください。
-何か新しい機能を追加する場合や、機能の調査を行う場合には、まずこれらのドキュメントを確認してください。
+作業を始める前に、該当するCLAUDE.mdをReadツールで必ず読んでください。
 
-| ドキュメント | 内容 |
-|-------------|------|
-| [docs/README.md](docs/README.md) | 全体概要、アーキテクチャ、データフロー |
-| [docs/cli/](docs/cli/) | CLI設計、コマンド一覧、設定ファイル |
-| [docs/server/](docs/server/) | Server設計、APIエンドポイント、認証、環境変数 |
-| [docs/web/](docs/web/) | Web設計、コンポーネント、タイムライン表示 |
-| [docs/deployment/](docs/deployment/) | Docker設定 |
+### Server (Go) の変更時
+
+必読: `server/CLAUDE.md`
+
+### Web (React) の変更時
+
+必読: `web/CLAUDE.md`
+
+### CLI の変更時
+
+必読: `cli/CLAUDE.md`
 
 ## 全体アーキテクチャ
 
@@ -84,30 +86,34 @@ cd web && npm install && npm run dev
 cd cli && npm install && npx tsx src/index.ts init --url http://localhost:8080 --dev
 ```
 
-## CLIコマンド
+## Docker デプロイ
 
-| コマンド | 説明 |
-|---------|------|
-| `agentrace init --url <url>` | 初期設定 + hooks インストール |
-| `agentrace login` | WebログインURL発行 |
-| `agentrace send` | transcript差分送信（hooks用） |
-| `agentrace on` / `off` | hooks有効化/無効化 |
-| `agentrace uninstall` | hooks/config 削除 |
+### Docker Hub
 
-詳細: [docs/cli/commands.md](docs/cli/commands.md)
+- リポジトリ: https://hub.docker.com/r/satetsu888/agentrace
+- 対応アーキテクチャ: `linux/amd64`, `linux/arm64`
 
-## 環境変数（Server）
+### ビルド
 
-| 変数名 | 説明 | デフォルト |
-|--------|------|-----------|
-| `PORT` | サーバーポート | 8080 |
-| `DB_TYPE` | `memory` / `sqlite` / `postgres` / `mongodb` | memory |
-| `DATABASE_URL` | DB接続文字列 | - |
-| `DEV_MODE` | デバッグログ | false |
-| `GITHUB_CLIENT_ID` | GitHub OAuth | - |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth | - |
+```bash
+# ローカルビルド
+docker build -t agentrace:latest .
 
-詳細: [docs/server/configuration.md](docs/server/configuration.md)
+# マルチアーキテクチャビルド & push
+docker buildx build --platform linux/amd64,linux/arm64 -t satetsu888/agentrace:latest --push .
+```
+
+### Docker 構成
+
+```
+agentrace/
+├── Dockerfile              # マルチステージビルド（node→go→runtime）
+├── docker-compose.yml      # 簡易起動用
+└── docker/
+    ├── nginx.conf          # nginx設定（:9080で静的ファイル+APIプロキシ）
+    ├── supervisord.conf    # プロセス管理（nginx + Go server）
+    └── entrypoint.sh       # 起動スクリプト
+```
 
 ## 将来の拡張（スコープ外）
 
