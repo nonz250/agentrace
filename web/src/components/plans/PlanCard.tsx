@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/Card'
+import { PlanStatusBadge } from './PlanStatusBadge'
 import { GitBranch, Users, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import type { PlanDocument } from '@/types/plan-document'
@@ -51,8 +52,11 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
   return (
     <Card hover onClick={onClick}>
       <div className="min-w-0">
-        {/* Title: Description */}
-        <p className="text-sm font-medium text-gray-900 truncate">{plan.description}</p>
+        {/* Title: Description + Status */}
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-gray-900 truncate">{plan.description}</p>
+          <PlanStatusBadge status={plan.status} />
+        </div>
         {/* Metadata: repo, collaborators, updated_at */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
           {repoName && (

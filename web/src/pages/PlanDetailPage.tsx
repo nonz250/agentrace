@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { PlanEventHistory } from '@/components/plans/PlanEventHistory'
+import { PlanStatusBadge } from '@/components/plans/PlanStatusBadge'
 import { Spinner } from '@/components/ui/Spinner'
 import * as plansApi from '@/api/plan-documents'
 
@@ -102,8 +103,11 @@ export function PlanDetailPage() {
       </button>
 
       <div className="mb-6">
-        {/* Title: Description */}
-        <h1 className="text-lg font-medium text-gray-900">{plan.description}</h1>
+        {/* Title: Description + Status */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-medium text-gray-900">{plan.description}</h1>
+          <PlanStatusBadge status={plan.status} />
+        </div>
         {/* Metadata: repo, collaborators, updated_at */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
           {repoName && (
