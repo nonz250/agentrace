@@ -183,6 +183,28 @@ func (m *Middleware) AuthenticateBearerOrSession(next http.Handler) http.Handler
 	})
 }
 
+// OptionalBearerOrSession validates authentication if present, but allows unauthenticated requests
+func (m *Middleware) OptionalBearerOrSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Try Bearer first
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" {
+			m.AuthenticateBearer(next).ServeHTTP(w, r)
+			return
+		}
+
+		// Try session cookie
+		cookie, err := r.Cookie("session")
+		if err == nil && cookie.Value != "" {
+			m.AuthenticateSession(next).ServeHTTP(w, r)
+			return
+		}
+
+		// No authentication provided - allow request to proceed without user context
+		next.ServeHTTP(w, r)
+	})
+}
+
 // RequestLogger logs requests in dev mode
 func (m *Middleware) RequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

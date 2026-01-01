@@ -26,48 +26,65 @@ export function Header() {
           Agentrace
         </Link>
 
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-          >
-            {user?.display_name || user?.email}
-            <ChevronDown className="h-4 w-4" />
-          </button>
+        {user ? (
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+            >
+              {user.display_name || user.email}
+              <ChevronDown className="h-4 w-4" />
+            </button>
 
-          {menuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-              <Link
-                to="/members"
-                onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                <Users className="h-4 w-4" />
-                Members
-              </Link>
-              <Link
-                to="/settings"
-                onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-              <div className="my-1 border-t border-gray-200" />
-              <button
-                onClick={() => {
-                  logout()
-                  setMenuOpen(false)
-                }}
-                disabled={isLoggingOut}
-                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                <LogOut className="h-4 w-4" />
-                {isLoggingOut ? 'Logging out...' : 'Logout'}
-              </button>
-            </div>
-          )}
-        </div>
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                <Link
+                  to="/members"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <Users className="h-4 w-4" />
+                  Members
+                </Link>
+                <Link
+                  to="/settings"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Link>
+                <div className="my-1 border-t border-gray-200" />
+                <button
+                  onClick={() => {
+                    logout()
+                    setMenuOpen(false)
+                  }}
+                  disabled={isLoggingOut}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {isLoggingOut ? 'Logging out...' : 'Logout'}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Link
+              to="/login"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Login
+            </Link>
+            <Link
+              to="/register"
+              className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm text-white hover:bg-primary-700"
+            >
+              Register
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   )

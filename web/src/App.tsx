@@ -20,6 +20,7 @@ import type { User } from '@/types/auth'
 interface AuthContextType {
   user: User | null
   isLoading: boolean
+  isAuthenticated: boolean
   refetch: () => Promise<void>
 }
 
@@ -62,7 +63,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, refetch }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, refetch }}>
       {children}
     </AuthContext.Provider>
   )
@@ -80,7 +81,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/welcome" replace />
+    return <Navigate to="/login" replace />
   }
 
   return <>{children}</>
@@ -125,22 +126,23 @@ export default function App() {
         {/* Setup route - handles auth internally */}
         <Route path="/setup" element={<SetupPage />} />
 
-        {/* Protected routes */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
+        {/* Main routes - accessible without auth */}
+        <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="sessions/:id" element={<SessionDetailPage />} />
           <Route path="plans" element={<PlansPage />} />
           <Route path="plans/:id" element={<PlanDetailPage />} />
           <Route path="members" element={<MembersPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+          {/* Settings requires auth */}
+          <Route
+            path="settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         {/* Fallback */}
