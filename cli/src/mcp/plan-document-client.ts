@@ -2,11 +2,16 @@ import { loadConfig } from "../config/manager.js";
 
 export type PlanDocumentStatus = "draft" | "planning" | "pending" | "implementation" | "complete";
 
+export interface Project {
+  id: string;
+  canonical_git_repository: string;
+}
+
 export interface PlanDocument {
   id: string;
   description: string;
   body: string;
-  git_remote_url: string;
+  project: Project | null;
   status: PlanDocumentStatus;
   collaborators: {
     id: string;
@@ -37,7 +42,6 @@ export interface ListEventsResponse {
 export interface CreatePlanRequest {
   description: string;
   body: string;
-  git_remote_url: string;
   session_id?: string;
 }
 

@@ -160,7 +160,7 @@ Claude Code の MCP (Model Context Protocol) サーバーとして動作し、Pl
 |--------|------|------|
 | `list_plans` | リポジトリのPlan一覧取得 | `git_remote_url` |
 | `read_plan` | Plan読み込み | `id` |
-| `create_plan` | Plan作成 | `description`, `body`, `git_remote_url`, `session_id?` |
+| `create_plan` | Plan作成（session_id から project を自動取得） | `description`, `body`, `session_id?` |
 | `update_plan` | Plan更新（パッチ自動生成） | `id`, `body`, `session_id` (必須) |
 
 ### 使用例
@@ -169,11 +169,11 @@ Claude Code の MCP (Model Context Protocol) サーバーとして動作し、Pl
 # Planの一覧を取得
 list_plans(git_remote_url: "https://github.com/user/repo.git")
 
-# 新規Planを作成
+# 新規Planを作成（session_id から project を自動取得）
 create_plan(
   description: "実装計画",
   body: "# 実装ステップ\n\n1. ...",
-  git_remote_url: "https://github.com/user/repo.git"
+  session_id: "current-session-id"
 )
 ```
 

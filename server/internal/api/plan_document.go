@@ -63,11 +63,9 @@ type PlanDocumentEventsResponse struct {
 // Request types
 
 type CreatePlanDocumentRequest struct {
-	Description  string  `json:"description"`
-	Body         string  `json:"body"`
-	GitRemoteURL string  `json:"git_remote_url"` // For backward compatibility
-	ProjectID    string  `json:"project_id"`     // New field
-	SessionID    *string `json:"session_id"`
+	Description string  `json:"description"`
+	Body        string  `json:"body"`
+	SessionID   *string `json:"session_id"`
 }
 
 type UpdatePlanDocumentRequest struct {
@@ -291,20 +289,17 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID := GetUserIDFromContext(ctx)
 
-	// Determine project ID
-	projectID := req.ProjectID
-	if projectID == "" && req.GitRemoteURL != "" {
-		// For backward compatibility: normalize git URL and find or create project
-		canonicalURL := domain.NormalizeGitURL(req.GitRemoteURL)
-		project, err := h.repos.Project.FindOrCreateByCanonicalGitRepository(ctx, canonicalURL)
+	// Determine project ID from session
+	projectID := domain.DefaultProjectID
+	if req.SessionID != nil && *req.SessionID != "" {
+		session, err := h.repos.Session.FindByID(ctx, *req.SessionID)
 		if err != nil {
-			http.Error(w, `{"error": "failed to create project"}`, http.StatusInternalServerError)
+			http.Error(w, `{"error": "failed to find session"}`, http.StatusInternalServerError)
 			return
 		}
-		projectID = project.ID
-	}
-	if projectID == "" {
-		projectID = domain.DefaultProjectID
+		if session != nil && session.ProjectID != "" {
+			projectID = session.ProjectID
+		}
 	}
 
 	doc := &domain.PlanDocument{

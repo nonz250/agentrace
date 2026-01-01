@@ -16,7 +16,6 @@ const ReadPlanSchema = z.object({
 const CreatePlanSchema = z.object({
   description: z.string().describe("Short description of the plan"),
   body: z.string().describe("Plan content in Markdown format"),
-  git_remote_url: z.string().describe("Git remote URL of the repository"),
   session_id: z.string().optional().describe("Claude Code session ID (optional)"),
 });
 
@@ -55,7 +54,8 @@ WHEN TO USE:
 - When the user asks you to save or persist a plan
 - When planning significant features, refactoring, or architectural changes
 
-The plan will be saved to Agentrace server and can be reviewed by the team.`,
+The plan will be saved to Agentrace server and can be reviewed by the team.
+The project is automatically determined from the session's git repository.`,
 
   update_plan: `Update an existing plan document.
 
@@ -197,7 +197,6 @@ IMPORTANT GUIDELINES:
         const plan = await getClient().createPlan({
           description: args.description,
           body: args.body,
-          git_remote_url: args.git_remote_url,
           session_id: args.session_id,
         });
 
