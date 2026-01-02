@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowRight, GitBranch, Folder, ExternalLink } from 'lucide-react'
+import { ArrowRight, ExternalLink } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { PlanList } from '@/components/plans/PlanList'
+import { ProjectIcon } from '@/components/projects/ProjectIcon'
 import { Spinner } from '@/components/ui/Spinner'
 import * as projectsApi from '@/api/projects'
 import * as sessionsApi from '@/api/sessions'
@@ -63,11 +64,7 @@ export function ProjectDetailPage() {
       {/* Project Header */}
       <div className="border-b border-gray-200 pb-6">
         <div className="flex items-center gap-3">
-          {hasProject ? (
-            <GitBranch className="h-8 w-8 text-gray-500" />
-          ) : (
-            <Folder className="h-8 w-8 text-gray-400" />
-          )}
+          <ProjectIcon project={project} className="h-8 w-8" />
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">
               {hasProject ? repoName : '(no project)'}

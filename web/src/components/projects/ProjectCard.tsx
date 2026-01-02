@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { GitBranch, Folder } from 'lucide-react'
 import type { Project } from '@/types/project'
 import { parseRepoName, isDefaultProject, getRepoUrl } from '@/lib/project-utils'
+import { ProjectIcon } from './ProjectIcon'
 
 interface ProjectCardProps {
   project: Project & { created_at: string }
@@ -20,16 +20,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-gray-900">
+            <ProjectIcon project={project} className="h-5 w-5 flex-shrink-0" />
             {hasProject ? (
-              <>
-                <GitBranch className="h-5 w-5 text-gray-500 flex-shrink-0" />
-                <span className="font-medium truncate">{repoName}</span>
-              </>
+              <span className="font-medium truncate">{repoName}</span>
             ) : (
-              <>
-                <Folder className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                <span className="font-medium text-gray-500">(no project)</span>
-              </>
+              <span className="font-medium text-gray-500">(no project)</span>
             )}
           </div>
           {hasProject && repoUrl && (
@@ -38,9 +33,6 @@ export function ProjectCard({ project }: ProjectCardProps) {
             </p>
           )}
         </div>
-      </div>
-      <div className="mt-3 text-xs text-gray-400">
-        Created {new Date(project.created_at).toLocaleDateString()}
       </div>
     </Link>
   )
