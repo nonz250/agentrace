@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS plan_document_events (
     plan_document_id UUID NOT NULL REFERENCES plan_documents(id) ON DELETE CASCADE,
     claude_session_id VARCHAR(255),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    event_type VARCHAR(32) NOT NULL DEFAULT 'body_change',
     patch TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -123,3 +124,4 @@ CREATE INDEX IF NOT EXISTS idx_plan_documents_status ON plan_documents(status);
 CREATE INDEX IF NOT EXISTS idx_plan_document_events_doc ON plan_document_events(plan_document_id);
 CREATE INDEX IF NOT EXISTS idx_plan_document_events_claude_session ON plan_document_events(claude_session_id);
 CREATE INDEX IF NOT EXISTS idx_plan_document_events_user ON plan_document_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_plan_document_events_type ON plan_document_events(event_type);

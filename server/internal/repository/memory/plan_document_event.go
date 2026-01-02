@@ -31,6 +31,9 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 	if event.CreatedAt.IsZero() {
 		event.CreatedAt = time.Now()
 	}
+	if event.EventType == "" {
+		event.EventType = domain.PlanDocumentEventTypeBodyChange
+	}
 
 	r.events[event.ID] = event
 	return nil

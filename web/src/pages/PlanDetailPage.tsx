@@ -1,22 +1,41 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, GitBranch, Users, Clock, FileText, History } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, GitBranch, Users, Clock, FileText, History, Pencil, X, Save } from 'lucide-react'
 import { format } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { PlanEventHistory } from '@/components/plans/PlanEventHistory'
 import { PlanStatusBadge } from '@/components/plans/PlanStatusBadge'
 import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Textarea'
+import { Select } from '@/components/ui/Select'
+import { useAuth } from '@/hooks/useAuth'
 import * as plansApi from '@/api/plan-documents'
+import type { PlanDocumentStatus } from '@/types/plan-document'
 import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 
 type TabType = 'content' | 'history'
 
+const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'planning', label: 'Planning' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'implementation', label: 'Implementation' },
+  { value: 'complete', label: 'Complete' },
+]
+
 export function PlanDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('content')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editDescription, setEditDescription] = useState('')
+  const [editBody, setEditBody] = useState('')
 
   const { data: plan, isLoading: isPlanLoading, error: planError } = useQuery({
     queryKey: ['plan', id],
@@ -29,6 +48,53 @@ export function PlanDetailPage() {
     queryFn: () => plansApi.getPlanEvents(id!),
     enabled: !!id && activeTab === 'history',
   })
+
+  const statusMutation = useMutation({
+    mutationFn: (status: PlanDocumentStatus) => plansApi.setPlanStatus(id!, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan', id] })
+      queryClient.invalidateQueries({ queryKey: ['plan', id, 'events'] })
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: () => plansApi.updatePlan(id!, {
+      description: editDescription,
+      body: editBody,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan', id] })
+      queryClient.invalidateQueries({ queryKey: ['plan', id, 'events'] })
+      setIsEditing(false)
+    },
+  })
+
+  const handleStartEdit = () => {
+    if (plan) {
+      setEditDescription(plan.description)
+      setEditBody(plan.body)
+      setIsEditing(true)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditDescription('')
+    setEditBody('')
+  }
+
+  const handleSaveEdit = () => {
+    if (editDescription.trim()) {
+      updateMutation.mutate()
+    }
+  }
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value as PlanDocumentStatus
+    if (plan && newStatus !== plan.status) {
+      statusMutation.mutate(newStatus)
+    }
+  }
 
   if (isPlanLoading) {
     return (
@@ -71,10 +137,33 @@ export function PlanDetailPage() {
       </button>
 
       <div className="mb-6">
-        {/* Title: Description + Status */}
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-medium text-gray-900">{plan.description}</h1>
-          <PlanStatusBadge status={plan.status} />
+        {/* Title: Description + Status + Actions */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-medium text-gray-900">{plan.description}</h1>
+            {user ? (
+              <Select
+                value={plan.status}
+                onChange={handleStatusChange}
+                disabled={statusMutation.isPending}
+                className="!py-1 !px-2 text-xs min-w-[130px]"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <PlanStatusBadge status={plan.status} />
+            )}
+          </div>
+          {user && !isEditing && (
+            <Button variant="secondary" size="sm" onClick={handleStartEdit}>
+              <Pencil className="mr-1 h-4 w-4" />
+              Edit
+            </Button>
+          )}
         </div>
         {/* Metadata: repo, collaborators, updated_at */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
@@ -145,9 +234,37 @@ export function PlanDetailPage() {
       {/* Tab Content */}
       {activeTab === 'content' && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-gray-800 prose-pre:bg-gray-900 prose-pre:text-gray-100">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.body}</ReactMarkdown>
-          </div>
+          {isEditing ? (
+            <div className="space-y-4">
+              <Input
+                label="Description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Brief description of the plan"
+              />
+              <Textarea
+                label="Body"
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                placeholder="Plan details in Markdown format"
+                rows={15}
+              />
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="ghost" onClick={handleCancelEdit} disabled={updateMutation.isPending}>
+                  <X className="mr-1 h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit} loading={updateMutation.isPending}>
+                  <Save className="mr-1 h-4 w-4" />
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-gray-800 prose-pre:bg-gray-900 prose-pre:text-gray-100">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.body}</ReactMarkdown>
+            </div>
+          )}
         </div>
       )}
 

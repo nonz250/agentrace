@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
-import { User, Clock, ExternalLink } from 'lucide-react'
+import { User, Clock, ExternalLink, ArrowRight, FileEdit } from 'lucide-react'
 import type { PlanDocumentEvent } from '@/types/plan-document'
 
 interface PlanEventHistoryProps {
@@ -20,7 +20,8 @@ export function PlanEventHistory({ events }: PlanEventHistoryProps) {
     <div className="space-y-3">
       {events.map((event, index) => {
         const formattedDate = format(new Date(event.created_at), 'yyyy/MM/dd HH:mm:ss')
-        const isInitial = index === events.length - 1
+        const isInitial = index === 0 && (!event.patch || event.patch === '')
+        const isStatusChange = event.event_type === 'status_change'
 
         return (
           <div
@@ -55,15 +56,28 @@ export function PlanEventHistory({ events }: PlanEventHistoryProps) {
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                       Initial creation
                     </span>
+                  ) : isStatusChange ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                        <ArrowRight className="h-3 w-3" />
+                        Status changed: {event.patch}
+                      </span>
+                    </div>
                   ) : event.patch ? (
-                    <details className="text-xs">
-                      <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
-                        View patch
-                      </summary>
-                      <pre className="mt-2 overflow-x-auto rounded bg-gray-50 p-2 text-gray-600 font-mono">
-                        {event.patch}
-                      </pre>
-                    </details>
+                    <div>
+                      <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded inline-flex mb-2">
+                        <FileEdit className="h-3 w-3" />
+                        Content updated
+                      </span>
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                          View patch
+                        </summary>
+                        <pre className="mt-2 overflow-x-auto rounded bg-gray-50 p-2 text-gray-600 font-mono">
+                          {event.patch}
+                        </pre>
+                      </details>
+                    </div>
                   ) : (
                     <span className="text-xs text-gray-500">No patch recorded</span>
                   )}

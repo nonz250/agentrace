@@ -32,3 +32,35 @@ export async function setPlanStatus(id: string, status: PlanDocumentStatus): Pro
     body: JSON.stringify({ status }),
   })
 }
+
+interface CreatePlanParams {
+  description: string
+  body: string
+  project_id?: string
+}
+
+export async function createPlan(params: CreatePlanParams): Promise<PlanDocument> {
+  return fetchAPI('/api/plans', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+interface UpdatePlanParams {
+  description?: string
+  body?: string
+  patch?: string
+}
+
+export async function updatePlan(id: string, params: UpdatePlanParams): Promise<PlanDocument> {
+  return fetchAPI(`/api/plans/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(params),
+  })
+}
+
+export async function deletePlan(id: string): Promise<void> {
+  return fetchAPI(`/api/plans/${id}`, {
+    method: 'DELETE',
+  })
+}

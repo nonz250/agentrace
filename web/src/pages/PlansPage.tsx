@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { PlanList } from '@/components/plans/PlanList'
+import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/hooks/useAuth'
 import * as plansApi from '@/api/plan-documents'
 
 const PAGE_SIZE = 20
 
 export function PlansPage() {
+  const { user } = useAuth()
   const [page, setPage] = useState(1)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const offset = (page - 1) * PAGE_SIZE
 
   const { data, isLoading, error } = useQuery({
@@ -38,8 +42,21 @@ export function PlansPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Plans</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">Plans</h1>
+        {user && (
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="mr-1 h-4 w-4" />
+            Create Plan
+          </Button>
+        )}
+      </div>
       <PlanList plans={plans} />
+
+      <CreatePlanModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+      />
 
       {(page > 1 || hasMore) && (
         <div className="mt-6 flex items-center justify-between">

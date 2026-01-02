@@ -52,6 +52,7 @@ type PlanDocumentEventResponse struct {
 	ClaudeSessionID *string `json:"claude_session_id"`
 	UserID          *string `json:"user_id"`
 	UserName        *string `json:"user_name"`
+	EventType       string  `json:"event_type"`
 	Patch           string  `json:"patch"`
 	CreatedAt       string  `json:"created_at"`
 }
@@ -65,6 +66,7 @@ type PlanDocumentEventsResponse struct {
 type CreatePlanDocumentRequest struct {
 	Description     string  `json:"description"`
 	Body            string  `json:"body"`
+	ProjectID       *string `json:"project_id"`
 	ClaudeSessionID *string `json:"claude_session_id"`
 }
 
@@ -134,12 +136,18 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 		}
 	}
 
+	eventType := string(event.EventType)
+	if eventType == "" {
+		eventType = string(domain.PlanDocumentEventTypeBodyChange)
+	}
+
 	return &PlanDocumentEventResponse{
 		ID:              event.ID,
 		PlanDocumentID:  event.PlanDocumentID,
 		ClaudeSessionID: event.ClaudeSessionID,
 		UserID:          event.UserID,
 		UserName:        userName,
+		EventType:       eventType,
 		Patch:           event.Patch,
 		CreatedAt:       event.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -289,9 +297,13 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID := GetUserIDFromContext(ctx)
 
-	// Determine project ID from session
+	// Determine project ID: explicit project_id > session-based > default
 	projectID := domain.DefaultProjectID
-	if req.ClaudeSessionID != nil && *req.ClaudeSessionID != "" {
+	if req.ProjectID != nil && *req.ProjectID != "" {
+		// Use explicitly provided project ID
+		projectID = *req.ProjectID
+	} else if req.ClaudeSessionID != nil && *req.ClaudeSessionID != "" {
+		// Fall back to session-based project ID
 		session, err := h.repos.Session.FindByClaudeSessionID(ctx, *req.ClaudeSessionID)
 		if err != nil {
 			http.Error(w, `{"error": "failed to find session"}`, http.StatusInternalServerError)
@@ -456,10 +468,28 @@ func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Store old status for event
+	oldStatus := doc.Status
+
 	if err := h.repos.PlanDocument.SetStatus(ctx, id, status); err != nil {
 		http.Error(w, `{"error": "failed to update status"}`, http.StatusInternalServerError)
 		return
 	}
+
+	// Get user ID from context (set by auth middleware)
+	userID := GetUserIDFromContext(ctx)
+
+	// Create status change event
+	event := &domain.PlanDocumentEvent{
+		PlanDocumentID: doc.ID,
+		EventType:      domain.PlanDocumentEventTypeStatusChange,
+		Patch:          string(oldStatus) + " -> " + string(status),
+	}
+	if userID != "" {
+		event.UserID = &userID
+	}
+	// Ignore error - status was updated successfully
+	h.repos.PlanDocumentEvent.Create(ctx, event)
 
 	// Fetch updated document
 	doc, err = h.repos.PlanDocument.FindByID(ctx, id)

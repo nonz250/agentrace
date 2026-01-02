@@ -18,12 +18,15 @@ export interface PlanDocument {
   updated_at: string
 }
 
+export type PlanDocumentEventType = 'body_change' | 'status_change'
+
 export interface PlanDocumentEvent {
   id: string
   plan_document_id: string
   session_id: string | null
   user_id: string | null
   user_name: string | null
+  event_type: PlanDocumentEventType
   patch: string
   created_at: string
 }

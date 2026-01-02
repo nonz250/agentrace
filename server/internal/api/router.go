@@ -23,6 +23,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	sessionHandler := NewSessionHandler(repos)
 	authHandler := NewAuthHandler(cfg, repos)
 	planDocumentHandler := NewPlanDocumentHandler(repos)
+	projectHandler := NewProjectHandler(repos)
 
 	// Auth routes (no auth required)
 	r.HandleFunc("/auth/register", authHandler.Register).Methods("POST")
@@ -37,10 +38,14 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiBearer.Use(mw.AuthenticateBearer)
 	apiBearer.HandleFunc("/ingest", ingestHandler.Handle).Methods("POST")
 	apiBearer.HandleFunc("/auth/web-session", authHandler.CreateWebSession).Methods("POST")
-	apiBearer.HandleFunc("/plans", planDocumentHandler.Create).Methods("POST")
-	apiBearer.HandleFunc("/plans/{id}", planDocumentHandler.Update).Methods("PATCH")
-	apiBearer.HandleFunc("/plans/{id}", planDocumentHandler.Delete).Methods("DELETE")
-	apiBearer.HandleFunc("/plans/{id}/status", planDocumentHandler.SetStatus).Methods("PATCH")
+
+	// API routes (Bearer or Session auth - for CLI and Web)
+	apiBearerOrSession := r.PathPrefix("/api").Subrouter()
+	apiBearerOrSession.Use(mw.AuthenticateBearerOrSession)
+	apiBearerOrSession.HandleFunc("/plans", planDocumentHandler.Create).Methods("POST")
+	apiBearerOrSession.HandleFunc("/plans/{id}", planDocumentHandler.Update).Methods("PATCH")
+	apiBearerOrSession.HandleFunc("/plans/{id}", planDocumentHandler.Delete).Methods("DELETE")
+	apiBearerOrSession.HandleFunc("/plans/{id}/status", planDocumentHandler.SetStatus).Methods("PATCH")
 
 	// API routes (Session auth - for Web)
 	apiSession := r.PathPrefix("/api").Subrouter()
@@ -60,6 +65,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiOptional.HandleFunc("/plans", planDocumentHandler.List).Methods("GET")
 	apiOptional.HandleFunc("/plans/{id}", planDocumentHandler.Get).Methods("GET")
 	apiOptional.HandleFunc("/plans/{id}/events", planDocumentHandler.GetEvents).Methods("GET")
+	apiOptional.HandleFunc("/projects", projectHandler.List).Methods("GET")
 	apiOptional.HandleFunc("/users", authHandler.ListUsers).Methods("GET")
 
 	// Health check (no auth)
