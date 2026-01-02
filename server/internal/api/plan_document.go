@@ -76,6 +76,7 @@ type UpdatePlanDocumentRequest struct {
 	Body            *string `json:"body"`
 	Patch           *string `json:"patch"`
 	ClaudeSessionID *string `json:"claude_session_id"`
+	ProjectID       *string `json:"project_id"`
 }
 
 type SetPlanDocumentStatusRequest struct {
@@ -393,6 +394,9 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Body != nil {
 		doc.Body = *req.Body
+	}
+	if req.ProjectID != nil {
+		doc.ProjectID = *req.ProjectID
 	}
 
 	if err := h.repos.PlanDocument.Update(ctx, doc); err != nil {

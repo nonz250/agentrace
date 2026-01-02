@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Folder, GitBranch, MessageSquare, User, Pencil, X, Save } from 'lucide-react'
+import { Folder, GitBranch, MessageSquare, User, Pencil, X, Save, FolderEdit } from 'lucide-react'
 import { format } from 'date-fns'
 import { TimelineContainer } from '@/components/timeline/TimelineContainer'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { ProjectSelect } from '@/components/ui/ProjectSelect'
 import { useAuth } from '@/hooks/useAuth'
 import * as sessionsApi from '@/api/sessions'
 import { parseRepoName, getRepoUrl, isDefaultProject, getProjectDisplayName } from '@/lib/project-utils'
@@ -24,6 +25,8 @@ export function SessionDetailPage() {
   const { user } = useAuth()
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState('')
+  const [isEditingProject, setIsEditingProject] = useState(false)
+  const [editProjectId, setEditProjectId] = useState('')
 
   const { data: session, isLoading, error } = useQuery({
     queryKey: ['session', id],
@@ -40,6 +43,15 @@ export function SessionDetailPage() {
     },
   })
 
+  const updateProjectMutation = useMutation({
+    mutationFn: (projectId: string) => sessionsApi.updateSession(id!, { project_id: projectId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session', id] })
+      queryClient.invalidateQueries({ queryKey: ['sessions', 'list'] })
+      setIsEditingProject(false)
+    },
+  })
+
   const handleStartEdit = () => {
     setEditTitle(session?.title || '')
     setIsEditingTitle(true)
@@ -52,6 +64,20 @@ export function SessionDetailPage() {
 
   const handleSaveEdit = () => {
     updateMutation.mutate(editTitle)
+  }
+
+  const handleStartProjectEdit = () => {
+    setEditProjectId(session?.project?.id || '')
+    setIsEditingProject(true)
+  }
+
+  const handleCancelProjectEdit = () => {
+    setIsEditingProject(false)
+    setEditProjectId('')
+  }
+
+  const handleSaveProjectEdit = () => {
+    updateProjectMutation.mutate(editProjectId)
   }
 
   if (isLoading) {
@@ -134,12 +160,29 @@ export function SessionDetailPage() {
             </>
           )}
         </div>
-        {/* Metadata: repo, branch, path, user, events */}
+        {/* Metadata: project, repo, branch, path, user, events */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
-          {hasProject && repoName && (
+          {/* Project selector */}
+          {isEditingProject ? (
             <span className="flex items-center gap-1">
+              <FolderEdit className="h-3 w-3" />
+              <ProjectSelect
+                value={editProjectId}
+                onChange={setEditProjectId}
+                disabled={updateProjectMutation.isPending}
+                className="!py-0.5 !px-1 text-xs min-w-[150px]"
+              />
+              <Button variant="ghost" size="sm" onClick={handleCancelProjectEdit} disabled={updateProjectMutation.isPending} className="!p-0.5">
+                <X className="h-3 w-3" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleSaveProjectEdit} disabled={updateProjectMutation.isPending} className="!p-0.5">
+                <Save className="h-3 w-3" />
+              </Button>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 group">
               <GitBranch className="h-3 w-3" />
-              {repoUrl ? (
+              {hasProject && repoUrl ? (
                 <a
                   href={repoUrl}
                   target="_blank"
@@ -148,10 +191,17 @@ export function SessionDetailPage() {
                 >
                   {repoName}
                 </a>
-              ) : (
+              ) : hasProject && repoName ? (
                 repoName
+              ) : (
+                <span className="text-gray-300">(no project)</span>
               )}
               {session.git_branch && <span>: {session.git_branch}</span>}
+              {user && (
+                <Button variant="ghost" size="sm" onClick={handleStartProjectEdit} className="!p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
             </span>
           )}
           {!hasProject && session.project_path && (

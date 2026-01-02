@@ -51,6 +51,7 @@ interface UpdatePlanParams {
   description?: string
   body?: string
   patch?: string
+  project_id?: string
 }
 
 export async function updatePlan(id: string, params: UpdatePlanParams): Promise<PlanDocument> {

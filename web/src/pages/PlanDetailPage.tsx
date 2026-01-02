@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save, Copy, Check } from 'lucide-react'
+import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save, Copy, Check, FolderEdit } from 'lucide-react'
 import { format } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select } from '@/components/ui/Select'
+import { ProjectSelect } from '@/components/ui/ProjectSelect'
 import { useAuth } from '@/hooks/useAuth'
 import * as plansApi from '@/api/plan-documents'
 import type { PlanDocumentStatus } from '@/types/plan-document'
@@ -38,6 +39,8 @@ export function PlanDetailPage() {
   const [editDescription, setEditDescription] = useState('')
   const [editBody, setEditBody] = useState('')
   const [copied, setCopied] = useState(false)
+  const [isEditingProject, setIsEditingProject] = useState(false)
+  const [editProjectId, setEditProjectId] = useState('')
 
   const { data: plan, isLoading: isPlanLoading, error: planError } = useQuery({
     queryKey: ['plan', id],
@@ -68,6 +71,15 @@ export function PlanDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['plan', id] })
       queryClient.invalidateQueries({ queryKey: ['plan', id, 'events'] })
       setIsEditing(false)
+    },
+  })
+
+  const updateProjectMutation = useMutation({
+    mutationFn: (projectId: string) => plansApi.updatePlan(id!, { project_id: projectId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan', id] })
+      queryClient.invalidateQueries({ queryKey: ['plans', 'list'] })
+      setIsEditingProject(false)
     },
   })
 
@@ -104,6 +116,20 @@ export function PlanDetailPage() {
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleStartProjectEdit = () => {
+    setEditProjectId(plan?.project?.id || '')
+    setIsEditingProject(true)
+  }
+
+  const handleCancelProjectEdit = () => {
+    setIsEditingProject(false)
+    setEditProjectId('')
+  }
+
+  const handleSaveProjectEdit = () => {
+    updateProjectMutation.mutate(editProjectId)
   }
 
   if (isPlanLoading) {
@@ -187,12 +213,29 @@ export function PlanDetailPage() {
             )}
           </div>
         </div>
-        {/* Metadata: repo, collaborators, updated_at */}
+        {/* Metadata: project, collaborators, updated_at */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
-          {hasProject && repoName && (
+          {/* Project selector */}
+          {isEditingProject ? (
             <span className="flex items-center gap-1">
+              <FolderEdit className="h-3 w-3" />
+              <ProjectSelect
+                value={editProjectId}
+                onChange={setEditProjectId}
+                disabled={updateProjectMutation.isPending}
+                className="!py-0.5 !px-1 text-xs min-w-[150px]"
+              />
+              <Button variant="ghost" size="sm" onClick={handleCancelProjectEdit} disabled={updateProjectMutation.isPending} className="!p-0.5">
+                <X className="h-3 w-3" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleSaveProjectEdit} disabled={updateProjectMutation.isPending} className="!p-0.5">
+                <Save className="h-3 w-3" />
+              </Button>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 group">
               <GitBranch className="h-3 w-3" />
-              {repoUrl ? (
+              {hasProject && repoUrl ? (
                 <a
                   href={repoUrl}
                   target="_blank"
@@ -201,15 +244,16 @@ export function PlanDetailPage() {
                 >
                   {repoName}
                 </a>
-              ) : (
+              ) : hasProject && repoName ? (
                 repoName
+              ) : (
+                <span className="text-gray-300">(no project)</span>
               )}
-            </span>
-          )}
-          {!hasProject && (
-            <span className="flex items-center gap-1 text-gray-300">
-              <GitBranch className="h-3 w-3" />
-              (no project)
+              {user && (
+                <Button variant="ghost" size="sm" onClick={handleStartProjectEdit} className="!p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
             </span>
           )}
           {collaboratorNames && (

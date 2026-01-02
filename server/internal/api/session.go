@@ -237,7 +237,8 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateSessionRequest struct {
-	Title *string `json:"title"`
+	Title     *string `json:"title"`
+	ProjectID *string `json:"project_id"`
 }
 
 func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -268,6 +269,15 @@ func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		session.Title = req.Title
+	}
+
+	// Update project_id if provided
+	if req.ProjectID != nil {
+		if err := h.repos.Session.UpdateProjectID(ctx, id, *req.ProjectID); err != nil {
+			http.Error(w, `{"error": "failed to update project_id"}`, http.StatusInternalServerError)
+			return
+		}
+		session.ProjectID = *req.ProjectID
 	}
 
 	// Get user name

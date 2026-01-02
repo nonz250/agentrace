@@ -26,3 +26,15 @@ export async function updateSessionTitle(id: string, title: string): Promise<Ses
     body: JSON.stringify({ title }),
   })
 }
+
+interface UpdateSessionParams {
+  title?: string
+  project_id?: string
+}
+
+export async function updateSession(id: string, params: UpdateSessionParams): Promise<Session> {
+  return fetchAPI(`/api/sessions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(params),
+  })
+}
