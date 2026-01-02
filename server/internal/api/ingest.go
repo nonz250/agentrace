@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/satetsu888/agentrace/server/internal/domain"
@@ -104,8 +105,9 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Auto-generate title from first user message if not set
-		if eventType == "user" && session.Title == nil {
-			if text := extractUserMessageText(line); text != "" {
+		// Skip meta messages, command messages, and tool results
+		if eventType == "user" && session.Title == nil && !isMetaMessage(line) {
+			if text := extractUserMessageText(line); text != "" && isValidUserInput(text) {
 				title := truncateString(text, 50)
 				if err := h.repos.Session.UpdateTitle(ctx, session.ID, title); err == nil {
 					session.Title = &title
@@ -134,27 +136,77 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// isMetaMessage checks if the payload is a meta message (e.g., Caveat messages)
+func isMetaMessage(payload map[string]interface{}) bool {
+	if isMeta, ok := payload["isMeta"].(bool); ok && isMeta {
+		return true
+	}
+	return false
+}
+
+// isValidUserInput checks if the text is a valid user input (not a command or system message)
+func isValidUserInput(text string) bool {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return false
+	}
+
+	// Skip command messages (e.g., <command-name>/clear</command-name>)
+	if strings.HasPrefix(trimmed, "<command-name>") {
+		return false
+	}
+
+	// Skip local command stdout (e.g., <local-command-stdout>...</local-command-stdout>)
+	if strings.HasPrefix(trimmed, "<local-command-stdout>") {
+		return false
+	}
+
+	// Skip system reminder messages
+	if strings.HasPrefix(trimmed, "<system-reminder>") {
+		return false
+	}
+
+	// Skip messages that start with slash commands
+	if strings.HasPrefix(trimmed, "/") {
+		return false
+	}
+
+	// Skip caveat messages
+	if strings.HasPrefix(trimmed, "Caveat:") {
+		return false
+	}
+
+	return true
+}
+
 // extractUserMessageText extracts text content from a user message payload
-// Expected structure: { "message": { "content": [{ "type": "text", "text": "..." }] } }
+// Supports both string content and array content formats:
+// - String: { "message": { "content": "text here" } }
+// - Array: { "message": { "content": [{ "type": "text", "text": "..." }] } }
 func extractUserMessageText(payload map[string]interface{}) string {
 	message, ok := payload["message"].(map[string]interface{})
 	if !ok {
 		return ""
 	}
 
-	content, ok := message["content"].([]interface{})
-	if !ok {
-		return ""
+	content := message["content"]
+
+	// Handle string content (Claude Code's typical format)
+	if contentStr, ok := content.(string); ok {
+		return contentStr
 	}
 
-	for _, item := range content {
-		block, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if blockType, ok := block["type"].(string); ok && blockType == "text" {
-			if text, ok := block["text"].(string); ok {
-				return text
+	// Handle array content (API format with content blocks)
+	if contentArr, ok := content.([]interface{}); ok {
+		for _, item := range contentArr {
+			block, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if blockType, ok := block["type"].(string); ok && blockType == "text" {
+				if text, ok := block["text"].(string); ok {
+					return text
+				}
 			}
 		}
 	}

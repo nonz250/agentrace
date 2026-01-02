@@ -61,6 +61,22 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 - `file-history-snapshot`: Claude Code 内部のファイル履歴追跡
 - `system`: init, mcp_server_status, stop_hook_summary 等
 
+### セッションタイトルの自動生成
+
+`/api/ingest` でイベントを受信する際、最初の有効なユーザーメッセージからセッションタイトルを自動生成する（`internal/api/ingest.go`）。
+
+**対象**: `type: "user"` かつタイトル未設定のセッション
+
+**スキップ対象**（以下のメッセージはタイトル生成に使用しない）:
+- `isMeta: true` のメタメッセージ（Caveat等）
+- `<command-name>` で始まるコマンドメッセージ（`/clear` 等）
+- `<local-command-stdout>` で始まるローカルコマンド出力
+- `<system-reminder>` で始まるシステムメッセージ
+- `/` で始まるスラッシュコマンド
+- `Caveat:` で始まるメッセージ
+
+**content形式**: Claude Code のメッセージは `message.content` が文字列形式（API形式の配列ではない）
+
 ## 環境変数
 
 | 変数名 | 説明 | デフォルト |
