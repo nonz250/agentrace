@@ -1,6 +1,6 @@
 import { loadConfig } from "../config/manager.js";
 
-export type PlanDocumentStatus = "draft" | "planning" | "pending" | "implementation" | "complete";
+export type PlanDocumentStatus = "scratch" | "draft" | "planning" | "pending" | "implementation" | "complete";
 
 export interface Project {
   id: string;

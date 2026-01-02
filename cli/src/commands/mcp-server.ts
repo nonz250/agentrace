@@ -43,7 +43,7 @@ const UpdatePlanSchema = z.object({
 
 const SetPlanStatusSchema = z.object({
   id: z.string().describe("Plan document ID"),
-  status: z.enum(["draft", "planning", "pending", "implementation", "complete"]).describe("New status for the plan"),
+  status: z.enum(["scratch", "draft", "planning", "pending", "implementation", "complete"]).describe("New status for the plan"),
 });
 
 // Tool descriptions with usage guidance
@@ -90,11 +90,23 @@ WHEN TO USE:
 - When the user explicitly asks to change the status of a plan
 
 Available statuses:
-- draft: Initial draft, not yet ready for review
-- planning: The plan is being designed/refined
+- scratch: Initial rough notes, starting point for discussion with AI
+- draft: Plan not yet fully considered (optional intermediate status)
+- planning: Plan is being designed/refined through discussion
 - pending: Waiting for approval or blocked
 - implementation: Active development is in progress
-- complete: The work described in the plan is finished`,
+- complete: The work described in the plan is finished
+
+BASIC FLOW: scratch → planning → implementation → complete
+(draft and pending are optional auxiliary statuses)
+
+STATUS TRANSITION GUIDELINES:
+- scratch → planning: When you read a scratch plan (usually written by human), review its content and rewrite it into a more concrete plan, then change status to planning
+- planning → implementation: When the plan is finalized after discussion, change status to implementation before starting work
+- implementation → complete: When all work described in the plan is finished, change status to complete
+
+CAUTION:
+- When a plan is in "implementation" status, someone else might already be working on it. Check with the team before starting work on such plans.`,
 };
 
 export async function mcpServerCommand(): Promise<void> {
@@ -144,6 +156,7 @@ IMPORTANT GUIDELINES:
         const planList = plans.map((plan) => ({
           id: plan.id,
           description: plan.description,
+          status: plan.status,
           updated_at: plan.updated_at,
           collaborators: plan.collaborators.map((c) => c.display_name).join(", "),
         }));
@@ -183,7 +196,7 @@ IMPORTANT GUIDELINES:
           content: [
             {
               type: "text" as const,
-              text: `# ${plan.description}\n\n${plan.body}`,
+              text: `# ${plan.description}\n\nStatus: ${plan.status}\n\n${plan.body}`,
             },
           ],
         };
