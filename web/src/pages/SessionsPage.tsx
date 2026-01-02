@@ -1,20 +1,31 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useSearchParams, Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import * as sessionsApi from '@/api/sessions'
+import * as projectsApi from '@/api/projects'
+import { getProjectDisplayName } from '@/lib/project-utils'
 
 const PAGE_SIZE = 20
 
 export function SessionsPage() {
+  const [searchParams] = useSearchParams()
+  const projectId = searchParams.get('project_id')
   const [page, setPage] = useState(1)
   const offset = (page - 1) * PAGE_SIZE
 
+  const { data: projectData } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => projectsApi.getProject(projectId!),
+    enabled: !!projectId,
+  })
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['sessions', 'list', page],
-    queryFn: () => sessionsApi.getSessions({ limit: PAGE_SIZE, offset }),
+    queryKey: ['sessions', 'list', page, projectId],
+    queryFn: () => sessionsApi.getSessions({ projectId: projectId || undefined, limit: PAGE_SIZE, offset }),
   })
 
   const sessions = data?.sessions || []
@@ -36,9 +47,29 @@ export function SessionsPage() {
     )
   }
 
+  const projectDisplayName = projectData ? getProjectDisplayName(projectData) : null
+
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Sessions</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-gray-900">
+          {projectId ? 'Sessions' : 'All Sessions'}
+        </h1>
+        {projectId && projectDisplayName && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">
+              Filtered by: <span className="font-medium">{projectDisplayName}</span>
+            </span>
+            <Link
+              to="/sessions"
+              className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </Link>
+          </div>
+        )}
+      </div>
       <SessionList sessions={sessions} />
 
       {(page > 1 || hasMore) && (

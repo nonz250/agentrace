@@ -66,6 +66,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiOptional.HandleFunc("/plans/{id}", planDocumentHandler.Get).Methods("GET")
 	apiOptional.HandleFunc("/plans/{id}/events", planDocumentHandler.GetEvents).Methods("GET")
 	apiOptional.HandleFunc("/projects", projectHandler.List).Methods("GET")
+	apiOptional.HandleFunc("/projects/{id}", projectHandler.Get).Methods("GET")
 	apiOptional.HandleFunc("/users", authHandler.ListUsers).Methods("GET")
 
 	// Health check (no auth)

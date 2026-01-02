@@ -6,7 +6,8 @@ import { WelcomePage } from '@/pages/WelcomePage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SetupPage } from '@/pages/SetupPage'
-import { HomePage } from '@/pages/HomePage'
+import { ProjectsPage } from '@/pages/ProjectsPage'
+import { ProjectDetailPage } from '@/pages/ProjectDetailPage'
 import { SessionsPage } from '@/pages/SessionsPage'
 import { SessionDetailPage } from '@/pages/SessionDetailPage'
 import { PlansPage } from '@/pages/PlansPage'
@@ -128,7 +129,8 @@ export default function App() {
 
         {/* Main routes - accessible without auth */}
         <Route path="/" element={<Layout />}>
-          <Route index element={<HomePage />} />
+          <Route index element={<ProjectsPage />} />
+          <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="sessions/:id" element={<SessionDetailPage />} />
           <Route path="plans" element={<PlansPage />} />

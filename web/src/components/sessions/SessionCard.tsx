@@ -1,7 +1,6 @@
 import { Card } from '@/components/ui/Card'
 import { GitBranch, Folder, MessageSquare, Clock } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
-import { ja } from 'date-fns/locale'
 import type { Session } from '@/types/session'
 import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 

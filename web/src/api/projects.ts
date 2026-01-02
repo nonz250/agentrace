@@ -17,3 +17,7 @@ export async function getProjects(params?: GetProjectsParams): Promise<{ project
   const query = searchParams.toString()
   return fetchAPI(`/api/projects${query ? `?${query}` : ''}`)
 }
+
+export async function getProject(id: string): Promise<ProjectListItem> {
+  return fetchAPI(`/api/projects/${id}`)
+}

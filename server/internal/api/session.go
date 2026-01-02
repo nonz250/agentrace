@@ -19,11 +19,6 @@ func NewSessionHandler(repos *repository.Repositories) *SessionHandler {
 	return &SessionHandler{repos: repos}
 }
 
-type ProjectResponse struct {
-	ID                     string `json:"id"`
-	CanonicalGitRepository string `json:"canonical_git_repository"`
-}
-
 type SessionResponse struct {
 	ID              string           `json:"id"`
 	UserID          *string          `json:"user_id"`
@@ -138,6 +133,7 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	limit := 100
 	offset := 0
+	projectID := r.URL.Query().Get("project_id")
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
 			limit = l
@@ -149,7 +145,13 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sessions, err := h.repos.Session.FindAll(ctx, limit, offset)
+	var sessions []*domain.Session
+	var err error
+	if projectID != "" {
+		sessions, err = h.repos.Session.FindByProjectID(ctx, projectID, limit, offset)
+	} else {
+		sessions, err = h.repos.Session.FindAll(ctx, limit, offset)
+	}
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch sessions"}`, http.StatusInternalServerError)
 		return

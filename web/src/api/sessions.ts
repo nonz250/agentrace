@@ -2,12 +2,14 @@ import { fetchAPI } from './client'
 import type { Session, SessionDetail } from '@/types/session'
 
 interface GetSessionsParams {
+  projectId?: string
   limit?: number
   offset?: number
 }
 
 export async function getSessions(params?: GetSessionsParams): Promise<{ sessions: Session[] }> {
   const searchParams = new URLSearchParams()
+  if (params?.projectId) searchParams.set('project_id', params.projectId)
   if (params?.limit) searchParams.set('limit', params.limit.toString())
   if (params?.offset) searchParams.set('offset', params.offset.toString())
   const query = searchParams.toString()

@@ -1,12 +1,24 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Settings, LogOut, ChevronDown, Users } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 
+const navLinks = [
+  { to: '/', label: 'Projects', exact: true },
+  { to: '/sessions', label: 'Sessions' },
+  { to: '/plans', label: 'Plans' },
+]
+
 export function Header() {
   const { user, logout, isLoggingOut } = useAuth()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const isActive = (to: string, exact?: boolean) => {
+    if (exact) return location.pathname === to
+    return location.pathname.startsWith(to)
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -21,10 +33,27 @@ export function Header() {
   return (
     <header className="sticky top-0 z-10 border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-          <span className="text-primary-600">&#9671;</span>
-          Agentrace
-        </Link>
+        <div className="flex items-center gap-8">
+          <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <span className="text-primary-600">&#9671;</span>
+            Agentrace
+          </Link>
+          <nav className="flex items-center gap-6">
+            {navLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`text-sm font-medium transition-colors ${
+                  isActive(link.to, link.exact)
+                    ? 'text-primary-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
 
         {user ? (
           <div className="relative" ref={menuRef}>

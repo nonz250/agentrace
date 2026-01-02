@@ -1,24 +1,35 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { useSearchParams, Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 import { PlanList } from '@/components/plans/PlanList'
 import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
 import * as plansApi from '@/api/plan-documents'
+import * as projectsApi from '@/api/projects'
+import { getProjectDisplayName } from '@/lib/project-utils'
 
 const PAGE_SIZE = 20
 
 export function PlansPage() {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+  const projectId = searchParams.get('project_id')
   const [page, setPage] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const offset = (page - 1) * PAGE_SIZE
 
+  const { data: projectData } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => projectsApi.getProject(projectId!),
+    enabled: !!projectId,
+  })
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['plans', 'list', page],
-    queryFn: () => plansApi.getPlans({ limit: PAGE_SIZE, offset }),
+    queryKey: ['plans', 'list', page, projectId],
+    queryFn: () => plansApi.getPlans({ projectId: projectId || undefined, limit: PAGE_SIZE, offset }),
   })
 
   const plans = data?.plans || []
@@ -40,10 +51,30 @@ export function PlansPage() {
     )
   }
 
+  const projectDisplayName = projectData ? getProjectDisplayName(projectData) : null
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Plans</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-semibold text-gray-900">
+            {projectId ? 'Plans' : 'All Plans'}
+          </h1>
+          {projectId && projectDisplayName && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                Filtered by: <span className="font-medium">{projectDisplayName}</span>
+              </span>
+              <Link
+                to="/plans"
+                className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
+              >
+                <X className="h-3 w-3" />
+                Clear
+              </Link>
+            </div>
+          )}
+        </div>
         {user && (
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="mr-1 h-4 w-4" />
