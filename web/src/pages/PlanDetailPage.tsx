@@ -41,6 +41,8 @@ export function PlanDetailPage() {
   const [copied, setCopied] = useState(false)
   const [isEditingProject, setIsEditingProject] = useState(false)
   const [editProjectId, setEditProjectId] = useState('')
+  const [isEditingStatus, setIsEditingStatus] = useState(false)
+  const [editStatus, setEditStatus] = useState<PlanDocumentStatus>('scratch')
 
   const { data: plan, isLoading: isPlanLoading, error: planError } = useQuery({
     queryKey: ['plan', id],
@@ -103,10 +105,24 @@ export function PlanDetailPage() {
     }
   }
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newStatus = e.target.value as PlanDocumentStatus
-    if (plan && newStatus !== plan.status) {
-      statusMutation.mutate(newStatus)
+  const handleStartStatusEdit = () => {
+    if (plan) {
+      setEditStatus(plan.status)
+      setIsEditingStatus(true)
+    }
+  }
+
+  const handleCancelStatusEdit = () => {
+    setIsEditingStatus(false)
+  }
+
+  const handleSaveStatusEdit = () => {
+    if (plan && editStatus !== plan.status) {
+      statusMutation.mutate(editStatus, {
+        onSuccess: () => setIsEditingStatus(false),
+      })
+    } else {
+      setIsEditingStatus(false)
     }
   }
 
@@ -184,21 +200,36 @@ export function PlanDetailPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-medium text-gray-900">{plan.description}</h1>
-            {user ? (
-              <Select
-                value={plan.status}
-                onChange={handleStatusChange}
-                disabled={statusMutation.isPending}
-                className="!py-1 !px-2 text-xs min-w-[130px]"
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </Select>
+            {isEditingStatus ? (
+              <span className="flex items-center gap-1">
+                <Select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as PlanDocumentStatus)}
+                  disabled={statusMutation.isPending}
+                  className="!py-1 !px-2 text-xs min-w-[130px]"
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </Select>
+                <Button variant="ghost" size="sm" onClick={handleCancelStatusEdit} disabled={statusMutation.isPending} className="!p-1">
+                  <X className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleSaveStatusEdit} disabled={statusMutation.isPending} className="!p-1">
+                  <Save className="h-3 w-3" />
+                </Button>
+              </span>
             ) : (
-              <PlanStatusBadge status={plan.status} />
+              <span className="flex items-center gap-1 group">
+                <PlanStatusBadge status={plan.status} />
+                {user && (
+                  <Button variant="ghost" size="sm" onClick={handleStartStatusEdit} className="!p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                )}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
