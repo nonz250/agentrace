@@ -66,25 +66,23 @@ export function ProjectDetailPage() {
       <Breadcrumb items={[{ label: projectDisplayName }]} />
 
       {/* Project Header */}
-      <div className="border-b border-gray-200 pb-6">
-        <div className="flex items-center gap-3">
-          <ProjectIcon project={project} className="h-8 w-8" />
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
-              {hasProject ? repoName : '(no project)'}
-            </h1>
-            {hasProject && repoUrl && (
-              <a
-                href={repoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-              >
-                {project.canonical_git_repository}
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
-          </div>
+      <div className="flex items-center gap-3">
+        <ProjectIcon project={project} className="h-8 w-8" />
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            {hasProject ? repoName : '(no project)'}
+          </h1>
+          {hasProject && repoUrl && (
+            <a
+              href={repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+            >
+              {project.canonical_git_repository}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
         </div>
       </div>
 
