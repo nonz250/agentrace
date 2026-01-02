@@ -200,6 +200,18 @@ func (r *SessionRepository) UpdateGitBranch(ctx context.Context, id string, gitB
 	return nil
 }
 
+func (r *SessionRepository) UpdateTitle(ctx context.Context, id string, title string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	session, ok := r.sessions[id]
+	if !ok {
+		return nil
+	}
+	session.Title = &title
+	return nil
+}
+
 func (r *SessionRepository) UpdateUpdatedAt(ctx context.Context, id string, updatedAt time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

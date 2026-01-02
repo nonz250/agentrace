@@ -27,6 +27,7 @@ type SessionResponse struct {
 	ClaudeSessionID string           `json:"claude_session_id"`
 	ProjectPath     string           `json:"project_path"`
 	GitBranch       string           `json:"git_branch"`
+	Title           *string          `json:"title"`
 	StartedAt       string           `json:"started_at"`
 	EndedAt         *string          `json:"ended_at"`
 	UpdatedAt       string           `json:"updated_at"`
@@ -73,6 +74,7 @@ func (h *SessionHandler) sessionToResponse(ctx context.Context, s *domain.Sessio
 		ClaudeSessionID: s.ClaudeSessionID,
 		ProjectPath:     s.ProjectPath,
 		GitBranch:       s.GitBranch,
+		Title:           s.Title,
 		StartedAt:       s.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
 		EndedAt:         endedAt,
 		UpdatedAt:       s.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -229,6 +231,62 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		SessionResponse: *h.sessionToResponse(ctx, session, userName, len(filteredEvents)),
 		Events:          eventResponses,
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+type UpdateSessionRequest struct {
+	Title *string `json:"title"`
+}
+
+func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	var req UpdateSessionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid json"}`, http.StatusBadRequest)
+		return
+	}
+
+	session, err := h.repos.Session.FindByID(ctx, id)
+	if err != nil {
+		http.Error(w, `{"error": "failed to fetch session"}`, http.StatusInternalServerError)
+		return
+	}
+	if session == nil {
+		http.Error(w, `{"error": "session not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Update title if provided
+	if req.Title != nil {
+		if err := h.repos.Session.UpdateTitle(ctx, id, *req.Title); err != nil {
+			http.Error(w, `{"error": "failed to update title"}`, http.StatusInternalServerError)
+			return
+		}
+		session.Title = req.Title
+	}
+
+	// Get user name
+	var userName *string
+	if session.UserID != nil {
+		user, err := h.repos.User.FindByID(ctx, *session.UserID)
+		if err == nil && user != nil {
+			displayName := user.GetDisplayName()
+			userName = &displayName
+		}
+	}
+
+	// Get event count
+	eventCount, err := h.repos.Event.CountBySessionID(ctx, session.ID)
+	if err != nil {
+		eventCount = 0
+	}
+
+	response := h.sessionToResponse(ctx, session, userName, eventCount)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)

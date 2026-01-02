@@ -19,3 +19,10 @@ export async function getSessions(params?: GetSessionsParams): Promise<{ session
 export async function getSession(id: string): Promise<SessionDetail> {
   return fetchAPI(`/api/sessions/${id}`)
 }
+
+export async function updateSessionTitle(id: string, title: string): Promise<Session> {
+  return fetchAPI(`/api/sessions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ title }),
+  })
+}

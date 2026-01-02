@@ -28,6 +28,7 @@ type sessionDocument struct {
 	ClaudeSessionID string     `bson:"claude_session_id"`
 	ProjectPath     string     `bson:"project_path"`
 	GitBranch       string     `bson:"git_branch"`
+	Title           *string    `bson:"title,omitempty"`
 	StartedAt       time.Time  `bson:"started_at"`
 	EndedAt         *time.Time `bson:"ended_at,omitempty"`
 	UpdatedAt       time.Time  `bson:"updated_at"`
@@ -58,6 +59,7 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		ClaudeSessionID: session.ClaudeSessionID,
 		ProjectPath:     session.ProjectPath,
 		GitBranch:       session.GitBranch,
+		Title:           session.Title,
 		StartedAt:       session.StartedAt,
 		EndedAt:         session.EndedAt,
 		UpdatedAt:       session.UpdatedAt,
@@ -218,6 +220,14 @@ func (r *SessionRepository) UpdateGitBranch(ctx context.Context, id string, gitB
 	return err
 }
 
+func (r *SessionRepository) UpdateTitle(ctx context.Context, id string, title string) error {
+	_, err := r.collection.UpdateOne(ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{"title": title}},
+	)
+	return err
+}
+
 func (r *SessionRepository) UpdateUpdatedAt(ctx context.Context, id string, updatedAt time.Time) error {
 	_, err := r.collection.UpdateOne(ctx,
 		bson.M{"_id": id},
@@ -239,6 +249,7 @@ func docToSession(doc *sessionDocument) *domain.Session {
 		ClaudeSessionID: doc.ClaudeSessionID,
 		ProjectPath:     doc.ProjectPath,
 		GitBranch:       doc.GitBranch,
+		Title:           doc.Title,
 		StartedAt:       doc.StartedAt,
 		EndedAt:         doc.EndedAt,
 		UpdatedAt:       doc.UpdatedAt,

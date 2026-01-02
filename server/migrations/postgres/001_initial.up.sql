@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     claude_session_id VARCHAR(255),
     project_path VARCHAR(1024),
     git_branch VARCHAR(255),
+    title TEXT,
     started_at TIMESTAMP WITH TIME ZONE,
     ended_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE,

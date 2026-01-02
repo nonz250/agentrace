@@ -65,8 +65,10 @@ CREATE TABLE IF NOT EXISTS sessions (
     claude_session_id TEXT,
     project_path TEXT,
     git_branch TEXT,
+    title TEXT,
     started_at TEXT,
     ended_at TEXT,
+    updated_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

@@ -9,6 +9,7 @@ export interface Session {
   claude_session_id: string
   project_path: string
   git_branch: string
+  title: string | null
   started_at: string
   ended_at: string | null
   updated_at: string

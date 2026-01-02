@@ -97,8 +97,20 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Extract type if present
-		if eventType, ok := line["type"].(string); ok {
-			event.EventType = eventType
+		eventType := ""
+		if et, ok := line["type"].(string); ok {
+			eventType = et
+			event.EventType = et
+		}
+
+		// Auto-generate title from first user message if not set
+		if eventType == "user" && session.Title == nil {
+			if text := extractUserMessageText(line); text != "" {
+				title := truncateString(text, 50)
+				if err := h.repos.Session.UpdateTitle(ctx, session.ID, title); err == nil {
+					session.Title = &title
+				}
+			}
 		}
 
 		if err := h.repos.Event.Create(ctx, event); err != nil {
@@ -120,4 +132,41 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// extractUserMessageText extracts text content from a user message payload
+// Expected structure: { "message": { "content": [{ "type": "text", "text": "..." }] } }
+func extractUserMessageText(payload map[string]interface{}) string {
+	message, ok := payload["message"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	content, ok := message["content"].([]interface{})
+	if !ok {
+		return ""
+	}
+
+	for _, item := range content {
+		block, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if blockType, ok := block["type"].(string); ok && blockType == "text" {
+			if text, ok := block["text"].(string); ok {
+				return text
+			}
+		}
+	}
+
+	return ""
+}
+
+// truncateString truncates a string to maxLen characters (rune-aware)
+func truncateString(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen])
 }

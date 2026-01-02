@@ -25,9 +25,10 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
   return (
     <Card hover onClick={onClick}>
       <div className="min-w-0">
-        {/* Title: Date */}
+        {/* Title: Date + Title */}
         <p className="text-sm font-medium text-gray-900">
           {formattedDate}
+          {session.title && <span className="ml-2">{session.title}</span>}
         </p>
         {/* Metadata: repo, branch, path, user, events, updated */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">

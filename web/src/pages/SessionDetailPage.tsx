@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Folder, GitBranch, MessageSquare, User } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Folder, GitBranch, MessageSquare, User, Pencil, X, Save } from 'lucide-react'
 import { format } from 'date-fns'
 import { TimelineContainer } from '@/components/timeline/TimelineContainer'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { useAuth } from '@/hooks/useAuth'
 import * as sessionsApi from '@/api/sessions'
 import { parseRepoName, getRepoUrl, isDefaultProject, getProjectDisplayName } from '@/lib/project-utils'
 
@@ -16,12 +20,39 @@ function getDirectoryName(path: string): string {
 
 export function SessionDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
 
   const { data: session, isLoading, error } = useQuery({
     queryKey: ['session', id],
     queryFn: () => sessionsApi.getSession(id!),
     enabled: !!id,
   })
+
+  const updateMutation = useMutation({
+    mutationFn: (title: string) => sessionsApi.updateSessionTitle(id!, title),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session', id] })
+      queryClient.invalidateQueries({ queryKey: ['sessions', 'list'] })
+      setIsEditingTitle(false)
+    },
+  })
+
+  const handleStartEdit = () => {
+    setEditTitle(session?.title || '')
+    setIsEditingTitle(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditingTitle(false)
+    setEditTitle('')
+  }
+
+  const handleSaveEdit = () => {
+    updateMutation.mutate(editTitle)
+  }
 
   if (isLoading) {
     return (
@@ -69,10 +100,40 @@ export function SessionDetailPage() {
       <Breadcrumb items={breadcrumbItems} />
 
       <div className="mb-6">
-        {/* Title: Date */}
-        <h1 className="text-lg font-medium text-gray-900">
-          {format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')}
-        </h1>
+        {/* Title: Date + Title */}
+        <div className="flex items-center gap-3">
+          {isEditingTitle ? (
+            <div className="flex flex-1 items-center gap-2">
+              <span className="text-lg font-medium text-gray-900">
+                {format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')}
+              </span>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Session title"
+                className="flex-1 min-w-[400px]"
+              />
+              <Button variant="ghost" size="sm" onClick={handleCancelEdit} disabled={updateMutation.isPending}>
+                <X className="h-4 w-4" />
+              </Button>
+              <Button size="sm" onClick={handleSaveEdit} loading={updateMutation.isPending}>
+                <Save className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-lg font-medium text-gray-900">
+                {format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')}
+                {session.title && <span className="ml-2">{session.title}</span>}
+              </h1>
+              {user && (
+                <Button variant="ghost" size="sm" onClick={handleStartEdit}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+            </>
+          )}
+        </div>
         {/* Metadata: repo, branch, path, user, events */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
           {hasProject && repoName && (
