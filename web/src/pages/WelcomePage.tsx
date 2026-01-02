@@ -25,6 +25,17 @@ export function WelcomePage() {
             </Button>
           </Link>
         </div>
+
+        <div className="mt-6 border-t border-gray-200 pt-6">
+          <p className="mb-3 text-sm text-gray-500">
+            Or continue without an account
+          </p>
+          <Link to="/">
+            <Button variant="ghost" size="lg" className="w-full sm:w-auto">
+              Go to Dashboard
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   )
