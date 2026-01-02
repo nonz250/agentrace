@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save } from 'lucide-react'
+import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save, Copy, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -37,6 +37,7 @@ export function PlanDetailPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editDescription, setEditDescription] = useState('')
   const [editBody, setEditBody] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const { data: plan, isLoading: isPlanLoading, error: planError } = useQuery({
     queryKey: ['plan', id],
@@ -95,6 +96,14 @@ export function PlanDetailPage() {
     if (plan && newStatus !== plan.status) {
       statusMutation.mutate(newStatus)
     }
+  }
+
+  const handleCopyId = async () => {
+    if (!plan) return
+    const text = `${plan.description}\nplan document: ${plan.id}`
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   if (isPlanLoading) {
@@ -166,12 +175,17 @@ export function PlanDetailPage() {
               <PlanStatusBadge status={plan.status} />
             )}
           </div>
-          {user && !isEditing && (
-            <Button variant="secondary" size="sm" onClick={handleStartEdit}>
-              <Pencil className="mr-1 h-4 w-4" />
-              Edit
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={handleCopyId} title="Copy plan ID for AI agents">
+              {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
-          )}
+            {user && !isEditing && (
+              <Button variant="secondary" size="sm" onClick={handleStartEdit}>
+                <Pencil className="mr-1 h-4 w-4" />
+                Edit
+              </Button>
+            )}
+          </div>
         </div>
         {/* Metadata: repo, collaborators, updated_at */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
