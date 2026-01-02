@@ -57,83 +57,28 @@ func (r *PlanDocumentRepository) FindByID(ctx context.Context, id string) (*doma
 	return doc, nil
 }
 
-func (r *PlanDocumentRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.PlanDocument, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	docs := make([]*domain.PlanDocument, 0, len(r.documents))
-	for _, d := range r.documents {
-		docs = append(docs, d)
-	}
-
-	// Sort by UpdatedAt descending (newest first)
-	sort.Slice(docs, func(i, j int) bool {
-		return docs[i].UpdatedAt.After(docs[j].UpdatedAt)
-	})
-
-	// Apply offset and limit
-	if offset >= len(docs) {
-		return []*domain.PlanDocument{}, nil
-	}
-	docs = docs[offset:]
-	if limit > 0 && limit < len(docs) {
-		docs = docs[:limit]
-	}
-
-	return docs, nil
-}
-
-func (r *PlanDocumentRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	docs := make([]*domain.PlanDocument, 0)
-	for _, d := range r.documents {
-		if d.ProjectID == projectID {
-			docs = append(docs, d)
-		}
-	}
-
-	// Sort by UpdatedAt descending (newest first)
-	sort.Slice(docs, func(i, j int) bool {
-		return docs[i].UpdatedAt.After(docs[j].UpdatedAt)
-	})
-
-	// Apply offset and limit
-	if offset >= len(docs) {
-		return []*domain.PlanDocument{}, nil
-	}
-	docs = docs[offset:]
-	if limit > 0 && limit < len(docs) {
-		docs = docs[:limit]
-	}
-
-	return docs, nil
-}
-
-func (r *PlanDocumentRepository) FindByStatuses(ctx context.Context, statuses []domain.PlanDocumentStatus, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
-	if len(statuses) == 0 {
-		if projectID != "" {
-			return r.FindByProjectID(ctx, projectID, limit, offset)
-		}
-		return r.FindAll(ctx, limit, offset)
-	}
-
+func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	// Build status set for fast lookup
-	statusSet := make(map[domain.PlanDocumentStatus]bool)
-	for _, s := range statuses {
-		statusSet[s] = true
+	var statusSet map[domain.PlanDocumentStatus]bool
+	if len(query.Statuses) > 0 {
+		statusSet = make(map[domain.PlanDocumentStatus]bool)
+		for _, s := range query.Statuses {
+			statusSet[s] = true
+		}
 	}
 
+	// Filter documents
 	docs := make([]*domain.PlanDocument, 0)
 	for _, d := range r.documents {
-		if !statusSet[d.Status] {
+		// Check status filter
+		if statusSet != nil && !statusSet[d.Status] {
 			continue
 		}
-		if projectID != "" && d.ProjectID != projectID {
+		// Check project filter
+		if query.ProjectID != "" && d.ProjectID != query.ProjectID {
 			continue
 		}
 		docs = append(docs, d)
@@ -145,12 +90,12 @@ func (r *PlanDocumentRepository) FindByStatuses(ctx context.Context, statuses []
 	})
 
 	// Apply offset and limit
-	if offset >= len(docs) {
+	if query.Offset >= len(docs) {
 		return []*domain.PlanDocument{}, nil
 	}
-	docs = docs[offset:]
-	if limit > 0 && limit < len(docs) {
-		docs = docs[:limit]
+	docs = docs[query.Offset:]
+	if query.Limit > 0 && query.Limit < len(docs) {
+		docs = docs[:query.Limit]
 	}
 
 	return docs, nil

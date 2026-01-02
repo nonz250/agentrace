@@ -193,9 +193,6 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var docs []*domain.PlanDocument
-	var err error
-
 	// Resolve project ID from git_remote_url if needed
 	if projectID == "" && gitRemoteURL != "" {
 		canonicalURL := domain.NormalizeGitURL(gitRemoteURL)
@@ -209,14 +206,14 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Use FindByStatuses if status filter is provided, otherwise use existing methods
-	if len(statuses) > 0 {
-		docs, err = h.repos.PlanDocument.FindByStatuses(ctx, statuses, projectID, limit, offset)
-	} else if projectID != "" {
-		docs, err = h.repos.PlanDocument.FindByProjectID(ctx, projectID, limit, offset)
-	} else {
-		docs, err = h.repos.PlanDocument.FindAll(ctx, limit, offset)
+	// Use unified Find method with query object
+	query := domain.PlanDocumentQuery{
+		ProjectID: projectID,
+		Statuses:  statuses,
+		Limit:     limit,
+		Offset:    offset,
 	}
+	docs, err := h.repos.PlanDocument.Find(ctx, query)
 
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch plan documents"}`, http.StatusInternalServerError)

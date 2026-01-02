@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,109 +53,39 @@ func (r *PlanDocumentRepository) FindByID(ctx context.Context, id string) (*doma
 	))
 }
 
-func (r *PlanDocumentRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.PlanDocument, error) {
-	query := `SELECT id, project_id, description, body, status, created_at, updated_at
-		 FROM plan_documents ORDER BY updated_at DESC`
+func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, error) {
+	baseQuery := `SELECT id, project_id, description, body, status, created_at, updated_at FROM plan_documents`
+	var conditions []string
+	var args []any
 
-	if limit > 0 {
-		query += ` LIMIT ? OFFSET ?`
-	}
-
-	var rows *sql.Rows
-	var err error
-
-	if limit > 0 {
-		rows, err = r.db.QueryContext(ctx, query, limit, offset)
-	} else {
-		rows, err = r.db.QueryContext(ctx, query)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var docs []*domain.PlanDocument
-	for rows.Next() {
-		doc, err := r.scanDocumentFromRows(rows)
-		if err != nil {
-			return nil, err
+	// Build WHERE conditions
+	if len(query.Statuses) > 0 {
+		placeholders := make([]string, len(query.Statuses))
+		for i, s := range query.Statuses {
+			placeholders[i] = "?"
+			args = append(args, string(s))
 		}
-		docs = append(docs, doc)
+		conditions = append(conditions, "status IN ("+strings.Join(placeholders, ", ")+")")
 	}
 
-	return docs, rows.Err()
-}
-
-func (r *PlanDocumentRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
-	query := `SELECT id, project_id, description, body, status, created_at, updated_at
-		 FROM plan_documents WHERE project_id = ? ORDER BY updated_at DESC`
-
-	if limit > 0 {
-		query += ` LIMIT ? OFFSET ?`
+	if query.ProjectID != "" {
+		conditions = append(conditions, "project_id = ?")
+		args = append(args, query.ProjectID)
 	}
 
-	var rows *sql.Rows
-	var err error
-
-	if limit > 0 {
-		rows, err = r.db.QueryContext(ctx, query, projectID, limit, offset)
-	} else {
-		rows, err = r.db.QueryContext(ctx, query, projectID)
+	// Combine query parts
+	if len(conditions) > 0 {
+		baseQuery += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	baseQuery += " ORDER BY updated_at DESC"
 
-	var docs []*domain.PlanDocument
-	for rows.Next() {
-		doc, err := r.scanDocumentFromRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		docs = append(docs, doc)
+	if query.Limit > 0 {
+		baseQuery += " LIMIT ? OFFSET ?"
+		args = append(args, query.Limit, query.Offset)
 	}
 
-	return docs, rows.Err()
-}
-
-func (r *PlanDocumentRepository) FindByStatuses(ctx context.Context, statuses []domain.PlanDocumentStatus, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
-	if len(statuses) == 0 {
-		if projectID != "" {
-			return r.FindByProjectID(ctx, projectID, limit, offset)
-		}
-		return r.FindAll(ctx, limit, offset)
-	}
-
-	// Build query with status filter
-	query := `SELECT id, project_id, description, body, status, created_at, updated_at
-		 FROM plan_documents WHERE status IN (`
-
-	args := make([]interface{}, 0, len(statuses)+3)
-	for i, s := range statuses {
-		if i > 0 {
-			query += ", "
-		}
-		query += "?"
-		args = append(args, string(s))
-	}
-	query += ")"
-
-	if projectID != "" {
-		query += " AND project_id = ?"
-		args = append(args, projectID)
-	}
-
-	query += " ORDER BY updated_at DESC"
-
-	if limit > 0 {
-		query += " LIMIT ? OFFSET ?"
-		args = append(args, limit, offset)
-	}
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, err
 	}

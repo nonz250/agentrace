@@ -76,79 +76,26 @@ func (r *PlanDocumentRepository) FindByID(ctx context.Context, id string) (*doma
 	return docToPlanDocument(&doc), nil
 }
 
-func (r *PlanDocumentRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.PlanDocument, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
-	if limit > 0 {
-		opts.SetLimit(int64(limit))
-		opts.SetSkip(int64(offset))
-	}
+func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, error) {
+	filter := bson.M{}
 
-	cursor, err := r.collection.Find(ctx, bson.M{}, opts)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var docs []*domain.PlanDocument
-	for cursor.Next(ctx) {
-		var doc planDocumentDocument
-		if err := cursor.Decode(&doc); err != nil {
-			return nil, err
+	// Build filter conditions
+	if len(query.Statuses) > 0 {
+		statusStrings := make([]string, len(query.Statuses))
+		for i, s := range query.Statuses {
+			statusStrings[i] = string(s)
 		}
-		docs = append(docs, docToPlanDocument(&doc))
+		filter["status"] = bson.M{"$in": statusStrings}
 	}
 
-	return docs, cursor.Err()
-}
-
-func (r *PlanDocumentRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
-	if limit > 0 {
-		opts.SetLimit(int64(limit))
-		opts.SetSkip(int64(offset))
-	}
-
-	cursor, err := r.collection.Find(ctx, bson.M{"project_id": projectID}, opts)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var docs []*domain.PlanDocument
-	for cursor.Next(ctx) {
-		var doc planDocumentDocument
-		if err := cursor.Decode(&doc); err != nil {
-			return nil, err
-		}
-		docs = append(docs, docToPlanDocument(&doc))
-	}
-
-	return docs, cursor.Err()
-}
-
-func (r *PlanDocumentRepository) FindByStatuses(ctx context.Context, statuses []domain.PlanDocumentStatus, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
-	if len(statuses) == 0 {
-		if projectID != "" {
-			return r.FindByProjectID(ctx, projectID, limit, offset)
-		}
-		return r.FindAll(ctx, limit, offset)
-	}
-
-	// Build filter with status condition
-	statusStrings := make([]string, len(statuses))
-	for i, s := range statuses {
-		statusStrings[i] = string(s)
-	}
-
-	filter := bson.M{"status": bson.M{"$in": statusStrings}}
-	if projectID != "" {
-		filter["project_id"] = projectID
+	if query.ProjectID != "" {
+		filter["project_id"] = query.ProjectID
 	}
 
 	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
-	if limit > 0 {
-		opts.SetLimit(int64(limit))
-		opts.SetSkip(int64(offset))
+	if query.Limit > 0 {
+		opts.SetLimit(int64(query.Limit))
+		opts.SetSkip(int64(query.Offset))
 	}
 
 	cursor, err := r.collection.Find(ctx, filter, opts)

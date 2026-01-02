@@ -87,9 +87,7 @@ type OAuthConnectionRepository interface {
 type PlanDocumentRepository interface {
 	Create(ctx context.Context, doc *domain.PlanDocument) error
 	FindByID(ctx context.Context, id string) (*domain.PlanDocument, error)
-	FindAll(ctx context.Context, limit int, offset int) ([]*domain.PlanDocument, error)
-	FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.PlanDocument, error)
-	FindByStatuses(ctx context.Context, statuses []domain.PlanDocumentStatus, projectID string, limit int, offset int) ([]*domain.PlanDocument, error)
+	Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, error)
 	Update(ctx context.Context, doc *domain.PlanDocument) error
 	Delete(ctx context.Context, id string) error
 	SetStatus(ctx context.Context, id string, status domain.PlanDocumentStatus) error
