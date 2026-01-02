@@ -369,7 +369,12 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
           let label: BlockLabel = { text: 'Assistant' }
 
           if (blockType === 'thinking') {
-            label = { text: 'Thinking' }
+            const thinking = blockObj?.thinking as string | undefined
+            const maxLength = 60
+            const preview = thinking
+              ? thinking.slice(0, maxLength) + (thinking.length > maxLength ? '...' : '')
+              : undefined
+            label = { text: 'Thinking', params: preview }
           } else if (blockType === 'tool_use') {
             const toolName = blockObj?.name as string || 'Unknown'
             const toolUseId = blockObj?.id as string
