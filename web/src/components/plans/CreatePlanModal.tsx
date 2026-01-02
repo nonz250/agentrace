@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
@@ -7,12 +7,14 @@ import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { createPlan } from '@/api/plan-documents'
 import { getProjects } from '@/api/projects'
+import { getProjectDisplayName } from '@/lib/project-utils'
 import type { PlanDocumentStatus } from '@/types/plan-document'
 
 interface CreatePlanModalProps {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
+  defaultProjectId?: string | null
 }
 
 const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
@@ -24,12 +26,19 @@ const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
   { value: 'complete', label: 'Complete' },
 ]
 
-export function CreatePlanModal({ open, onClose, onSuccess }: CreatePlanModalProps) {
+export function CreatePlanModal({ open, onClose, onSuccess, defaultProjectId }: CreatePlanModalProps) {
   const queryClient = useQueryClient()
   const [description, setDescription] = useState('')
   const [body, setBody] = useState('')
-  const [projectId, setProjectId] = useState('')
+  const [projectId, setProjectId] = useState(defaultProjectId ?? '')
   const [status, setStatus] = useState<PlanDocumentStatus>('scratch')
+
+  // モーダルが開かれたときにdefaultProjectIdを適用
+  useEffect(() => {
+    if (open) {
+      setProjectId(defaultProjectId ?? '')
+    }
+  }, [open, defaultProjectId])
 
   const { data: projectsData } = useQuery({
     queryKey: ['projects'],
@@ -77,7 +86,7 @@ export function CreatePlanModal({ open, onClose, onSuccess }: CreatePlanModalPro
           <option value="">Select a project (optional)</option>
           {projectsData?.projects.map((project) => (
             <option key={project.id} value={project.id}>
-              {project.canonical_git_repository || 'Default Project'}
+              {getProjectDisplayName(project) || 'Default Project'}
             </option>
           ))}
         </Select>

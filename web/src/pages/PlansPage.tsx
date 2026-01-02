@@ -97,6 +97,7 @@ export function PlansPage() {
       <CreatePlanModal
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        defaultProjectId={projectId}
       />
 
       {(page > 1 || hasMore) && (
