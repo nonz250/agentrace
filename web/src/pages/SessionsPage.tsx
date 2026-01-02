@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
+import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import * as sessionsApi from '@/api/sessions'
@@ -49,8 +50,17 @@ export function SessionsPage() {
 
   const projectDisplayName = projectData ? getProjectDisplayName(projectData) : null
 
+  // Build breadcrumb items
+  const breadcrumbItems: BreadcrumbItem[] = []
+  if (projectId && projectDisplayName) {
+    breadcrumbItems.push({ label: projectDisplayName, href: `/projects/${projectId}` })
+  }
+  breadcrumbItems.push({ label: 'Sessions' })
+
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
+
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">
           {projectId ? 'Sessions' : 'All Sessions'}

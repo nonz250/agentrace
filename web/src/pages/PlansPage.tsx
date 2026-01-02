@@ -4,6 +4,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 import { PlanList } from '@/components/plans/PlanList'
 import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
+import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
@@ -53,8 +54,17 @@ export function PlansPage() {
 
   const projectDisplayName = projectData ? getProjectDisplayName(projectData) : null
 
+  // Build breadcrumb items
+  const breadcrumbItems: BreadcrumbItem[] = []
+  if (projectId && projectDisplayName) {
+    breadcrumbItems.push({ label: projectDisplayName, href: `/projects/${projectId}` })
+  }
+  breadcrumbItems.push({ label: 'Plans' })
+
   return (
     <div>
+      <Breadcrumb items={breadcrumbItems} />
+
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-semibold text-gray-900">

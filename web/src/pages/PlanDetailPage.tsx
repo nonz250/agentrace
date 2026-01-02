@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, GitBranch, Users, Clock, FileText, History, Pencil, X, Save } from 'lucide-react'
+import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save } from 'lucide-react'
 import { format } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { PlanEventHistory } from '@/components/plans/PlanEventHistory'
 import { PlanStatusBadge } from '@/components/plans/PlanStatusBadge'
+import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -15,7 +16,7 @@ import { Select } from '@/components/ui/Select'
 import { useAuth } from '@/hooks/useAuth'
 import * as plansApi from '@/api/plan-documents'
 import type { PlanDocumentStatus } from '@/types/plan-document'
-import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
+import { parseRepoName, getRepoUrl, isDefaultProject, getProjectDisplayName } from '@/lib/project-utils'
 
 type TabType = 'content' | 'history'
 
@@ -30,7 +31,6 @@ const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
 
 export function PlanDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('content')
@@ -126,16 +126,23 @@ export function PlanDetailPage() {
   const hasProject = !isDefaultProject(plan.project)
   const collaboratorNames = plan.collaborators.map((c) => c.display_name).join(', ')
   const formattedDate = format(new Date(plan.updated_at), 'yyyy/MM/dd HH:mm')
+  const projectDisplayName = getProjectDisplayName(plan.project)
+
+  // Build breadcrumb items
+  const breadcrumbItems: BreadcrumbItem[] = []
+  if (hasProject && plan.project) {
+    breadcrumbItems.push({ label: projectDisplayName || '(no project)', href: `/projects/${plan.project.id}` })
+    breadcrumbItems.push({ label: 'Plans', href: `/plans?project_id=${plan.project.id}` })
+  } else {
+    breadcrumbItems.push({ label: 'Plans', href: '/plans' })
+  }
+  // Plan name: description truncated
+  const planName = plan.description.length > 30 ? plan.description.slice(0, 30) + '...' : plan.description
+  breadcrumbItems.push({ label: planName })
 
   return (
     <div>
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
+      <Breadcrumb items={breadcrumbItems} />
 
       <div className="mb-6">
         {/* Title: Description + Status + Actions */}

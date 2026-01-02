@@ -4,11 +4,12 @@ import { ArrowRight, ExternalLink } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { PlanList } from '@/components/plans/PlanList'
 import { ProjectIcon } from '@/components/projects/ProjectIcon'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import * as projectsApi from '@/api/projects'
 import * as sessionsApi from '@/api/sessions'
 import * as plansApi from '@/api/plan-documents'
-import { parseRepoName, isDefaultProject, getRepoUrl } from '@/lib/project-utils'
+import { parseRepoName, isDefaultProject, getRepoUrl, getProjectDisplayName } from '@/lib/project-utils'
 
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -58,9 +59,12 @@ export function ProjectDetailPage() {
   const repoName = parseRepoName(project)
   const repoUrl = getRepoUrl(project)
   const hasProject = !isDefaultProject(project)
+  const projectDisplayName = getProjectDisplayName(project) || '(no project)'
 
   return (
     <div className="space-y-10">
+      <Breadcrumb items={[{ label: projectDisplayName }]} />
+
       {/* Project Header */}
       <div className="border-b border-gray-200 pb-6">
         <div className="flex items-center gap-3">

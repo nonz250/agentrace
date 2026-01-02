@@ -1,11 +1,12 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Folder, GitBranch, MessageSquare } from 'lucide-react'
+import { Folder, GitBranch, MessageSquare } from 'lucide-react'
 import { format } from 'date-fns'
 import { TimelineContainer } from '@/components/timeline/TimelineContainer'
+import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import * as sessionsApi from '@/api/sessions'
-import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
+import { parseRepoName, getRepoUrl, isDefaultProject, getProjectDisplayName } from '@/lib/project-utils'
 
 // Extract directory name from absolute path
 function getDirectoryName(path: string): string {
@@ -15,7 +16,6 @@ function getDirectoryName(path: string): string {
 
 export function SessionDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
 
   const { data: session, isLoading, error } = useQuery({
     queryKey: ['session', id],
@@ -50,16 +50,23 @@ export function SessionDetailPage() {
   const repoName = parseRepoName(session.project)
   const repoUrl = getRepoUrl(session.project)
   const hasProject = !isDefaultProject(session.project)
+  const projectDisplayName = getProjectDisplayName(session.project)
+
+  // Build breadcrumb items
+  const breadcrumbItems: BreadcrumbItem[] = []
+  if (hasProject && session.project) {
+    breadcrumbItems.push({ label: projectDisplayName || '(no project)', href: `/projects/${session.project.id}` })
+    breadcrumbItems.push({ label: 'Sessions', href: `/sessions?project_id=${session.project.id}` })
+  } else {
+    breadcrumbItems.push({ label: 'Sessions', href: '/sessions' })
+  }
+  // Session name: date
+  const sessionName = format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')
+  breadcrumbItems.push({ label: sessionName })
 
   return (
     <div>
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
+      <Breadcrumb items={breadcrumbItems} />
 
       <div className="mb-6">
         {/* Title: Date and User */}
