@@ -4,6 +4,7 @@ import type { PlanDocument, PlanDocumentEvent, PlanDocumentStatus } from '@/type
 interface GetPlansParams {
   projectId?: string
   gitRemoteUrl?: string // For backward compatibility
+  statuses?: string[]
   limit?: number
   offset?: number
 }
@@ -12,6 +13,9 @@ export async function getPlans(params?: GetPlansParams): Promise<{ plans: PlanDo
   const searchParams = new URLSearchParams()
   if (params?.projectId) searchParams.set('project_id', params.projectId)
   if (params?.gitRemoteUrl) searchParams.set('git_remote_url', params.gitRemoteUrl)
+  if (params?.statuses && params.statuses.length > 0) {
+    searchParams.set('status', params.statuses.join(','))
+  }
   if (params?.limit) searchParams.set('limit', params.limit.toString())
   if (params?.offset) searchParams.set('offset', params.offset.toString())
   const query = searchParams.toString()

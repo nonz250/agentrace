@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/satetsu888/agentrace/server/internal/domain"
@@ -157,7 +158,7 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 
 // Handlers
 
-// List returns all plan documents, optionally filtered by project_id or git_remote_url
+// List returns all plan documents, optionally filtered by project_id, git_remote_url, or status
 func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -177,14 +178,26 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	projectID := r.URL.Query().Get("project_id")
 	gitRemoteURL := r.URL.Query().Get("git_remote_url")
+	statusParam := r.URL.Query().Get("status")
+
+	// Parse status parameter (comma-separated)
+	var statuses []domain.PlanDocumentStatus
+	if statusParam != "" {
+		statusStrs := strings.Split(statusParam, ",")
+		for _, s := range statusStrs {
+			s = strings.TrimSpace(s)
+			status := domain.PlanDocumentStatus(s)
+			if status.IsValid() {
+				statuses = append(statuses, status)
+			}
+		}
+	}
 
 	var docs []*domain.PlanDocument
 	var err error
 
-	if projectID != "" {
-		docs, err = h.repos.PlanDocument.FindByProjectID(ctx, projectID, limit, offset)
-	} else if gitRemoteURL != "" {
-		// For backward compatibility: normalize git URL and find project
+	// Resolve project ID from git_remote_url if needed
+	if projectID == "" && gitRemoteURL != "" {
 		canonicalURL := domain.NormalizeGitURL(gitRemoteURL)
 		project, projErr := h.repos.Project.FindByCanonicalGitRepository(ctx, canonicalURL)
 		if projErr != nil {
@@ -192,10 +205,15 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if project != nil {
-			docs, err = h.repos.PlanDocument.FindByProjectID(ctx, project.ID, limit, offset)
-		} else {
-			docs = []*domain.PlanDocument{}
+			projectID = project.ID
 		}
+	}
+
+	// Use FindByStatuses if status filter is provided, otherwise use existing methods
+	if len(statuses) > 0 {
+		docs, err = h.repos.PlanDocument.FindByStatuses(ctx, statuses, projectID, limit, offset)
+	} else if projectID != "" {
+		docs, err = h.repos.PlanDocument.FindByProjectID(ctx, projectID, limit, offset)
 	} else {
 		docs, err = h.repos.PlanDocument.FindAll(ctx, limit, offset)
 	}

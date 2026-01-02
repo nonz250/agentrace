@@ -120,6 +120,58 @@ func (r *PlanDocumentRepository) FindByProjectID(ctx context.Context, projectID 
 	return docs, rows.Err()
 }
 
+func (r *PlanDocumentRepository) FindByStatuses(ctx context.Context, statuses []domain.PlanDocumentStatus, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
+	if len(statuses) == 0 {
+		if projectID != "" {
+			return r.FindByProjectID(ctx, projectID, limit, offset)
+		}
+		return r.FindAll(ctx, limit, offset)
+	}
+
+	// Build query with status filter
+	query := `SELECT id, project_id, description, body, status, created_at, updated_at
+		 FROM plan_documents WHERE status IN (`
+
+	args := make([]interface{}, 0, len(statuses)+3)
+	for i, s := range statuses {
+		if i > 0 {
+			query += ", "
+		}
+		query += "?"
+		args = append(args, string(s))
+	}
+	query += ")"
+
+	if projectID != "" {
+		query += " AND project_id = ?"
+		args = append(args, projectID)
+	}
+
+	query += " ORDER BY updated_at DESC"
+
+	if limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		args = append(args, limit, offset)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var docs []*domain.PlanDocument
+	for rows.Next() {
+		doc, err := r.scanDocumentFromRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, doc)
+	}
+
+	return docs, rows.Err()
+}
+
 func (r *PlanDocumentRepository) Update(ctx context.Context, doc *domain.PlanDocument) error {
 	doc.UpdatedAt = time.Now()
 

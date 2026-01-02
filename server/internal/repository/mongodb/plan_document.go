@@ -126,6 +126,49 @@ func (r *PlanDocumentRepository) FindByProjectID(ctx context.Context, projectID 
 	return docs, cursor.Err()
 }
 
+func (r *PlanDocumentRepository) FindByStatuses(ctx context.Context, statuses []domain.PlanDocumentStatus, projectID string, limit int, offset int) ([]*domain.PlanDocument, error) {
+	if len(statuses) == 0 {
+		if projectID != "" {
+			return r.FindByProjectID(ctx, projectID, limit, offset)
+		}
+		return r.FindAll(ctx, limit, offset)
+	}
+
+	// Build filter with status condition
+	statusStrings := make([]string, len(statuses))
+	for i, s := range statuses {
+		statusStrings[i] = string(s)
+	}
+
+	filter := bson.M{"status": bson.M{"$in": statusStrings}}
+	if projectID != "" {
+		filter["project_id"] = projectID
+	}
+
+	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
+	if limit > 0 {
+		opts.SetLimit(int64(limit))
+		opts.SetSkip(int64(offset))
+	}
+
+	cursor, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var docs []*domain.PlanDocument
+	for cursor.Next(ctx) {
+		var doc planDocumentDocument
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		docs = append(docs, docToPlanDocument(&doc))
+	}
+
+	return docs, cursor.Err()
+}
+
 func (r *PlanDocumentRepository) Update(ctx context.Context, doc *domain.PlanDocument) error {
 	doc.UpdatedAt = time.Now()
 
