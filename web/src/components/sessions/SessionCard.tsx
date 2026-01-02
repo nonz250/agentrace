@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/Card'
-import { GitBranch, Folder, MessageSquare, Clock } from 'lucide-react'
+import { GitBranch, Folder, MessageSquare, Clock, User } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import type { Session } from '@/types/session'
 import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
@@ -25,12 +25,11 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
   return (
     <Card hover onClick={onClick}>
       <div className="min-w-0">
-        {/* Title: Date and User */}
+        {/* Title: Date */}
         <p className="text-sm font-medium text-gray-900">
           {formattedDate}
-          <span className="ml-2 text-gray-600">{session.user_name || 'Unknown'}</span>
         </p>
-        {/* Metadata: repo, branch, path, events, updated */}
+        {/* Metadata: repo, branch, path, user, events, updated */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
           {hasProject && repoName && (
             <span className="flex items-center gap-1">
@@ -57,6 +56,12 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
             <span className="flex items-center gap-1 truncate" title={session.project_path}>
               <Folder className="h-3 w-3 flex-shrink-0" />
               <span className="truncate font-mono">{getDirectoryName(session.project_path)}</span>
+            </span>
+          )}
+          {session.user_name && (
+            <span className="flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {session.user_name}
             </span>
           )}
           <span className="flex items-center gap-1">
