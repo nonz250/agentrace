@@ -1,4 +1,4 @@
-import { uninstallHooks, uninstallMcpServer } from "../hooks/installer.js";
+import { uninstallHooks, uninstallMcpServer, uninstallPreToolUseHook } from "../hooks/installer.js";
 import { loadConfig } from "../config/manager.js";
 
 export async function offCommand(): Promise<void> {
@@ -15,6 +15,14 @@ export async function offCommand(): Promise<void> {
     console.log(`  Run 'npx agentrace on' to re-enable.`);
   } else {
     console.error(`✗ ${result.message}`);
+  }
+
+  // Remove PreToolUse hook
+  const preToolUseResult = uninstallPreToolUseHook();
+  if (preToolUseResult.success) {
+    console.log(`✓ ${preToolUseResult.message}`);
+  } else {
+    console.error(`✗ ${preToolUseResult.message}`);
   }
 
   const mcpResult = uninstallMcpServer();

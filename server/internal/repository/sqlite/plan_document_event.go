@@ -26,9 +26,9 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO plan_document_events (id, plan_document_id, session_id, user_id, patch, created_at)
+		`INSERT INTO plan_document_events (id, plan_document_id, claude_session_id, user_id, patch, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		event.ID, event.PlanDocumentID, event.SessionID, event.UserID, event.Patch,
+		event.ID, event.PlanDocumentID, event.ClaudeSessionID, event.UserID, event.Patch,
 		event.CreatedAt.Format(time.RFC3339),
 	)
 	return err
@@ -36,7 +36,7 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 
 func (r *PlanDocumentEventRepository) FindByPlanDocumentID(ctx context.Context, planDocumentID string) ([]*domain.PlanDocumentEvent, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, plan_document_id, session_id, user_id, patch, created_at
+		`SELECT id, plan_document_id, claude_session_id, user_id, patch, created_at
 		 FROM plan_document_events WHERE plan_document_id = ?
 		 ORDER BY created_at ASC`,
 		planDocumentID,
@@ -58,12 +58,12 @@ func (r *PlanDocumentEventRepository) FindByPlanDocumentID(ctx context.Context, 
 	return events, rows.Err()
 }
 
-func (r *PlanDocumentEventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.PlanDocumentEvent, error) {
+func (r *PlanDocumentEventRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) ([]*domain.PlanDocumentEvent, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, plan_document_id, session_id, user_id, patch, created_at
-		 FROM plan_document_events WHERE session_id = ?
+		`SELECT id, plan_document_id, claude_session_id, user_id, patch, created_at
+		 FROM plan_document_events WHERE claude_session_id = ?
 		 ORDER BY created_at ASC`,
-		sessionID,
+		claudeSessionID,
 	)
 	if err != nil {
 		return nil, err
@@ -107,16 +107,16 @@ func (r *PlanDocumentEventRepository) GetCollaboratorUserIDs(ctx context.Context
 
 func (r *PlanDocumentEventRepository) scanEvent(rows *sql.Rows) (*domain.PlanDocumentEvent, error) {
 	var event domain.PlanDocumentEvent
-	var sessionID, userID sql.NullString
+	var claudeSessionID, userID sql.NullString
 	var createdAt string
 
-	err := rows.Scan(&event.ID, &event.PlanDocumentID, &sessionID, &userID, &event.Patch, &createdAt)
+	err := rows.Scan(&event.ID, &event.PlanDocumentID, &claudeSessionID, &userID, &event.Patch, &createdAt)
 	if err != nil {
 		return nil, err
 	}
 
-	if sessionID.Valid {
-		event.SessionID = &sessionID.String
+	if claudeSessionID.Valid {
+		event.ClaudeSessionID = &claudeSessionID.String
 	}
 	if userID.Valid {
 		event.UserID = &userID.String

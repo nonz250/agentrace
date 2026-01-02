@@ -24,7 +24,7 @@ export interface PlanDocument {
 export interface PlanDocumentEvent {
   id: string;
   plan_document_id: string;
-  session_id: string | null;
+  claude_session_id: string | null;
   user_id: string | null;
   user_name: string | null;
   patch: string;
@@ -42,14 +42,14 @@ export interface ListEventsResponse {
 export interface CreatePlanRequest {
   description: string;
   body: string;
-  session_id?: string;
+  claude_session_id?: string;
 }
 
 export interface UpdatePlanRequest {
   description?: string;
   body?: string;
   patch?: string;
-  session_id?: string;
+  claude_session_id?: string;
 }
 
 export class PlanDocumentClient {

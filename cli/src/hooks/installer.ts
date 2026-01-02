@@ -5,6 +5,9 @@ import * as os from "node:os";
 const CLAUDE_SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json");
 // MCP servers are configured in ~/.claude.json, NOT in settings.json
 const CLAUDE_CONFIG_PATH = path.join(os.homedir(), ".claude.json");
+// Agentrace hooks directory
+const AGENTRACE_HOOKS_DIR = path.join(os.homedir(), ".agentrace", "hooks");
+const SESSION_ID_HOOK_PATH = path.join(AGENTRACE_HOOKS_DIR, "inject-session-id.js");
 
 interface ClaudeHook {
   type: string;
@@ -26,6 +29,7 @@ interface ClaudeSettings {
     Stop?: ClaudeHookMatcher[];
     UserPromptSubmit?: ClaudeHookMatcher[];
     SubagentStop?: ClaudeHookMatcher[];
+    PreToolUse?: ClaudeHookMatcher[];
     [key: string]: ClaudeHookMatcher[] | undefined;
   };
   [key: string]: unknown;
@@ -318,6 +322,166 @@ export function checkMcpServerInstalled(): boolean {
     const config: ClaudeConfig = JSON.parse(content);
 
     return !!config.mcpServers?.[MCP_SERVER_NAME];
+  } catch {
+    return false;
+  }
+}
+
+// PreToolUse hook for injecting session_id into agentrace MCP tools
+
+const SESSION_ID_HOOK_SCRIPT = `#!/usr/bin/env node
+// Agentrace PreToolUse hook: Writes session_id to file for MCP tools
+// This hook is called before agentrace MCP tools (create_plan, update_plan)
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const sessionFile = path.join(os.homedir(), '.agentrace', 'current-session.json');
+
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => { input += chunk; });
+process.stdin.on('end', () => {
+  try {
+    const data = JSON.parse(input);
+    const sessionId = data.session_id;
+
+    // Write session_id to file for MCP server to read
+    fs.writeFileSync(sessionFile, JSON.stringify({ session_id: sessionId }));
+
+    // Allow the tool to proceed
+    const output = {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow"
+      }
+    };
+    console.log(JSON.stringify(output));
+  } catch (e) {
+    process.stderr.write('Error: ' + e.message);
+    process.exit(1);
+  }
+});
+`;
+
+const AGENTRACE_MCP_TOOLS_MATCHER = "mcp__agentrace__create_plan|mcp__agentrace__update_plan";
+
+function isAgentracePreToolUseHook(matcher: ClaudeHookMatcher): boolean {
+  return matcher.matcher === AGENTRACE_MCP_TOOLS_MATCHER &&
+    matcher.hooks?.some(h => h.command?.includes("inject-session-id"));
+}
+
+export function installPreToolUseHook(): { success: boolean; message: string } {
+  try {
+    // Create hooks directory if not exists
+    if (!fs.existsSync(AGENTRACE_HOOKS_DIR)) {
+      fs.mkdirSync(AGENTRACE_HOOKS_DIR, { recursive: true });
+    }
+
+    // Write hook script
+    fs.writeFileSync(SESSION_ID_HOOK_PATH, SESSION_ID_HOOK_SCRIPT, { mode: 0o755 });
+
+    // Load existing settings
+    let settings: ClaudeSettings = {};
+    if (fs.existsSync(CLAUDE_SETTINGS_PATH)) {
+      const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+      settings = JSON.parse(content);
+    }
+
+    // Initialize hooks structure if not present
+    if (!settings.hooks) {
+      settings.hooks = {};
+    }
+    if (!settings.hooks.PreToolUse) {
+      settings.hooks.PreToolUse = [];
+    }
+
+    // Check if already installed
+    const hasPreToolUseHook = settings.hooks.PreToolUse.some(isAgentracePreToolUseHook);
+    if (hasPreToolUseHook) {
+      return { success: true, message: "PreToolUse hook already installed (skipped)" };
+    }
+
+    // Add PreToolUse hook
+    settings.hooks.PreToolUse.push({
+      matcher: AGENTRACE_MCP_TOOLS_MATCHER,
+      hooks: [
+        {
+          type: "command",
+          command: SESSION_ID_HOOK_PATH,
+        },
+      ],
+    });
+
+    // Ensure directory exists
+    const dir = path.dirname(CLAUDE_SETTINGS_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // Write settings
+    fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+
+    return { success: true, message: `PreToolUse hook installed to ${SESSION_ID_HOOK_PATH}` };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, message: `Failed to install PreToolUse hook: ${message}` };
+  }
+}
+
+export function uninstallPreToolUseHook(): { success: boolean; message: string } {
+  try {
+    // Remove hook script
+    if (fs.existsSync(SESSION_ID_HOOK_PATH)) {
+      fs.unlinkSync(SESSION_ID_HOOK_PATH);
+    }
+
+    // Remove from settings
+    if (!fs.existsSync(CLAUDE_SETTINGS_PATH)) {
+      return { success: true, message: "No settings file found" };
+    }
+
+    const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    const settings: ClaudeSettings = JSON.parse(content);
+
+    if (!settings.hooks?.PreToolUse) {
+      return { success: true, message: "No PreToolUse hooks configured" };
+    }
+
+    // Remove agentrace PreToolUse hooks
+    settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
+      (matcher) => !isAgentracePreToolUseHook(matcher)
+    );
+
+    if (settings.hooks.PreToolUse.length === 0) {
+      delete settings.hooks.PreToolUse;
+    }
+
+    // Clean up empty hooks object
+    if (Object.keys(settings.hooks).length === 0) {
+      delete settings.hooks;
+    }
+
+    fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+
+    return { success: true, message: "PreToolUse hook removed" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, message: `Failed to uninstall PreToolUse hook: ${message}` };
+  }
+}
+
+export function checkPreToolUseHookInstalled(): boolean {
+  try {
+    if (!fs.existsSync(CLAUDE_SETTINGS_PATH) || !fs.existsSync(SESSION_ID_HOOK_PATH)) {
+      return false;
+    }
+
+    const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    const settings: ClaudeSettings = JSON.parse(content);
+
+    return settings.hooks?.PreToolUse?.some(isAgentracePreToolUseHook) ?? false;
   } catch {
     return false;
   }

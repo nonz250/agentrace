@@ -2,7 +2,25 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { patchMake, patchToText } from "diff-match-patch-es";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 import { PlanDocumentClient } from "../mcp/plan-document-client.js";
+
+// Read session_id from file written by PreToolUse hook
+function getSessionIdFromFile(): string | undefined {
+  try {
+    const sessionFile = path.join(os.homedir(), ".agentrace", "current-session.json");
+    if (fs.existsSync(sessionFile)) {
+      const content = fs.readFileSync(sessionFile, "utf-8");
+      const data = JSON.parse(content);
+      return data.session_id;
+    }
+  } catch {
+    // Ignore errors, return undefined
+  }
+  return undefined;
+}
 
 // Tool schemas
 const ListPlansSchema = z.object({
@@ -16,13 +34,11 @@ const ReadPlanSchema = z.object({
 const CreatePlanSchema = z.object({
   description: z.string().describe("Short description of the plan"),
   body: z.string().describe("Plan content in Markdown format"),
-  session_id: z.string().optional().describe("Claude Code session ID (optional)"),
 });
 
 const UpdatePlanSchema = z.object({
   id: z.string().describe("Plan document ID"),
   body: z.string().describe("Updated plan content in Markdown format"),
-  session_id: z.string().describe("Claude Code session ID (required - pass your current session ID)"),
 });
 
 const SetPlanStatusSchema = z.object({
@@ -64,9 +80,7 @@ WHEN TO USE:
 - When implementation details change and the plan needs updating
 - When you need to add progress notes or completion status to a plan
 
-Changes are tracked with diff patches for history.
-
-IMPORTANT: You MUST pass your current session_id parameter. This links the update to your session for tracking collaboration history.`,
+Changes are tracked with diff patches for history.`,
 
   set_plan_status: `Set the status of a plan document.
 
@@ -194,10 +208,13 @@ IMPORTANT GUIDELINES:
     CreatePlanSchema.shape,
     async (args) => {
       try {
+        // Read session_id from file written by PreToolUse hook
+        const claudeSessionId = getSessionIdFromFile();
+
         const plan = await getClient().createPlan({
           description: args.description,
           body: args.body,
-          session_id: args.session_id,
+          claude_session_id: claudeSessionId,
         });
 
         return {
@@ -229,6 +246,9 @@ IMPORTANT GUIDELINES:
     UpdatePlanSchema.shape,
     async (args) => {
       try {
+        // Read session_id from file written by PreToolUse hook
+        const claudeSessionId = getSessionIdFromFile();
+
         // Get current plan to compute patch
         const currentPlan = await getClient().getPlan(args.id);
 
@@ -239,7 +259,7 @@ IMPORTANT GUIDELINES:
         const plan = await getClient().updatePlan(args.id, {
           body: args.body,
           patch: patchText,
-          session_id: args.session_id,
+          claude_session_id: claudeSessionId,
         });
 
         return {

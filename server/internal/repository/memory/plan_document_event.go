@@ -55,13 +55,13 @@ func (r *PlanDocumentEventRepository) FindByPlanDocumentID(ctx context.Context, 
 	return events, nil
 }
 
-func (r *PlanDocumentEventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.PlanDocumentEvent, error) {
+func (r *PlanDocumentEventRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) ([]*domain.PlanDocumentEvent, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	events := make([]*domain.PlanDocumentEvent, 0)
 	for _, e := range r.events {
-		if e.SessionID != nil && *e.SessionID == sessionID {
+		if e.ClaudeSessionID != nil && *e.ClaudeSessionID == claudeSessionID {
 			events = append(events, e)
 		}
 	}

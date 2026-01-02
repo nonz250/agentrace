@@ -22,12 +22,12 @@ func NewPlanDocumentEventRepository(db *DB) *PlanDocumentEventRepository {
 }
 
 type planDocumentEventDocument struct {
-	ID             string    `bson:"_id"`
-	PlanDocumentID string    `bson:"plan_document_id"`
-	SessionID      *string   `bson:"session_id,omitempty"`
-	UserID         *string   `bson:"user_id,omitempty"`
-	Patch          string    `bson:"patch"`
-	CreatedAt      time.Time `bson:"created_at"`
+	ID              string    `bson:"_id"`
+	PlanDocumentID  string    `bson:"plan_document_id"`
+	ClaudeSessionID *string   `bson:"claude_session_id,omitempty"`
+	UserID          *string   `bson:"user_id,omitempty"`
+	Patch           string    `bson:"patch"`
+	CreatedAt       time.Time `bson:"created_at"`
 }
 
 func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.PlanDocumentEvent) error {
@@ -39,12 +39,12 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 	}
 
 	doc := planDocumentEventDocument{
-		ID:             event.ID,
-		PlanDocumentID: event.PlanDocumentID,
-		SessionID:      event.SessionID,
-		UserID:         event.UserID,
-		Patch:          event.Patch,
-		CreatedAt:      event.CreatedAt,
+		ID:              event.ID,
+		PlanDocumentID:  event.PlanDocumentID,
+		ClaudeSessionID: event.ClaudeSessionID,
+		UserID:          event.UserID,
+		Patch:           event.Patch,
+		CreatedAt:       event.CreatedAt,
 	}
 
 	_, err := r.collection.InsertOne(ctx, doc)
@@ -72,10 +72,10 @@ func (r *PlanDocumentEventRepository) FindByPlanDocumentID(ctx context.Context, 
 	return events, cursor.Err()
 }
 
-func (r *PlanDocumentEventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.PlanDocumentEvent, error) {
+func (r *PlanDocumentEventRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) ([]*domain.PlanDocumentEvent, error) {
 	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: 1}})
 
-	cursor, err := r.collection.Find(ctx, bson.M{"session_id": sessionID}, opts)
+	cursor, err := r.collection.Find(ctx, bson.M{"claude_session_id": claudeSessionID}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -115,11 +115,11 @@ func (r *PlanDocumentEventRepository) GetCollaboratorUserIDs(ctx context.Context
 
 func docToPlanDocumentEvent(doc *planDocumentEventDocument) *domain.PlanDocumentEvent {
 	return &domain.PlanDocumentEvent{
-		ID:             doc.ID,
-		PlanDocumentID: doc.PlanDocumentID,
-		SessionID:      doc.SessionID,
-		UserID:         doc.UserID,
-		Patch:          doc.Patch,
-		CreatedAt:      doc.CreatedAt,
+		ID:              doc.ID,
+		PlanDocumentID:  doc.PlanDocumentID,
+		ClaudeSessionID: doc.ClaudeSessionID,
+		UserID:          doc.UserID,
+		Patch:           doc.Patch,
+		CreatedAt:       doc.CreatedAt,
 	}
 }

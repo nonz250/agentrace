@@ -160,8 +160,11 @@ Claude Code の MCP (Model Context Protocol) サーバーとして動作し、Pl
 |--------|------|------|
 | `list_plans` | リポジトリのPlan一覧取得 | `git_remote_url` |
 | `read_plan` | Plan読み込み | `id` |
-| `create_plan` | Plan作成（session_id から project を自動取得） | `description`, `body`, `session_id?` |
-| `update_plan` | Plan更新（パッチ自動生成） | `id`, `body`, `session_id` (必須) |
+| `create_plan` | Plan作成（project は session から自動取得） | `description`, `body` |
+| `update_plan` | Plan更新（パッチ自動生成） | `id`, `body` |
+| `set_plan_status` | Planステータス変更 | `id`, `status` |
+
+**注**: `create_plan` と `update_plan` の `session_id` は PreToolUse hook により自動注入されます。
 
 ### 使用例
 
@@ -169,13 +172,18 @@ Claude Code の MCP (Model Context Protocol) サーバーとして動作し、Pl
 # Planの一覧を取得
 list_plans(git_remote_url: "https://github.com/user/repo.git")
 
-# 新規Planを作成（session_id から project を自動取得）
+# 新規Planを作成（session_id は自動注入）
 create_plan(
   description: "実装計画",
-  body: "# 実装ステップ\n\n1. ...",
-  session_id: "current-session-id"
+  body: "# 実装ステップ\n\n1. ..."
 )
 ```
+
+### PreToolUse Hook
+
+`init` コマンドで `~/.agentrace/hooks/inject-session-id.sh` がインストールされ、`~/.claude/settings.json` に登録されます。
+
+このhookは `mcp__agentrace__create_plan` と `mcp__agentrace__update_plan` の呼び出し時に `session_id` を自動注入します。
 
 ## Hooks の仕組み
 

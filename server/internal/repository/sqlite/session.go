@@ -55,6 +55,14 @@ func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Se
 	))
 }
 
+func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error) {
+	return r.scanSession(r.db.QueryRowContext(ctx,
+		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
+		 FROM sessions WHERE claude_session_id = ?`,
+		claudeSessionID,
+	))
+}
+
 func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error) {
 	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
 		 FROM sessions ORDER BY started_at DESC`

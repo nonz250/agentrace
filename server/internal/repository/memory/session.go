@@ -53,6 +53,18 @@ func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Se
 	return session, nil
 }
 
+func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, session := range r.sessions {
+		if session.ClaudeSessionID == claudeSessionID {
+			return session, nil
+		}
+	}
+	return nil, nil
+}
+
 func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

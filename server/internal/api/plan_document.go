@@ -47,13 +47,13 @@ type PlanDocumentListResponse struct {
 }
 
 type PlanDocumentEventResponse struct {
-	ID             string  `json:"id"`
-	PlanDocumentID string  `json:"plan_document_id"`
-	SessionID      *string `json:"session_id"`
-	UserID         *string `json:"user_id"`
-	UserName       *string `json:"user_name"`
-	Patch          string  `json:"patch"`
-	CreatedAt      string  `json:"created_at"`
+	ID              string  `json:"id"`
+	PlanDocumentID  string  `json:"plan_document_id"`
+	ClaudeSessionID *string `json:"claude_session_id"`
+	UserID          *string `json:"user_id"`
+	UserName        *string `json:"user_name"`
+	Patch           string  `json:"patch"`
+	CreatedAt       string  `json:"created_at"`
 }
 
 type PlanDocumentEventsResponse struct {
@@ -63,16 +63,16 @@ type PlanDocumentEventsResponse struct {
 // Request types
 
 type CreatePlanDocumentRequest struct {
-	Description string  `json:"description"`
-	Body        string  `json:"body"`
-	SessionID   *string `json:"session_id"`
+	Description     string  `json:"description"`
+	Body            string  `json:"body"`
+	ClaudeSessionID *string `json:"claude_session_id"`
 }
 
 type UpdatePlanDocumentRequest struct {
-	Description *string `json:"description"`
-	Body        *string `json:"body"`
-	Patch       *string `json:"patch"`
-	SessionID   *string `json:"session_id"`
+	Description     *string `json:"description"`
+	Body            *string `json:"body"`
+	Patch           *string `json:"patch"`
+	ClaudeSessionID *string `json:"claude_session_id"`
 }
 
 type SetPlanDocumentStatusRequest struct {
@@ -135,13 +135,13 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 	}
 
 	return &PlanDocumentEventResponse{
-		ID:             event.ID,
-		PlanDocumentID: event.PlanDocumentID,
-		SessionID:      event.SessionID,
-		UserID:         event.UserID,
-		UserName:       userName,
-		Patch:          event.Patch,
-		CreatedAt:      event.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:              event.ID,
+		PlanDocumentID:  event.PlanDocumentID,
+		ClaudeSessionID: event.ClaudeSessionID,
+		UserID:          event.UserID,
+		UserName:        userName,
+		Patch:           event.Patch,
+		CreatedAt:       event.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
 
@@ -291,8 +291,8 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Determine project ID from session
 	projectID := domain.DefaultProjectID
-	if req.SessionID != nil && *req.SessionID != "" {
-		session, err := h.repos.Session.FindByID(ctx, *req.SessionID)
+	if req.ClaudeSessionID != nil && *req.ClaudeSessionID != "" {
+		session, err := h.repos.Session.FindByClaudeSessionID(ctx, *req.ClaudeSessionID)
 		if err != nil {
 			http.Error(w, `{"error": "failed to find session"}`, http.StatusInternalServerError)
 			return
@@ -315,9 +315,9 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Create initial event (empty patch for creation)
 	event := &domain.PlanDocumentEvent{
-		PlanDocumentID: doc.ID,
-		SessionID:      req.SessionID,
-		Patch:          "", // Empty patch for initial creation
+		PlanDocumentID:  doc.ID,
+		ClaudeSessionID: req.ClaudeSessionID,
+		Patch:           "", // Empty patch for initial creation
 	}
 	if userID != "" {
 		event.UserID = &userID
@@ -380,9 +380,9 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Create event with patch if provided
 	if req.Patch != nil {
 		event := &domain.PlanDocumentEvent{
-			PlanDocumentID: doc.ID,
-			SessionID:      req.SessionID,
-			Patch:          *req.Patch,
+			PlanDocumentID:  doc.ID,
+			ClaudeSessionID: req.ClaudeSessionID,
+			Patch:           *req.Patch,
 		}
 		if userID != "" {
 			event.UserID = &userID

@@ -20,6 +20,7 @@ type ProjectRepository interface {
 type SessionRepository interface {
 	Create(ctx context.Context, session *domain.Session) error
 	FindByID(ctx context.Context, id string) (*domain.Session, error)
+	FindByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error)
 	FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error)
 	FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.Session, error)
 	FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error)
@@ -94,7 +95,7 @@ type PlanDocumentRepository interface {
 type PlanDocumentEventRepository interface {
 	Create(ctx context.Context, event *domain.PlanDocumentEvent) error
 	FindByPlanDocumentID(ctx context.Context, planDocumentID string) ([]*domain.PlanDocumentEvent, error)
-	FindBySessionID(ctx context.Context, sessionID string) ([]*domain.PlanDocumentEvent, error)
+	FindByClaudeSessionID(ctx context.Context, claudeSessionID string) ([]*domain.PlanDocumentEvent, error)
 	GetCollaboratorUserIDs(ctx context.Context, planDocumentID string) ([]string, error)
 }
 

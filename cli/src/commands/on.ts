@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { installHooks, installMcpServer } from "../hooks/installer.js";
+import { installHooks, installMcpServer, installPreToolUseHook } from "../hooks/installer.js";
 import { loadConfig } from "../config/manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -48,5 +48,13 @@ export async function onCommand(options: OnOptions = {}): Promise<void> {
     console.log(`✓ ${mcpResult.message}`);
   } else {
     console.error(`✗ ${mcpResult.message}`);
+  }
+
+  // Install PreToolUse hook for session_id injection
+  const preToolUseResult = installPreToolUseHook();
+  if (preToolUseResult.success) {
+    console.log(`✓ ${preToolUseResult.message}`);
+  } else {
+    console.error(`✗ ${preToolUseResult.message}`);
   }
 }

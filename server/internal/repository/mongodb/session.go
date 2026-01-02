@@ -76,6 +76,19 @@ func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Se
 	return docToSession(&doc), nil
 }
 
+func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error) {
+	var doc sessionDocument
+	err := r.collection.FindOne(ctx, bson.M{"claude_session_id": claudeSessionID}).Decode(&doc)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return docToSession(&doc), nil
+}
+
 func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error) {
 	opts := options.Find().SetSort(bson.D{{Key: "started_at", Value: -1}})
 	if limit > 0 {
