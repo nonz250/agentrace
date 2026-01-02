@@ -475,7 +475,7 @@ func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 
 	status := domain.PlanDocumentStatus(req.Status)
 	if !status.IsValid() {
-		http.Error(w, `{"error": "invalid status. must be one of: draft, planning, pending, implementation, complete"}`, http.StatusBadRequest)
+		http.Error(w, `{"error": "invalid status. must be one of: scratch, draft, planning, pending, implementation, complete"}`, http.StatusBadRequest)
 		return
 	}
 
