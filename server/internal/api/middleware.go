@@ -228,3 +228,45 @@ func (m *Middleware) RequestLogger(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// CORS handles Cross-Origin Resource Sharing
+// Only allows the origin specified in WEB_URL
+func (m *Middleware) CORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only apply CORS if WEB_URL is set (cross-origin setup)
+		if m.cfg.WebURL == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		origin := r.Header.Get("Origin")
+
+		// Debug log in dev mode
+		if m.cfg.IsDevMode() {
+			log.Printf("[CORS] Method: %s, Path: %s, Origin: '%s', WEB_URL: '%s'", r.Method, r.URL.Path, origin, m.cfg.WebURL)
+		}
+
+		// Check if origin matches WEB_URL (strip trailing slash for comparison)
+		allowedOrigin := strings.TrimSuffix(m.cfg.WebURL, "/")
+		requestOrigin := strings.TrimSuffix(origin, "/")
+
+		if origin != "" && requestOrigin == allowedOrigin {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+			// Handle preflight requests
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		} else if r.Method == "OPTIONS" {
+			// Preflight from non-allowed origin
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}

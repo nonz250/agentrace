@@ -76,15 +76,19 @@ npx agentrace init --url http://localhost:9080
 ### Docker を使わない場合（開発）
 
 ```bash
-# Server
-cd server && DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./dev.db go run ./cmd/server
+# Server（WEB_URLはCORS許可とリダイレクト用）
+cd server && DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./dev.db WEB_URL=http://localhost:5173 go run ./cmd/server
 
-# Web
+# Web（VITE_API_URLは.env.developmentで設定済み）
 cd web && npm install && npm run dev
 
 # CLI
 cd cli && npm install && npx tsx src/index.ts init --url http://localhost:8080 --dev
 ```
+
+環境変数:
+- `WEB_URL`: サーバーがCORSで許可するフロントエンドのオリジン
+- `VITE_API_URL`: Webフロントエンドが接続するAPIサーバーのURL（開発時は `.env.development` で設定済み）
 
 ## Docker デプロイ
 

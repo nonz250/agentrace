@@ -15,8 +15,15 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	// Middleware
 	mw := NewMiddleware(cfg, repos)
 
-	// Apply request logger to all routes
+	// Apply CORS and request logger to all routes
+	r.Use(mw.CORS)
 	r.Use(mw.RequestLogger)
+
+	// Handle OPTIONS preflight requests for all paths
+	r.PathPrefix("/").Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers are set by middleware, just return 204
+		w.WriteHeader(http.StatusNoContent)
+	})
 
 	// Handlers
 	ingestHandler := NewIngestHandler(repos)

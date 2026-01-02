@@ -69,7 +69,7 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 | `DB_TYPE` | データベース種類 | memory |
 | `DATABASE_URL` | DB接続文字列 | - |
 | `DEV_MODE` | デバッグログ有効化 | false |
-| `WEB_URL` | フロントエンドURL（開発時のリダイレクト用） | - |
+| `WEB_URL` | フロントエンドURL（CORS許可・リダイレクト用） | - |
 | `GITHUB_CLIENT_ID` | GitHub OAuth Client ID | - |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret | - |
 
@@ -89,6 +89,13 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 | Bearer 認証 | CLI → Server | 無期限（APIキー） |
 | Session 認証 | Web → Server | 7日間（Cookie） |
 
+### ミドルウェア
+
+| ミドルウェア | 説明 |
+|-------------|------|
+| CORS | `WEB_URL`で指定されたオリジンからのクロスオリジンリクエストを許可 |
+| RequestLogger | `DEV_MODE=true`時にリクエストをログ出力 |
+
 ### 認証ミドルウェア
 
 | エンドポイント | ミドルウェア |
@@ -96,8 +103,8 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 | `/api/ingest` | AuthenticateBearer |
 | `/api/auth/web-session` | AuthenticateBearer |
 | `/api/me`, `/api/keys`, `/api/users` | AuthenticateSession |
-| `/api/sessions`, `/api/plans` (GET) | AuthenticateBearerOrSession |
-| `/api/plans` (POST/PATCH/DELETE) | AuthenticateBearer |
+| `/api/sessions`, `/api/plans` (GET) | OptionalBearerOrSession |
+| `/api/plans` (POST/PATCH/DELETE) | AuthenticateBearerOrSession |
 
 ## APIエンドポイント
 
@@ -159,5 +166,7 @@ draft と pending は必要に応じて使用する補助的なステータス�
 ## 開発時の起動
 
 ```bash
-DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./dev.db go run ./cmd/server
+DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./dev.db WEB_URL=http://localhost:5173 go run ./cmd/server
 ```
+
+- `WEB_URL`を設定することで、フロントエンド（localhost:5173）からのCORSリクエストを許可

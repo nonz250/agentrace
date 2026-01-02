@@ -76,14 +76,26 @@ web/src/
 | パス | 認証 |
 |------|------|
 | `/welcome`, `/register`, `/login`, `/setup` | Public |
-| `/`, `/sessions`, `/sessions/:id` | Protected |
-| `/plans`, `/plans/:id` | Protected |
-| `/members`, `/settings` | Protected |
+| `/`, `/sessions`, `/sessions/:id` | 認証なしでも閲覧可 |
+| `/plans`, `/plans/:id` | 認証なしでも閲覧可 |
+| `/members` | 認証なしでも閲覧可 |
+| `/settings` | Protected（要認証） |
+
+## 環境変数
+
+| 変数 | 説明 | デフォルト |
+|------|------|-----------|
+| `VITE_API_URL` | APIサーバーのURL | `http://localhost:8080` |
+
+- 開発時: `.env.development` で設定
+- 本番時: 同一オリジンの場合は設定不要（`window.location.origin` が使用される）
 
 ## 開発時の起動
 
 ```bash
 npm install && npm run dev
 ```
+
 - http://localhost:5173
-- Vite プロキシで API は localhost:8080 に転送
+- APIリクエストは`VITE_API_URL`（`.env.development`で設定）に直接送信
+- サーバー側で`WEB_URL`を設定してCORSを許可する必要あり

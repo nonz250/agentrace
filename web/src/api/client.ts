@@ -1,3 +1,4 @@
+// Use VITE_API_URL if set, otherwise use relative path (same origin)
 const BASE_URL = import.meta.env.VITE_API_URL || ''
 
 export class ApiError extends Error {
@@ -16,6 +17,7 @@ export async function fetchAPI<T>(
 ): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
+    mode: 'cors',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
