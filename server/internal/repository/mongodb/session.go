@@ -30,6 +30,7 @@ type sessionDocument struct {
 	GitBranch       string     `bson:"git_branch"`
 	StartedAt       time.Time  `bson:"started_at"`
 	EndedAt         *time.Time `bson:"ended_at,omitempty"`
+	UpdatedAt       time.Time  `bson:"updated_at"`
 	CreatedAt       time.Time  `bson:"created_at"`
 }
 
@@ -42,6 +43,9 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	}
 	if session.StartedAt.IsZero() {
 		session.StartedAt = time.Now()
+	}
+	if session.UpdatedAt.IsZero() {
+		session.UpdatedAt = session.StartedAt
 	}
 	if session.ProjectID == "" {
 		session.ProjectID = domain.DefaultProjectID
@@ -56,6 +60,7 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		GitBranch:       session.GitBranch,
 		StartedAt:       session.StartedAt,
 		EndedAt:         session.EndedAt,
+		UpdatedAt:       session.UpdatedAt,
 		CreatedAt:       session.CreatedAt,
 	}
 
@@ -90,7 +95,7 @@ func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSes
 }
 
 func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "started_at", Value: -1}})
+	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
 	if limit > 0 {
 		opts.SetLimit(int64(limit))
 		opts.SetSkip(int64(offset))
@@ -115,7 +120,7 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 }
 
 func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.Session, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "started_at", Value: -1}})
+	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
 	if limit > 0 {
 		opts.SetLimit(int64(limit))
 		opts.SetSkip(int64(offset))
@@ -213,6 +218,14 @@ func (r *SessionRepository) UpdateGitBranch(ctx context.Context, id string, gitB
 	return err
 }
 
+func (r *SessionRepository) UpdateUpdatedAt(ctx context.Context, id string, updatedAt time.Time) error {
+	_, err := r.collection.UpdateOne(ctx,
+		bson.M{"_id": id},
+		bson.M{"$set": bson.M{"updated_at": updatedAt}},
+	)
+	return err
+}
+
 func docToSession(doc *sessionDocument) *domain.Session {
 	projectID := doc.ProjectID
 	if projectID == "" {
@@ -228,6 +241,7 @@ func docToSession(doc *sessionDocument) *domain.Session {
 		GitBranch:       doc.GitBranch,
 		StartedAt:       doc.StartedAt,
 		EndedAt:         doc.EndedAt,
+		UpdatedAt:       doc.UpdatedAt,
 		CreatedAt:       doc.CreatedAt,
 	}
 }

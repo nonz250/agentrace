@@ -34,6 +34,7 @@ type SessionResponse struct {
 	GitBranch       string           `json:"git_branch"`
 	StartedAt       string           `json:"started_at"`
 	EndedAt         *string          `json:"ended_at"`
+	UpdatedAt       string           `json:"updated_at"`
 	EventCount      int              `json:"event_count"`
 	CreatedAt       string           `json:"created_at"`
 }
@@ -79,6 +80,7 @@ func (h *SessionHandler) sessionToResponse(ctx context.Context, s *domain.Sessio
 		GitBranch:       s.GitBranch,
 		StartedAt:       s.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
 		EndedAt:         endedAt,
+		UpdatedAt:       s.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		EventCount:      eventCount,
 		CreatedAt:       s.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}

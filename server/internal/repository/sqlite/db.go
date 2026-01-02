@@ -47,5 +47,29 @@ func Open(databaseURL string) (*DB, error) {
 
 func runMigrations(db *sql.DB) error {
 	_, err := db.Exec(migrations.SQLiteSchema)
+	if err != nil {
+		return err
+	}
+
+	// Add updated_at column to sessions if not exists
+	var colExists int
+	row := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='updated_at'`)
+	if err := row.Scan(&colExists); err != nil {
+		return err
+	}
+	if colExists == 0 {
+		_, err = db.Exec(`ALTER TABLE sessions ADD COLUMN updated_at TEXT`)
+		if err != nil {
+			return err
+		}
+		// Set default value for existing rows (use started_at as initial updated_at)
+		_, err = db.Exec(`UPDATE sessions SET updated_at = started_at WHERE updated_at IS NULL`)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Add index for updated_at if not exists
+	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at)`)
 	return err
 }

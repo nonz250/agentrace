@@ -34,6 +34,9 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	if session.StartedAt.IsZero() {
 		session.StartedAt = time.Now()
 	}
+	if session.UpdatedAt.IsZero() {
+		session.UpdatedAt = session.StartedAt
+	}
 	if session.ProjectID == "" {
 		session.ProjectID = domain.DefaultProjectID
 	}
@@ -74,9 +77,9 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 		sessions = append(sessions, s)
 	}
 
-	// Sort by StartedAt descending (newest first)
+	// Sort by UpdatedAt descending (newest first)
 	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].StartedAt.After(sessions[j].StartedAt)
+		return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
 	})
 
 	// Apply offset and limit
@@ -102,9 +105,9 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 		}
 	}
 
-	// Sort by StartedAt descending (newest first)
+	// Sort by UpdatedAt descending (newest first)
 	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].StartedAt.After(sessions[j].StartedAt)
+		return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
 	})
 
 	// Apply offset and limit
@@ -135,13 +138,15 @@ func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, c
 	}
 
 	// Create new session
+	now := time.Now()
 	session := &domain.Session{
 		ID:              uuid.New().String(),
 		UserID:          userID,
 		ProjectID:       domain.DefaultProjectID,
 		ClaudeSessionID: claudeSessionID,
-		StartedAt:       time.Now(),
-		CreatedAt:       time.Now(),
+		StartedAt:       now,
+		UpdatedAt:       now,
+		CreatedAt:       now,
 	}
 	r.sessions[session.ID] = session
 	return session, nil
@@ -192,5 +197,17 @@ func (r *SessionRepository) UpdateGitBranch(ctx context.Context, id string, gitB
 		return nil
 	}
 	session.GitBranch = gitBranch
+	return nil
+}
+
+func (r *SessionRepository) UpdateUpdatedAt(ctx context.Context, id string, updatedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	session, ok := r.sessions[id]
+	if !ok {
+		return nil
+	}
+	session.UpdatedAt = updatedAt
 	return nil
 }

@@ -11,5 +11,6 @@ type Session struct {
 	GitBranch       string // git current branch
 	StartedAt       time.Time
 	EndedAt         *time.Time
+	UpdatedAt       time.Time // last activity time (updated when events are added)
 	CreatedAt       time.Time
 }

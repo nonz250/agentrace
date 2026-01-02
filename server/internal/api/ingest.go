@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/satetsu888/agentrace/server/internal/domain"
 	"github.com/satetsu888/agentrace/server/internal/repository"
@@ -105,6 +106,11 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		eventsCreated++
+	}
+
+	// Update session's updated_at timestamp if events were created
+	if eventsCreated > 0 {
+		_ = h.repos.Session.UpdateUpdatedAt(ctx, session.ID, time.Now())
 	}
 
 	resp := IngestResponse{

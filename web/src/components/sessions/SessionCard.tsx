@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/Card'
-import { GitBranch, Folder, MessageSquare } from 'lucide-react'
-import { format } from 'date-fns'
+import { GitBranch, Folder, MessageSquare, Clock } from 'lucide-react'
+import { format, formatDistanceToNow } from 'date-fns'
+import { ja } from 'date-fns/locale'
 import type { Session } from '@/types/session'
 import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 
@@ -19,7 +20,8 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
   const repoName = parseRepoName(session.project)
   const repoUrl = getRepoUrl(session.project)
   const hasProject = !isDefaultProject(session.project)
-  const formattedDate = format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')
+  const formattedDate = format(new Date(session.updated_at), 'yyyy/MM/dd HH:mm')
+  const relativeTime = formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })
 
   return (
     <Card hover onClick={onClick}>
@@ -29,7 +31,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
           {formattedDate}
           <span className="ml-2 text-gray-600">{session.user_name || 'Unknown'}</span>
         </p>
-        {/* Metadata: repo, branch, path, events */}
+        {/* Metadata: repo, branch, path, events, updated */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
           {hasProject && repoName && (
             <span className="flex items-center gap-1">
@@ -61,6 +63,10 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
           <span className="flex items-center gap-1">
             <MessageSquare className="h-3 w-3" />
             {session.event_count}
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {relativeTime}
           </span>
         </div>
       </div>

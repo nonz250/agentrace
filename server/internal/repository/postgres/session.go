@@ -27,23 +27,26 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 	if session.StartedAt.IsZero() {
 		session.StartedAt = time.Now()
 	}
+	if session.UpdatedAt.IsZero() {
+		session.UpdatedAt = session.StartedAt
+	}
 	if session.ProjectID == "" {
 		session.ProjectID = domain.DefaultProjectID
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO sessions (id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		`INSERT INTO sessions (id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, updated_at, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		session.ID, session.UserID, session.ProjectID, session.ClaudeSessionID, session.ProjectPath,
 		session.GitBranch,
-		session.StartedAt, session.EndedAt, session.CreatedAt,
+		session.StartedAt, session.EndedAt, session.UpdatedAt, session.CreatedAt,
 	)
 	return err
 }
 
 func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Session, error) {
 	return r.scanSession(r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
+		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, updated_at, created_at
 		 FROM sessions WHERE id = $1`,
 		id,
 	))
@@ -51,7 +54,7 @@ func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Se
 
 func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error) {
 	return r.scanSession(r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
+		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, updated_at, created_at
 		 FROM sessions WHERE claude_session_id = $1`,
 		claudeSessionID,
 	))
@@ -63,14 +66,14 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 
 	if limit > 0 {
 		rows, err = r.db.QueryContext(ctx,
-			`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
-			 FROM sessions ORDER BY started_at DESC LIMIT $1 OFFSET $2`,
+			`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, updated_at, created_at
+			 FROM sessions ORDER BY updated_at DESC LIMIT $1 OFFSET $2`,
 			limit, offset,
 		)
 	} else {
 		rows, err = r.db.QueryContext(ctx,
-			`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
-			 FROM sessions ORDER BY started_at DESC`,
+			`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, updated_at, created_at
+			 FROM sessions ORDER BY updated_at DESC`,
 		)
 	}
 
@@ -97,14 +100,14 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 
 	if limit > 0 {
 		rows, err = r.db.QueryContext(ctx,
-			`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
-			 FROM sessions WHERE project_id = $1 ORDER BY started_at DESC LIMIT $2 OFFSET $3`,
+			`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, updated_at, created_at
+			 FROM sessions WHERE project_id = $1 ORDER BY updated_at DESC LIMIT $2 OFFSET $3`,
 			projectID, limit, offset,
 		)
 	} else {
 		rows, err = r.db.QueryContext(ctx,
-			`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
-			 FROM sessions WHERE project_id = $1 ORDER BY started_at DESC`,
+			`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, updated_at, created_at
+			 FROM sessions WHERE project_id = $1 ORDER BY updated_at DESC`,
 			projectID,
 		)
 	}
@@ -129,7 +132,7 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error) {
 	// First try to find existing session
 	session, err := r.scanSession(r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, created_at
+		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, started_at, ended_at, updated_at, created_at
 		 FROM sessions WHERE claude_session_id = $1`,
 		claudeSessionID,
 	))
@@ -202,12 +205,20 @@ func (r *SessionRepository) UpdateGitBranch(ctx context.Context, id string, gitB
 	return err
 }
 
+func (r *SessionRepository) UpdateUpdatedAt(ctx context.Context, id string, updatedAt time.Time) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE sessions SET updated_at = $1 WHERE id = $2`,
+		updatedAt, id,
+	)
+	return err
+}
+
 func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	var session domain.Session
 	var userID, projectID, projectPath, gitBranch sql.NullString
-	var startedAt, endedAt, createdAt sql.NullTime
+	var startedAt, endedAt, updatedAt, createdAt sql.NullTime
 
-	err := row.Scan(&session.ID, &userID, &projectID, &session.ClaudeSessionID, &projectPath, &gitBranch, &startedAt, &endedAt, &createdAt)
+	err := row.Scan(&session.ID, &userID, &projectID, &session.ClaudeSessionID, &projectPath, &gitBranch, &startedAt, &endedAt, &updatedAt, &createdAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -235,6 +246,9 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	if endedAt.Valid {
 		session.EndedAt = &endedAt.Time
 	}
+	if updatedAt.Valid {
+		session.UpdatedAt = updatedAt.Time
+	}
 	if createdAt.Valid {
 		session.CreatedAt = createdAt.Time
 	}
@@ -245,9 +259,9 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 func (r *SessionRepository) scanSessionFromRows(rows *sql.Rows) (*domain.Session, error) {
 	var session domain.Session
 	var userID, projectID, projectPath, gitBranch sql.NullString
-	var startedAt, endedAt, createdAt sql.NullTime
+	var startedAt, endedAt, updatedAt, createdAt sql.NullTime
 
-	err := rows.Scan(&session.ID, &userID, &projectID, &session.ClaudeSessionID, &projectPath, &gitBranch, &startedAt, &endedAt, &createdAt)
+	err := rows.Scan(&session.ID, &userID, &projectID, &session.ClaudeSessionID, &projectPath, &gitBranch, &startedAt, &endedAt, &updatedAt, &createdAt)
 	if err != nil {
 		return nil, err
 	}
@@ -271,6 +285,9 @@ func (r *SessionRepository) scanSessionFromRows(rows *sql.Rows) (*domain.Session
 	}
 	if endedAt.Valid {
 		session.EndedAt = &endedAt.Time
+	}
+	if updatedAt.Valid {
+		session.UpdatedAt = updatedAt.Time
 	}
 	if createdAt.Valid {
 		session.CreatedAt = createdAt.Time

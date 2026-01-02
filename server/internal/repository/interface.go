@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/satetsu888/agentrace/server/internal/domain"
 )
@@ -28,6 +29,7 @@ type SessionRepository interface {
 	UpdateProjectPath(ctx context.Context, id string, projectPath string) error
 	UpdateProjectID(ctx context.Context, id string, projectID string) error
 	UpdateGitBranch(ctx context.Context, id string, gitBranch string) error
+	UpdateUpdatedAt(ctx context.Context, id string, updatedAt time.Time) error
 }
 
 // EventRepository はイベントの永続化を担当する

@@ -11,6 +11,7 @@ export interface Session {
   git_branch: string
   started_at: string
   ended_at: string | null
+  updated_at: string
   event_count: number
 }
 
