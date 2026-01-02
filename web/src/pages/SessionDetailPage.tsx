@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Folder, GitBranch, MessageSquare } from 'lucide-react'
+import { Folder, GitBranch, MessageSquare, User } from 'lucide-react'
 import { format } from 'date-fns'
 import { TimelineContainer } from '@/components/timeline/TimelineContainer'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
@@ -69,12 +69,11 @@ export function SessionDetailPage() {
       <Breadcrumb items={breadcrumbItems} />
 
       <div className="mb-6">
-        {/* Title: Date and User */}
+        {/* Title: Date */}
         <h1 className="text-lg font-medium text-gray-900">
           {format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')}
-          <span className="ml-2 text-gray-600">{session.user_name || 'Unknown'}</span>
         </h1>
-        {/* Metadata: repo, branch, path, events */}
+        {/* Metadata: repo, branch, path, user, events */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
           {hasProject && repoName && (
             <span className="flex items-center gap-1">
@@ -98,6 +97,12 @@ export function SessionDetailPage() {
             <span className="flex items-center gap-1" title={session.project_path}>
               <Folder className="h-3 w-3 flex-shrink-0" />
               <span className="font-mono">{getDirectoryName(session.project_path)}</span>
+            </span>
+          )}
+          {session.user_name && (
+            <span className="flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {session.user_name}
             </span>
           )}
           <span className="flex items-center gap-1">
