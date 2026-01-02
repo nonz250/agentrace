@@ -37,6 +37,7 @@ interface CreatePlanParams {
   description: string
   body: string
   project_id?: string
+  status?: string
 }
 
 export async function createPlan(params: CreatePlanParams): Promise<PlanDocument> {

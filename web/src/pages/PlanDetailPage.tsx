@@ -20,6 +20,7 @@ import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils
 type TabType = 'content' | 'history'
 
 const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
+  { value: 'scratch', label: 'Scratch' },
   { value: 'draft', label: 'Draft' },
   { value: 'planning', label: 'Planning' },
   { value: 'pending', label: 'Pending' },

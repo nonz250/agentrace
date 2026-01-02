@@ -5,6 +5,10 @@ interface PlanStatusBadgeProps {
 }
 
 const statusConfig: Record<PlanDocumentStatus, { label: string; className: string }> = {
+  scratch: {
+    label: 'Scratch',
+    className: 'bg-orange-100 text-orange-700',
+  },
   draft: {
     label: 'Draft',
     className: 'bg-gray-100 text-gray-600',

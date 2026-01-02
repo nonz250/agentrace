@@ -5,6 +5,7 @@ import "time"
 type PlanDocumentStatus string
 
 const (
+	PlanDocumentStatusScratch        PlanDocumentStatus = "scratch"
 	PlanDocumentStatusDraft          PlanDocumentStatus = "draft"
 	PlanDocumentStatusPlanning       PlanDocumentStatus = "planning"
 	PlanDocumentStatusPending        PlanDocumentStatus = "pending"
@@ -14,7 +15,7 @@ const (
 
 func (s PlanDocumentStatus) IsValid() bool {
 	switch s {
-	case PlanDocumentStatusDraft, PlanDocumentStatusPlanning, PlanDocumentStatusPending, PlanDocumentStatusImplementation, PlanDocumentStatusComplete:
+	case PlanDocumentStatusScratch, PlanDocumentStatusDraft, PlanDocumentStatusPlanning, PlanDocumentStatusPending, PlanDocumentStatusImplementation, PlanDocumentStatusComplete:
 		return true
 	}
 	return false

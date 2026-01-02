@@ -7,6 +7,7 @@ import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { createPlan } from '@/api/plan-documents'
 import { getProjects } from '@/api/projects'
+import type { PlanDocumentStatus } from '@/types/plan-document'
 
 interface CreatePlanModalProps {
   open: boolean
@@ -14,11 +15,21 @@ interface CreatePlanModalProps {
   onSuccess?: () => void
 }
 
+const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
+  { value: 'scratch', label: 'Scratch' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'planning', label: 'Planning' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'implementation', label: 'Implementation' },
+  { value: 'complete', label: 'Complete' },
+]
+
 export function CreatePlanModal({ open, onClose, onSuccess }: CreatePlanModalProps) {
   const queryClient = useQueryClient()
   const [description, setDescription] = useState('')
   const [body, setBody] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [status, setStatus] = useState<PlanDocumentStatus>('scratch')
 
   const { data: projectsData } = useQuery({
     queryKey: ['projects'],
@@ -31,6 +42,7 @@ export function CreatePlanModal({ open, onClose, onSuccess }: CreatePlanModalPro
       description,
       body,
       project_id: projectId || undefined,
+      status,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plans'] })
@@ -43,6 +55,7 @@ export function CreatePlanModal({ open, onClose, onSuccess }: CreatePlanModalPro
     setDescription('')
     setBody('')
     setProjectId('')
+    setStatus('scratch')
     onClose()
   }
 
@@ -65,6 +78,18 @@ export function CreatePlanModal({ open, onClose, onSuccess }: CreatePlanModalPro
           {projectsData?.projects.map((project) => (
             <option key={project.id} value={project.id}>
               {project.canonical_git_repository || 'Default Project'}
+            </option>
+          ))}
+        </Select>
+
+        <Select
+          label="Status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value as PlanDocumentStatus)}
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
             </option>
           ))}
         </Select>

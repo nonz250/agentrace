@@ -67,6 +67,7 @@ type CreatePlanDocumentRequest struct {
 	Description     string  `json:"description"`
 	Body            string  `json:"body"`
 	ProjectID       *string `json:"project_id"`
+	Status          *string `json:"status"`
 	ClaudeSessionID *string `json:"claude_session_id"`
 }
 
@@ -314,10 +315,20 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Determine initial status (default: planning)
+	status := domain.PlanDocumentStatusPlanning
+	if req.Status != nil && *req.Status != "" {
+		requestedStatus := domain.PlanDocumentStatus(*req.Status)
+		if requestedStatus.IsValid() {
+			status = requestedStatus
+		}
+	}
+
 	doc := &domain.PlanDocument{
 		ProjectID:   projectID,
 		Description: req.Description,
 		Body:        req.Body,
+		Status:      status,
 	}
 
 	if err := h.repos.PlanDocument.Create(ctx, doc); err != nil {

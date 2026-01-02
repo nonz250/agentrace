@@ -5,7 +5,7 @@ export interface Collaborator {
   display_name: string
 }
 
-export type PlanDocumentStatus = 'draft' | 'planning' | 'pending' | 'implementation' | 'complete'
+export type PlanDocumentStatus = 'scratch' | 'draft' | 'planning' | 'pending' | 'implementation' | 'complete'
 
 export interface PlanDocument {
   id: string

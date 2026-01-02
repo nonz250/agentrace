@@ -120,6 +120,23 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 | PATCH | `/api/plans/:id` | Plan更新 |
 | DELETE | `/api/plans/:id` | Plan削除 |
 
+#### PlanDocument ステータス
+
+ステータスは線形のワークフローではなく、状況に応じて使い分ける。
+
+| ステータス | 説明 |
+|-----------|------|
+| scratch | 走り書きのメモ。AIと相談しながらプランを作っていく起点 |
+| draft | プランをまだ十分に検討できていない状態（任意） |
+| planning | プランを検討中 |
+| pending | 十分検討したが実装には進まない状態（任意） |
+| implementation | 実装作業中 |
+| complete | 完了 |
+
+**基本フロー**: scratch → planning → implementation → complete
+
+draft と pending は必要に応じて使用する補助的なステータス。
+
 ### 認証
 
 | Method | Path | 説明 |
