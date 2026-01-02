@@ -88,31 +88,6 @@ export function ProjectDetailPage() {
         </div>
       </div>
 
-      {/* Recent Sessions */}
-      <section>
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Recent Sessions</h2>
-          <Link
-            to={`/sessions?project_id=${id}`}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-          >
-            View all
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-        {isSessionsLoading ? (
-          <div className="flex justify-center py-12">
-            <Spinner size="lg" />
-          </div>
-        ) : sessionsError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-            Failed to load sessions: {sessionsError.message}
-          </div>
-        ) : (
-          <SessionList sessions={sessionsData?.sessions || []} />
-        )}
-      </section>
-
       {/* Recent Plans */}
       <section>
         <div className="mb-6 flex items-center justify-between">
@@ -135,6 +110,31 @@ export function ProjectDetailPage() {
           </div>
         ) : (
           <PlanList plans={plansData?.plans || []} />
+        )}
+      </section>
+
+      {/* Recent Sessions */}
+      <section>
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">Recent Sessions</h2>
+          <Link
+            to={`/sessions?project_id=${id}`}
+            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+          >
+            View all
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        {isSessionsLoading ? (
+          <div className="flex justify-center py-12">
+            <Spinner size="lg" />
+          </div>
+        ) : sessionsError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+            Failed to load sessions: {sessionsError.message}
+          </div>
+        ) : (
+          <SessionList sessions={sessionsData?.sessions || []} />
         )}
       </section>
     </div>
