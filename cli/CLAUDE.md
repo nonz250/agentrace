@@ -130,6 +130,16 @@ cli/src/
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx agentrace send"
+          }
+        ]
+      }
     ]
   }
 }
@@ -187,11 +197,12 @@ create_plan(
 
 ## Hooks の仕組み
 
-transcript送信は以下の3つのタイミングで発火:
+transcript送信は以下の4つのタイミングで発火:
 
-1. **UserPromptSubmit**: ユーザーがメッセージを送信した直後
+1. **UserPromptSubmit**: ユーザーがメッセージを送信した直後（10秒待機後に送信）
 2. **Stop**: Claude Codeが応答を完了した時
 3. **SubagentStop**: Taskエージェント（explore, plan等）が完了した時
+4. **PostToolUse**: ツール使用完了後（リアルタイム更新用）
 
 どのイベントでも同じ処理:
 1. `~/.claude/settings.json` の該当hookを実行

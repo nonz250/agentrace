@@ -30,6 +30,7 @@ interface ClaudeSettings {
     UserPromptSubmit?: ClaudeHookMatcher[];
     SubagentStop?: ClaudeHookMatcher[];
     PreToolUse?: ClaudeHookMatcher[];
+    PostToolUse?: ClaudeHookMatcher[];
     [key: string]: ClaudeHookMatcher[] | undefined;
   };
   [key: string]: unknown;
@@ -93,6 +94,11 @@ export function installHooks(options: InstallHooksOptions = {}): { success: bool
       settings.hooks.SubagentStop = [];
     }
 
+    // Add PostToolUse hook (transcript is sent after each tool use for real-time updates)
+    if (!settings.hooks.PostToolUse) {
+      settings.hooks.PostToolUse = [];
+    }
+
     const hasStopHook = settings.hooks.Stop.some((matcher) =>
       matcher.hooks?.some(isAgentraceHook)
     );
@@ -105,7 +111,11 @@ export function installHooks(options: InstallHooksOptions = {}): { success: bool
       matcher.hooks?.some(isAgentraceHook)
     );
 
-    if (hasStopHook && hasUserPromptSubmitHook && hasSubagentStopHook) {
+    const hasPostToolUseHook = settings.hooks.PostToolUse.some((matcher) =>
+      matcher.hooks?.some(isAgentraceHook)
+    );
+
+    if (hasStopHook && hasUserPromptSubmitHook && hasSubagentStopHook && hasPostToolUseHook) {
       return { success: true, message: "Hooks already installed (skipped)" };
     }
 
@@ -123,6 +133,12 @@ export function installHooks(options: InstallHooksOptions = {}): { success: bool
 
     if (!hasSubagentStopHook) {
       settings.hooks.SubagentStop.push({
+        hooks: [agentraceHook],
+      });
+    }
+
+    if (!hasPostToolUseHook) {
+      settings.hooks.PostToolUse.push({
         hooks: [agentraceHook],
       });
     }
@@ -186,6 +202,16 @@ export function uninstallHooks(): { success: boolean; message: string } {
       }
     }
 
+    // Remove agentrace hooks from PostToolUse
+    if (settings.hooks.PostToolUse) {
+      settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(
+        (matcher) => !matcher.hooks?.some(isAgentraceHook)
+      );
+      if (settings.hooks.PostToolUse.length === 0) {
+        delete settings.hooks.PostToolUse;
+      }
+    }
+
     // Clean up empty hooks object
     if (Object.keys(settings.hooks).length === 0) {
       delete settings.hooks;
@@ -224,7 +250,11 @@ export function checkHooksInstalled(): boolean {
       matcher.hooks?.some(isAgentraceHook)
     );
 
-    return !!hasStopHook && !!hasUserPromptSubmitHook && !!hasSubagentStopHook;
+    const hasPostToolUseHook = settings.hooks?.PostToolUse?.some((matcher) =>
+      matcher.hooks?.some(isAgentraceHook)
+    );
+
+    return !!hasStopHook && !!hasUserPromptSubmitHook && !!hasSubagentStopHook && !!hasPostToolUseHook;
   } catch {
     return false;
   }

@@ -80,7 +80,7 @@ export async function sendCommand(): Promise<void> {
   // For UserPromptSubmit, wait for transcript to be written
   // (Claude hasn't started processing yet, so transcript may not be updated)
   if (data.hook_event_name === "UserPromptSubmit") {
-    await sleep(5000);
+    await sleep(10000);
   }
 
   // Get new lines from transcript
