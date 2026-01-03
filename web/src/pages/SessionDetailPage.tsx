@@ -20,7 +20,7 @@ function getDirectoryName(path: string): string {
 }
 
 export function SessionDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const { projectId, id } = useParams<{ projectId: string; id: string }>()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -109,14 +109,11 @@ export function SessionDetailPage() {
   const hasProject = !isDefaultProject(session.project)
   const projectDisplayName = getProjectDisplayName(session.project)
 
-  // Build breadcrumb items
-  const breadcrumbItems: BreadcrumbItem[] = []
-  if (hasProject && session.project) {
-    breadcrumbItems.push({ label: projectDisplayName || '(no project)', href: `/projects/${session.project.id}` })
-    breadcrumbItems.push({ label: 'Sessions', href: `/projects/${session.project.id}/sessions` })
-  } else {
-    breadcrumbItems.push({ label: 'Sessions', href: '/sessions' })
-  }
+  // Build breadcrumb items - always show project from URL
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: projectDisplayName || '(no project)', href: `/projects/${projectId}` },
+    { label: 'Sessions', href: `/projects/${projectId}/sessions` },
+  ]
   // Session name: date
   const sessionName = format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')
   breadcrumbItems.push({ label: sessionName })

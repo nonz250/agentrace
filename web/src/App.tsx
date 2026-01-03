@@ -10,8 +10,10 @@ import { ProjectsPage } from '@/pages/ProjectsPage'
 import { ProjectDetailPage } from '@/pages/ProjectDetailPage'
 import { SessionsPage } from '@/pages/SessionsPage'
 import { SessionDetailPage } from '@/pages/SessionDetailPage'
+import { SessionRedirectPage } from '@/pages/SessionRedirectPage'
 import { PlansPage } from '@/pages/PlansPage'
 import { PlanDetailPage } from '@/pages/PlanDetailPage'
+import { PlanRedirectPage } from '@/pages/PlanRedirectPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { MembersPage } from '@/pages/MembersPage'
 import { Spinner } from '@/components/ui/Spinner'
@@ -132,11 +134,12 @@ export default function App() {
           <Route index element={<ProjectsPage />} />
           <Route path="projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="projects/:projectId/sessions" element={<SessionsPage />} />
+          <Route path="projects/:projectId/sessions/:id" element={<SessionDetailPage />} />
           <Route path="projects/:projectId/plans" element={<PlansPage />} />
-          <Route path="sessions" element={<SessionsPage />} />
-          <Route path="sessions/:id" element={<SessionDetailPage />} />
-          <Route path="plans" element={<PlansPage />} />
-          <Route path="plans/:id" element={<PlanDetailPage />} />
+          <Route path="projects/:projectId/plans/:id" element={<PlanDetailPage />} />
+          {/* Redirect routes for backward compatibility */}
+          <Route path="sessions/:id" element={<SessionRedirectPage />} />
+          <Route path="plans/:id" element={<PlanRedirectPage />} />
           <Route path="members" element={<MembersPage />} />
           {/* Settings requires auth */}
           <Route

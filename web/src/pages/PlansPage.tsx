@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { PlanList } from '@/components/plans/PlanList'
 import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
@@ -53,11 +53,7 @@ const statusConfig: Record<PlanDocumentStatus, { label: string; selectedClass: s
 
 export function PlansPage() {
   const { user } = useAuth()
-  const { projectId: urlProjectId } = useParams<{ projectId: string }>()
-  const [searchParams] = useSearchParams()
-  const queryProjectId = searchParams.get('project_id')
-  // URLパラメータ優先、なければクエリパラメータ
-  const projectId = urlProjectId || queryProjectId
+  const { projectId } = useParams<{ projectId: string }>()
   const [page, setPage] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedStatuses, setSelectedStatuses] = useState<PlanDocumentStatus[]>(DEFAULT_SELECTED_STATUSES)

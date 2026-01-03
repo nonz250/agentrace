@@ -31,7 +31,7 @@ const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
 ]
 
 export function PlanDetailPage() {
-  const { id } = useParams<{ id: string }>()
+  const { projectId, id } = useParams<{ projectId: string; id: string }>()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('content')
@@ -179,14 +179,11 @@ export function PlanDetailPage() {
   const formattedDate = format(new Date(plan.updated_at), 'yyyy/MM/dd HH:mm')
   const projectDisplayName = getProjectDisplayName(plan.project)
 
-  // Build breadcrumb items
-  const breadcrumbItems: BreadcrumbItem[] = []
-  if (hasProject && plan.project) {
-    breadcrumbItems.push({ label: projectDisplayName || '(no project)', href: `/projects/${plan.project.id}` })
-    breadcrumbItems.push({ label: 'Plans', href: `/projects/${plan.project.id}/plans` })
-  } else {
-    breadcrumbItems.push({ label: 'Plans', href: '/plans' })
-  }
+  // Build breadcrumb items - always show project from URL
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: projectDisplayName || '(no project)', href: `/projects/${projectId}` },
+    { label: 'Plans', href: `/projects/${projectId}/plans` },
+  ]
   // Plan name: description truncated
   const planName = plan.description.length > 30 ? plan.description.slice(0, 30) + '...' : plan.description
   breadcrumbItems.push({ label: planName })

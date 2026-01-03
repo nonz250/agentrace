@@ -26,7 +26,7 @@ export function SessionList({ sessions }: SessionListProps) {
         <SessionCard
           key={session.id}
           session={session}
-          onClick={() => navigate(`/sessions/${session.id}`)}
+          onClick={() => navigate(`/projects/${session.project?.id}/sessions/${session.id}`)}
         />
       ))}
     </div>

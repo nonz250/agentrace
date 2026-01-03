@@ -26,7 +26,7 @@ export function PlanList({ plans }: PlanListProps) {
         <PlanCard
           key={plan.id}
           plan={plan}
-          onClick={() => navigate(`/plans/${plan.id}`)}
+          onClick={() => navigate(`/projects/${plan.project?.id}/plans/${plan.id}`)}
         />
       ))}
     </div>

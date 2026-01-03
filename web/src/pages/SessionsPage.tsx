@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
@@ -13,11 +13,7 @@ import { getProjectDisplayName } from '@/lib/project-utils'
 const PAGE_SIZE = 20
 
 export function SessionsPage() {
-  const { projectId: urlProjectId } = useParams<{ projectId: string }>()
-  const [searchParams] = useSearchParams()
-  const queryProjectId = searchParams.get('project_id')
-  // URLパラメータ優先、なければクエリパラメータ
-  const projectId = urlProjectId || queryProjectId
+  const { projectId } = useParams<{ projectId: string }>()
   const [page, setPage] = useState(1)
   const offset = (page - 1) * PAGE_SIZE
 
