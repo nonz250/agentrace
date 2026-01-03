@@ -73,13 +73,34 @@ web/src/
 
 ## ルーティング
 
+### URL構造
+
+Session と Plan は Project 配下のリソースとして構成される。
+
+| パス | 説明 |
+|------|------|
+| `/` | プロジェクト一覧（トップページ） |
+| `/projects/:projectId` | プロジェクト詳細（Recent Plans/Sessions） |
+| `/projects/:projectId/sessions` | プロジェクト内のセッション一覧 |
+| `/projects/:projectId/sessions/:id` | セッション詳細 |
+| `/projects/:projectId/plans` | プロジェクト内のプラン一覧 |
+| `/projects/:projectId/plans/:id` | プラン詳細 |
+| `/sessions/:id` | セッション詳細へリダイレクト（後方互換） |
+| `/plans/:id` | プラン詳細へリダイレクト（後方互換） |
+
+### 認証
+
 | パス | 認証 |
 |------|------|
 | `/welcome`, `/register`, `/login`, `/setup` | Public |
-| `/`, `/sessions`, `/sessions/:id` | 認証なしでも閲覧可 |
-| `/plans`, `/plans/:id` | 認証なしでも閲覧可 |
+| `/`, `/projects/**` | 認証なしでも閲覧可 |
 | `/members` | 認証なしでも閲覧可 |
 | `/settings` | Protected（要認証） |
+
+### ナビゲーション
+
+- **ヘッダー**: プロジェクト配下のページでのみ Sessions/Plans リンクを表示
+- **パンくずリスト**: Project > Sessions/Plans > 詳細 の階層構造で表示
 
 ## 環境変数
 
