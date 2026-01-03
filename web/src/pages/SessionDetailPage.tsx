@@ -220,7 +220,6 @@ export function SessionDetailPage() {
         </div>
       </div>
 
-      <h2 className="mb-4 text-lg font-semibold text-gray-900">Timeline</h2>
       <TimelineContainer events={session.events || []} projectPath={session.project_path} />
     </div>
   )
