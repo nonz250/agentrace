@@ -119,6 +119,32 @@ agentrace/
     └── entrypoint.sh       # 起動スクリプト
 ```
 
+## リリース
+
+GitHub Actions による自動リリースが設定されています。
+
+### CLI (npm)
+
+タグ `cli-v*` をプッシュすると npm に自動公開されます（Trusted Publishing）。
+
+```bash
+cd cli
+npm version patch  # or minor, major
+git add -A && git commit -m "chore(cli): bump version to x.x.x"
+git push origin main
+git tag cli-v0.0.x
+git push origin cli-v0.0.x
+```
+
+### Docker Image
+
+タグ `v*` をプッシュすると Docker Hub に自動公開されます。
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## 将来の拡張（スコープ外）
 
 - リアルタイム機能（WebSocket）
