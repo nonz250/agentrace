@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { User, Clock, ExternalLink, ArrowRight, FileEdit } from 'lucide-react'
+import { DiffView } from './DiffView'
 import type { PlanDocumentEvent } from '@/types/plan-document'
 
 interface PlanEventHistoryProps {
@@ -73,9 +74,7 @@ export function PlanEventHistory({ events }: PlanEventHistoryProps) {
                         <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
                           View patch
                         </summary>
-                        <pre className="mt-2 overflow-x-auto rounded bg-gray-50 p-2 text-gray-600 font-mono">
-                          {event.patch}
-                        </pre>
+                        <DiffView patch={event.patch} />
                       </details>
                     </div>
                   ) : (
