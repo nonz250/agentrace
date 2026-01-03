@@ -108,7 +108,7 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		// Skip meta messages, command messages, and tool results
 		if eventType == "user" && session.Title == nil && !isMetaMessage(line) {
 			if text := extractUserMessageText(line); text != "" && isValidUserInput(text) {
-				title := truncateString(text, 50)
+				title := truncateString(text, 45)
 				if err := h.repos.Session.UpdateTitle(ctx, session.ID, title); err == nil {
 					session.Title = &title
 				}
