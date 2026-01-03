@@ -7,11 +7,18 @@ export interface BlockLabel {
   params?: string    // Optional parameter to display (e.g., file path, command)
 }
 
+// Plan link info for agentrace MCP tools (only ID, details fetched from API)
+export interface PlanLinkInfo {
+  id: string
+  // For set_plan_status: the status that was set
+  changedStatus?: string
+}
+
 // Expanded block for display
 export interface DisplayBlock {
   id: string
   eventType: 'user' | 'assistant' | 'tool_use' | 'tool_result'
-  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'tool_group', 'local_command', 'local_command_output', 'local_command_group', etc.
+  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'tool_group', 'local_command', 'local_command_output', 'local_command_group', 'agentrace_tool', etc.
   label: BlockLabel
   timestamp: string
   content: unknown
@@ -20,6 +27,9 @@ export interface DisplayBlock {
   childBlocks?: DisplayBlock[]
   // For tool_group: the result block
   toolResultBlock?: DisplayBlock
+  // For agentrace MCP tools: linked plan documents
+  planLinks?: PlanLinkInfo[]
+  isAgentraceTool?: boolean
 }
 
 // Extract command name from local command content
@@ -62,6 +72,123 @@ const TOOL_PARAMS_EXTRACTORS: Record<string, ToolParamsExtractor> = {
   Glob: (input) => input.pattern as string | undefined,
   // Grep tool: show pattern
   Grep: (input) => input.pattern as string | undefined,
+}
+
+// Agentrace MCP tools
+const AGENTRACE_MCP_TOOLS = [
+  'mcp__agentrace__list_plans',
+  'mcp__agentrace__read_plan',
+  'mcp__agentrace__create_plan',
+  'mcp__agentrace__update_plan',
+  'mcp__agentrace__set_plan_status',
+]
+
+function isAgentraceMcpTool(toolName: string): boolean {
+  return AGENTRACE_MCP_TOOLS.includes(toolName)
+}
+
+function getAgentraceToolDisplayName(toolName: string): string {
+  return toolName.replace('mcp__agentrace__', '')
+}
+
+// Extract plan IDs from agentrace MCP tool calls
+function extractPlanLinks(
+  toolName: string,
+  input: Record<string, unknown> | undefined,
+  resultText: string | null
+): PlanLinkInfo[] {
+  const tool = toolName.replace('mcp__agentrace__', '')
+
+  switch (tool) {
+    case 'list_plans': {
+      // Result is JSON array of plans
+      if (!resultText) return []
+      // Skip "No plans found" message
+      if (resultText.includes('No plans found')) return []
+      try {
+        const plans = JSON.parse(resultText)
+        if (!Array.isArray(plans)) return []
+        return plans.map((p: { id: string }) => ({ id: p.id }))
+      } catch {
+        return []
+      }
+    }
+
+    case 'read_plan':
+      // Plan ID is in input
+      if (input?.id) {
+        return [{ id: input.id as string }]
+      }
+      return []
+
+    case 'create_plan':
+    case 'update_plan': {
+      // Extract ID from result text
+      if (!resultText) {
+        // Fallback to input.id for update_plan
+        if (input?.id) {
+          return [{ id: input.id as string }]
+        }
+        return []
+      }
+      const idMatch = resultText.match(/ID:\s*([^\n]+)/)
+      if (idMatch) {
+        return [{ id: idMatch[1].trim() }]
+      }
+      // Fallback to input.id
+      if (input?.id) {
+        return [{ id: input.id as string }]
+      }
+      return []
+    }
+
+    case 'set_plan_status': {
+      // Extract ID from result text and include the changed status from input
+      const changedStatus = input?.status as string | undefined
+      if (!resultText) {
+        if (input?.id) {
+          return [{ id: input.id as string, changedStatus }]
+        }
+        return []
+      }
+      const idMatch = resultText.match(/ID:\s*([^\n]+)/)
+      if (idMatch) {
+        return [{ id: idMatch[1].trim(), changedStatus }]
+      }
+      if (input?.id) {
+        return [{ id: input.id as string, changedStatus }]
+      }
+      return []
+    }
+
+    default:
+      return []
+  }
+}
+
+// Extract result text from tool result content
+function extractToolResultText(resultContent: unknown): string | null {
+  if (!resultContent) return null
+
+  const content = resultContent as Record<string, unknown>
+  const data = content?.content
+
+  if (typeof data === 'string') {
+    return data
+  }
+
+  if (Array.isArray(data)) {
+    const textParts = data
+      .map((c) => {
+        if (typeof c === 'string') return c
+        if (c?.type === 'text' && typeof c.text === 'string') return c.text
+        return null
+      })
+      .filter(Boolean)
+    return textParts.length > 0 ? textParts.join('\n') : null
+  }
+
+  return null
 }
 
 function extractToolParams(
@@ -380,11 +507,19 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
             const toolUseId = blockObj?.id as string
 
             const input = blockObj?.input as Record<string, unknown> | undefined
-            const params = extractToolParams(toolName, input, {
-              projectPath,
-              cwd: event.payload?.cwd as string | undefined,
-            })
-            label = { text: `Tool: ${toolName}`, params }
+            const isAgentrace = isAgentraceMcpTool(toolName)
+
+            // For agentrace tools, use shorter display name but same format
+            if (isAgentrace) {
+              const displayName = getAgentraceToolDisplayName(toolName)
+              label = { text: `Tool: ${displayName}` }
+            } else {
+              const params = extractToolParams(toolName, input, {
+                projectPath,
+                cwd: event.payload?.cwd as string | undefined,
+              })
+              label = { text: `Tool: ${toolName}`, params }
+            }
 
             // Check if there's a matching tool_result
             const toolResult = toolUseId ? toolResultMap.get(toolUseId) : undefined
@@ -404,15 +539,24 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
                 originalEvent: toolResult.event,
               }
 
+              // Extract plan links for agentrace tools
+              let planLinks: PlanLinkInfo[] | undefined
+              if (isAgentrace) {
+                const resultText = extractToolResultText(toolResult.content)
+                planLinks = extractPlanLinks(toolName, input, resultText)
+              }
+
               blocks.push({
                 id: `${event.id}-${i}`,
                 eventType: 'assistant',
-                blockType: 'tool_group',
+                blockType: isAgentrace ? 'agentrace_tool' : 'tool_group',
                 label,
                 timestamp,
                 content: block,
                 originalEvent: event,
                 toolResultBlock: resultBlock,
+                planLinks: planLinks && planLinks.length > 0 ? planLinks : undefined,
+                isAgentraceTool: isAgentrace || undefined,
               })
               return // Skip the normal push
             }

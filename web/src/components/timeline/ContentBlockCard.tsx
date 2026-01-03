@@ -1,11 +1,16 @@
 import { cn } from '@/lib/cn'
-import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal } from 'lucide-react'
+import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal, FileText, ExternalLink, Loader2, ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import ReactMarkdown from 'react-markdown'
-import type { DisplayBlock } from './Timeline'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { getPlan } from '@/api/plan-documents'
+import { PlanStatusBadge } from '@/components/plans/PlanStatusBadge'
+import type { PlanDocumentStatus } from '@/types/plan-document'
+import type { DisplayBlock, PlanLinkInfo } from './Timeline'
 
 interface ContentBlockCardProps {
   block: DisplayBlock
@@ -18,11 +23,21 @@ function isSecondaryBlock(block: DisplayBlock): boolean {
     'tool_use',
     'tool_result',
     'tool_group',
+    'agentrace_tool',
     'local_command',
     'local_command_output',
     'local_command_group',
   ]
   return secondaryBlockTypes.includes(block.blockType)
+}
+
+// Check if block should be expanded by default
+function shouldExpandByDefault(block: DisplayBlock): boolean {
+  // Primary blocks are always expanded
+  if (!isSecondaryBlock(block)) return true
+  // Agentrace tools should be expanded by default
+  if (block.blockType === 'agentrace_tool') return true
+  return false
 }
 
 // Get container style based on block prominence
@@ -48,8 +63,8 @@ function getIcon(block: DisplayBlock) {
   if (block.blockType === 'local_command' || block.blockType === 'local_command_output' || block.blockType === 'local_command_group') {
     return <Terminal className="h-4 w-4" />
   }
-  // Tool-related blocks use Wrench icon
-  if (block.blockType === 'tool_use' || block.blockType === 'tool_result' || block.blockType === 'tool_group') {
+  // Tool-related blocks (including agentrace_tool) use Wrench icon
+  if (block.blockType === 'tool_use' || block.blockType === 'tool_result' || block.blockType === 'tool_group' || block.blockType === 'agentrace_tool') {
     return <Wrench className="h-4 w-4" />
   }
   if (block.eventType === 'tool_use' || block.eventType === 'tool_result') {
@@ -84,6 +99,63 @@ function getIconStyle(block: DisplayBlock) {
 function extractCommandOutput(content: string): string {
   const match = content.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
   return match ? match[1].trim() : content
+}
+
+// Plan link card component - fetches latest plan data from API
+function PlanLinkCard({ plan }: { plan: PlanLinkInfo }) {
+  const { data: planData, isLoading, isError } = useQuery({
+    queryKey: ['plan', plan.id],
+    queryFn: () => getPlan(plan.id),
+    staleTime: 30 * 1000, // 30 seconds
+  })
+
+  // Truncate plan ID for display
+  const shortId = plan.id.length > 8 ? plan.id.slice(0, 8) + '...' : plan.id
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+        <span className="text-sm text-gray-500">Loading plan...</span>
+      </div>
+    )
+  }
+
+  if (isError || !planData) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+        <FileText className="h-4 w-4 text-gray-400" />
+        <span className="text-sm text-gray-500">Plan {shortId}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {plan.changedStatus && (
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <span>Status changed</span>
+          <ArrowRight className="h-3 w-3 text-gray-400" />
+          <PlanStatusBadge status={plan.changedStatus as PlanDocumentStatus} />
+        </div>
+      )}
+      <Link
+        to={`/plans/${plan.id}`}
+        className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 transition-colors hover:border-gray-300 hover:bg-gray-50"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <FileText className="h-4 w-4 flex-shrink-0 text-gray-400" />
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate text-sm font-medium text-gray-900">
+              {planData.description}
+            </span>
+            <PlanStatusBadge status={planData.status} />
+          </div>
+        </div>
+        <ExternalLink className="h-4 w-4 flex-shrink-0 text-gray-400" />
+      </Link>
+    </div>
+  )
 }
 
 function renderContent(block: DisplayBlock) {
@@ -186,6 +258,27 @@ function renderContent(block: DisplayBlock) {
             </SyntaxHighlighter>
           </div>
         )}
+      </div>
+    )
+  }
+
+  // Agentrace tool - show plan cards with links
+  if (block.blockType === 'agentrace_tool') {
+    const planLinks = block.planLinks || []
+
+    if (planLinks.length === 0) {
+      return (
+        <div className="text-sm text-gray-500 italic">
+          Operation completed
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-2">
+        {planLinks.map((plan) => (
+          <PlanLinkCard key={plan.id} plan={plan} />
+        ))}
       </div>
     )
   }
@@ -382,8 +475,8 @@ function renderContent(block: DisplayBlock) {
 
 export function ContentBlockCard({ block }: ContentBlockCardProps) {
   const isSecondary = isSecondaryBlock(block)
-  // Secondary blocks default to collapsed, primary blocks are always expanded
-  const [expanded, setExpanded] = useState(!isSecondary)
+  // Use shouldExpandByDefault for initial state
+  const [expanded, setExpanded] = useState(() => shouldExpandByDefault(block))
   const styles = getBlockContainerStyle(block)
 
   // Primary blocks (User/Assistant) don't have collapse functionality
