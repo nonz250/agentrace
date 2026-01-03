@@ -179,6 +179,7 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 	projectID := r.URL.Query().Get("project_id")
 	gitRemoteURL := r.URL.Query().Get("git_remote_url")
 	statusParam := r.URL.Query().Get("status")
+	descriptionParam := r.URL.Query().Get("description")
 
 	// Parse status parameter (comma-separated)
 	var statuses []domain.PlanDocumentStatus
@@ -208,10 +209,11 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	// Use unified Find method with query object
 	query := domain.PlanDocumentQuery{
-		ProjectID: projectID,
-		Statuses:  statuses,
-		Limit:     limit,
-		Offset:    offset,
+		ProjectID:           projectID,
+		Statuses:            statuses,
+		DescriptionContains: descriptionParam,
+		Limit:               limit,
+		Offset:              offset,
 	}
 	docs, err := h.repos.PlanDocument.Find(ctx, query)
 

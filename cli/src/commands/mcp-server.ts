@@ -23,8 +23,10 @@ function getSessionIdFromFile(): string | undefined {
 }
 
 // Tool schemas
-const ListPlansSchema = z.object({
-  git_remote_url: z.string().describe("Git remote URL to filter plans"),
+const SearchPlansSchema = z.object({
+  git_remote_url: z.string().optional().describe("Git remote URL to filter by project"),
+  status: z.string().optional().describe("Comma-separated statuses to filter (e.g., 'planning,implementation')"),
+  description: z.string().optional().describe("Partial match search on plan description"),
 });
 
 const ReadPlanSchema = z.object({
@@ -48,12 +50,14 @@ const SetPlanStatusSchema = z.object({
 
 // Tool descriptions with usage guidance
 const TOOL_DESCRIPTIONS = {
-  list_plans: `List plan documents for a repository.
+  search_plans: `Search plan documents with filtering options.
 
 WHEN TO USE:
 - When you need to check existing plans for the current repository
 - When the user asks about available plans or implementation documents
-- Before creating a new plan to avoid duplicates`,
+- Before creating a new plan to avoid duplicates
+- When searching for plans by status (e.g., find all plans in 'scratch' status)
+- When searching for plans by description keyword`,
 
   read_plan: `Read a plan document by ID.
 
@@ -133,21 +137,25 @@ IMPORTANT GUIDELINES:
     return client;
   }
 
-  // list_plans tool
+  // search_plans tool
   server.tool(
-    "list_plans",
-    TOOL_DESCRIPTIONS.list_plans,
-    ListPlansSchema.shape,
+    "search_plans",
+    TOOL_DESCRIPTIONS.search_plans,
+    SearchPlansSchema.shape,
     async (args) => {
       try {
-        const plans = await getClient().listPlans(args.git_remote_url);
+        const plans = await getClient().searchPlans({
+          gitRemoteUrl: args.git_remote_url,
+          status: args.status,
+          description: args.description,
+        });
 
         if (plans.length === 0) {
           return {
             content: [
               {
                 type: "text" as const,
-                text: "No plans found for this repository.",
+                text: "No plans found matching the search criteria.",
               },
             ],
           };

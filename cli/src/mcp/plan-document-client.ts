@@ -35,6 +35,12 @@ export interface ListPlansResponse {
   plans: PlanDocument[];
 }
 
+export interface SearchPlansParams {
+  gitRemoteUrl?: string;
+  status?: string;
+  description?: string;
+}
+
 export interface ListEventsResponse {
   events: PlanDocumentEvent[];
 }
@@ -95,11 +101,20 @@ export class PlanDocumentClient {
     return response.json() as Promise<T>;
   }
 
-  async listPlans(gitRemoteUrl?: string): Promise<PlanDocument[]> {
-    let path = "/api/plans";
-    if (gitRemoteUrl) {
-      path += `?git_remote_url=${encodeURIComponent(gitRemoteUrl)}`;
+  async searchPlans(params: SearchPlansParams = {}): Promise<PlanDocument[]> {
+    const searchParams = new URLSearchParams();
+    if (params.gitRemoteUrl) {
+      searchParams.set("git_remote_url", params.gitRemoteUrl);
     }
+    if (params.status) {
+      searchParams.set("status", params.status);
+    }
+    if (params.description) {
+      searchParams.set("description", params.description);
+    }
+
+    const query = searchParams.toString();
+    const path = query ? `/api/plans?${query}` : "/api/plans";
     const response = await this.request<ListPlansResponse>("GET", path);
     return response.plans;
   }

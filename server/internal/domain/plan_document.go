@@ -33,8 +33,9 @@ type PlanDocument struct {
 
 // PlanDocumentQuery represents search criteria for plan documents
 type PlanDocumentQuery struct {
-	ProjectID string                 // Filter by project ID (empty = all projects)
-	Statuses  []PlanDocumentStatus   // Filter by statuses (empty = all statuses)
-	Limit     int                    // Max results (0 = use default)
-	Offset    int                    // Skip first N results
+	ProjectID           string               // Filter by project ID (empty = all projects)
+	Statuses            []PlanDocumentStatus // Filter by statuses (empty = all statuses)
+	DescriptionContains string               // Filter by description containing this text (case-insensitive)
+	Limit               int                  // Max results (0 = use default)
+	Offset              int                  // Skip first N results
 }

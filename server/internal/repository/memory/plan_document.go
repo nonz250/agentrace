@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +71,9 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		}
 	}
 
+	// Prepare description filter
+	lowerDescFilter := strings.ToLower(query.DescriptionContains)
+
 	// Filter documents
 	docs := make([]*domain.PlanDocument, 0)
 	for _, d := range r.documents {
@@ -79,6 +83,10 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		}
 		// Check project filter
 		if query.ProjectID != "" && d.ProjectID != query.ProjectID {
+			continue
+		}
+		// Check description filter (case-insensitive)
+		if lowerDescFilter != "" && !strings.Contains(strings.ToLower(d.Description), lowerDescFilter) {
 			continue
 		}
 		docs = append(docs, d)

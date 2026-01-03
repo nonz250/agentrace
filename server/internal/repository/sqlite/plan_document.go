@@ -73,6 +73,11 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		args = append(args, query.ProjectID)
 	}
 
+	if query.DescriptionContains != "" {
+		conditions = append(conditions, "LOWER(description) LIKE LOWER(?)")
+		args = append(args, "%"+query.DescriptionContains+"%")
+	}
+
 	// Combine query parts
 	if len(conditions) > 0 {
 		baseQuery += " WHERE " + strings.Join(conditions, " AND ")

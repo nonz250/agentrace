@@ -76,6 +76,12 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		paramIdx++
 	}
 
+	if query.DescriptionContains != "" {
+		conditions = append(conditions, fmt.Sprintf("description ILIKE $%d", paramIdx))
+		args = append(args, "%"+query.DescriptionContains+"%")
+		paramIdx++
+	}
+
 	// Combine query parts
 	if len(conditions) > 0 {
 		baseQuery += " WHERE " + strings.Join(conditions, " AND ")
