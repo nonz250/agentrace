@@ -360,7 +360,7 @@ export function checkMcpServerInstalled(): boolean {
 // PreToolUse hook for injecting session_id into agentrace MCP tools
 
 const SESSION_ID_HOOK_SCRIPT = `#!/usr/bin/env node
-// Agentrace PreToolUse hook: Writes session_id to file for MCP tools
+// Agentrace PreToolUse hook: Writes session_id and tool_use_id to file for MCP tools
 // This hook is called before agentrace MCP tools (create_plan, update_plan)
 
 const fs = require('fs');
@@ -376,9 +376,10 @@ process.stdin.on('end', () => {
   try {
     const data = JSON.parse(input);
     const sessionId = data.session_id;
+    const toolUseId = data.tool_use_id;
 
-    // Write session_id to file for MCP server to read
-    fs.writeFileSync(sessionFile, JSON.stringify({ session_id: sessionId }));
+    // Write session_id and tool_use_id to file for MCP server to read
+    fs.writeFileSync(sessionFile, JSON.stringify({ session_id: sessionId, tool_use_id: toolUseId }));
 
     // Allow the tool to proceed
     const output = {

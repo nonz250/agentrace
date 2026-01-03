@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS plan_document_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plan_document_id UUID NOT NULL REFERENCES plan_documents(id) ON DELETE CASCADE,
     claude_session_id VARCHAR(255),
+    tool_use_id VARCHAR(255),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     event_type VARCHAR(32) NOT NULL DEFAULT 'body_change',
     patch TEXT NOT NULL,

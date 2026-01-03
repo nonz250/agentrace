@@ -51,6 +51,7 @@ type PlanDocumentEventResponse struct {
 	ID              string  `json:"id"`
 	PlanDocumentID  string  `json:"plan_document_id"`
 	ClaudeSessionID *string `json:"claude_session_id"`
+	ToolUseID       *string `json:"tool_use_id"`
 	UserID          *string `json:"user_id"`
 	UserName        *string `json:"user_name"`
 	EventType       string  `json:"event_type"`
@@ -70,6 +71,7 @@ type CreatePlanDocumentRequest struct {
 	ProjectID       *string `json:"project_id"`
 	Status          *string `json:"status"`
 	ClaudeSessionID *string `json:"claude_session_id"`
+	ToolUseID       *string `json:"tool_use_id"`
 }
 
 type UpdatePlanDocumentRequest struct {
@@ -77,6 +79,7 @@ type UpdatePlanDocumentRequest struct {
 	Body            *string `json:"body"`
 	Patch           *string `json:"patch"`
 	ClaudeSessionID *string `json:"claude_session_id"`
+	ToolUseID       *string `json:"tool_use_id"`
 	ProjectID       *string `json:"project_id"`
 }
 
@@ -148,6 +151,7 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 		ID:              event.ID,
 		PlanDocumentID:  event.PlanDocumentID,
 		ClaudeSessionID: event.ClaudeSessionID,
+		ToolUseID:       event.ToolUseID,
 		UserID:          event.UserID,
 		UserName:        userName,
 		EventType:       eventType,
@@ -358,6 +362,7 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	event := &domain.PlanDocumentEvent{
 		PlanDocumentID:  doc.ID,
 		ClaudeSessionID: req.ClaudeSessionID,
+		ToolUseID:       req.ToolUseID,
 		Patch:           "", // Empty patch for initial creation
 	}
 	if userID != "" {
@@ -426,6 +431,7 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		event := &domain.PlanDocumentEvent{
 			PlanDocumentID:  doc.ID,
 			ClaudeSessionID: req.ClaudeSessionID,
+			ToolUseID:       req.ToolUseID,
 			Patch:           *req.Patch,
 		}
 		if userID != "" {

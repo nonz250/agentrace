@@ -25,7 +25,9 @@ type planDocumentEventDocument struct {
 	ID              string    `bson:"_id"`
 	PlanDocumentID  string    `bson:"plan_document_id"`
 	ClaudeSessionID *string   `bson:"claude_session_id,omitempty"`
+	ToolUseID       *string   `bson:"tool_use_id,omitempty"`
 	UserID          *string   `bson:"user_id,omitempty"`
+	EventType       string    `bson:"event_type"`
 	Patch           string    `bson:"patch"`
 	CreatedAt       time.Time `bson:"created_at"`
 }
@@ -37,12 +39,17 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 	if event.CreatedAt.IsZero() {
 		event.CreatedAt = time.Now()
 	}
+	if event.EventType == "" {
+		event.EventType = domain.PlanDocumentEventTypeBodyChange
+	}
 
 	doc := planDocumentEventDocument{
 		ID:              event.ID,
 		PlanDocumentID:  event.PlanDocumentID,
 		ClaudeSessionID: event.ClaudeSessionID,
+		ToolUseID:       event.ToolUseID,
 		UserID:          event.UserID,
+		EventType:       string(event.EventType),
 		Patch:           event.Patch,
 		CreatedAt:       event.CreatedAt,
 	}
@@ -114,11 +121,17 @@ func (r *PlanDocumentEventRepository) GetCollaboratorUserIDs(ctx context.Context
 }
 
 func docToPlanDocumentEvent(doc *planDocumentEventDocument) *domain.PlanDocumentEvent {
+	eventType := domain.PlanDocumentEventType(doc.EventType)
+	if eventType == "" {
+		eventType = domain.PlanDocumentEventTypeBodyChange
+	}
 	return &domain.PlanDocumentEvent{
 		ID:              doc.ID,
 		PlanDocumentID:  doc.PlanDocumentID,
 		ClaudeSessionID: doc.ClaudeSessionID,
+		ToolUseID:       doc.ToolUseID,
 		UserID:          doc.UserID,
+		EventType:       eventType,
 		Patch:           doc.Patch,
 		CreatedAt:       doc.CreatedAt,
 	}

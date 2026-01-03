@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS plan_document_events (
     id TEXT PRIMARY KEY,
     plan_document_id TEXT NOT NULL REFERENCES plan_documents(id) ON DELETE CASCADE,
     claude_session_id TEXT,
+    tool_use_id TEXT,
     user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     event_type TEXT NOT NULL DEFAULT 'body_change',
     patch TEXT NOT NULL,

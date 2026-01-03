@@ -49,6 +49,7 @@ export interface CreatePlanRequest {
   description: string;
   body: string;
   claude_session_id?: string;
+  tool_use_id?: string;
 }
 
 export interface UpdatePlanRequest {
@@ -56,6 +57,7 @@ export interface UpdatePlanRequest {
   body?: string;
   patch?: string;
   claude_session_id?: string;
+  tool_use_id?: string;
 }
 
 export class PlanDocumentClient {

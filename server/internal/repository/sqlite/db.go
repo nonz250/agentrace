@@ -90,5 +90,22 @@ func runMigrations(db *sql.DB) error {
 
 	// Add unique index for (session_id, uuid) to prevent duplicate events
 	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_session_uuid ON events(session_id, uuid) WHERE uuid IS NOT NULL`)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Add tool_use_id column to plan_document_events if not exists
+	var toolUseIdColExists int
+	row = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('plan_document_events') WHERE name='tool_use_id'`)
+	if err := row.Scan(&toolUseIdColExists); err != nil {
+		return err
+	}
+	if toolUseIdColExists == 0 {
+		_, err = db.Exec(`ALTER TABLE plan_document_events ADD COLUMN tool_use_id TEXT`)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

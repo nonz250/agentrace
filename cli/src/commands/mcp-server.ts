@@ -7,19 +7,27 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { PlanDocumentClient } from "../mcp/plan-document-client.js";
 
-// Read session_id from file written by PreToolUse hook
-function getSessionIdFromFile(): string | undefined {
+interface SessionInfo {
+  session_id?: string;
+  tool_use_id?: string;
+}
+
+// Read session_id and tool_use_id from file written by PreToolUse hook
+function getSessionInfoFromFile(): SessionInfo {
   try {
     const sessionFile = path.join(os.homedir(), ".agentrace", "current-session.json");
     if (fs.existsSync(sessionFile)) {
       const content = fs.readFileSync(sessionFile, "utf-8");
       const data = JSON.parse(content);
-      return data.session_id;
+      return {
+        session_id: data.session_id,
+        tool_use_id: data.tool_use_id,
+      };
     }
   } catch {
-    // Ignore errors, return undefined
+    // Ignore errors, return empty object
   }
-  return undefined;
+  return {};
 }
 
 // Tool schemas
@@ -229,13 +237,14 @@ IMPORTANT GUIDELINES:
     CreatePlanSchema.shape,
     async (args) => {
       try {
-        // Read session_id from file written by PreToolUse hook
-        const claudeSessionId = getSessionIdFromFile();
+        // Read session_id and tool_use_id from file written by PreToolUse hook
+        const sessionInfo = getSessionInfoFromFile();
 
         const plan = await getClient().createPlan({
           description: args.description,
           body: args.body,
-          claude_session_id: claudeSessionId,
+          claude_session_id: sessionInfo.session_id,
+          tool_use_id: sessionInfo.tool_use_id,
         });
 
         return {
@@ -267,8 +276,8 @@ IMPORTANT GUIDELINES:
     UpdatePlanSchema.shape,
     async (args) => {
       try {
-        // Read session_id from file written by PreToolUse hook
-        const claudeSessionId = getSessionIdFromFile();
+        // Read session_id and tool_use_id from file written by PreToolUse hook
+        const sessionInfo = getSessionInfoFromFile();
 
         // Get current plan to compute patch
         const currentPlan = await getClient().getPlan(args.id);
@@ -280,7 +289,8 @@ IMPORTANT GUIDELINES:
         const plan = await getClient().updatePlan(args.id, {
           body: args.body,
           patch: patchText,
-          claude_session_id: claudeSessionId,
+          claude_session_id: sessionInfo.session_id,
+          tool_use_id: sessionInfo.tool_use_id,
         });
 
         return {

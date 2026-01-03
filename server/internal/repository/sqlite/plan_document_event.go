@@ -29,9 +29,9 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 	}
 
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO plan_document_events (id, plan_document_id, claude_session_id, user_id, event_type, patch, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		event.ID, event.PlanDocumentID, event.ClaudeSessionID, event.UserID, string(event.EventType), event.Patch,
+		`INSERT INTO plan_document_events (id, plan_document_id, claude_session_id, tool_use_id, user_id, event_type, patch, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		event.ID, event.PlanDocumentID, event.ClaudeSessionID, event.ToolUseID, event.UserID, string(event.EventType), event.Patch,
 		event.CreatedAt.Format(time.RFC3339),
 	)
 	return err
@@ -39,7 +39,7 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 
 func (r *PlanDocumentEventRepository) FindByPlanDocumentID(ctx context.Context, planDocumentID string) ([]*domain.PlanDocumentEvent, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, plan_document_id, claude_session_id, user_id, event_type, patch, created_at
+		`SELECT id, plan_document_id, claude_session_id, tool_use_id, user_id, event_type, patch, created_at
 		 FROM plan_document_events WHERE plan_document_id = ?
 		 ORDER BY created_at ASC`,
 		planDocumentID,
@@ -63,7 +63,7 @@ func (r *PlanDocumentEventRepository) FindByPlanDocumentID(ctx context.Context, 
 
 func (r *PlanDocumentEventRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) ([]*domain.PlanDocumentEvent, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, plan_document_id, claude_session_id, user_id, event_type, patch, created_at
+		`SELECT id, plan_document_id, claude_session_id, tool_use_id, user_id, event_type, patch, created_at
 		 FROM plan_document_events WHERE claude_session_id = ?
 		 ORDER BY created_at ASC`,
 		claudeSessionID,
@@ -110,17 +110,20 @@ func (r *PlanDocumentEventRepository) GetCollaboratorUserIDs(ctx context.Context
 
 func (r *PlanDocumentEventRepository) scanEvent(rows *sql.Rows) (*domain.PlanDocumentEvent, error) {
 	var event domain.PlanDocumentEvent
-	var claudeSessionID, userID sql.NullString
+	var claudeSessionID, toolUseID, userID sql.NullString
 	var eventType string
 	var createdAt string
 
-	err := rows.Scan(&event.ID, &event.PlanDocumentID, &claudeSessionID, &userID, &eventType, &event.Patch, &createdAt)
+	err := rows.Scan(&event.ID, &event.PlanDocumentID, &claudeSessionID, &toolUseID, &userID, &eventType, &event.Patch, &createdAt)
 	if err != nil {
 		return nil, err
 	}
 
 	if claudeSessionID.Valid {
 		event.ClaudeSessionID = &claudeSessionID.String
+	}
+	if toolUseID.Valid {
+		event.ToolUseID = &toolUseID.String
 	}
 	if userID.Valid {
 		event.UserID = &userID.String
