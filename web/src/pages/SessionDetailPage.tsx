@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Folder, GitBranch, MessageSquare, User, Pencil, X, Save, FolderEdit } from 'lucide-react'
-import { format } from 'date-fns'
+import { Clock, Folder, GitBranch, MessageSquare, User, Pencil, X, Save, FolderEdit } from 'lucide-react'
+import { format, formatDistanceToNow } from 'date-fns'
 import { TimelineContainer } from '@/components/timeline/TimelineContainer'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
@@ -195,7 +195,7 @@ export function SessionDetailPage() {
               )}
               {session.git_branch && <span>: {session.git_branch}</span>}
               {user && (
-                <Button variant="ghost" size="sm" onClick={handleStartProjectEdit} className="!p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="sm" onClick={handleStartProjectEdit} className="!p-0.5 hidden group-hover:inline-flex">
                   <Pencil className="h-3 w-3" />
                 </Button>
               )}
@@ -216,6 +216,10 @@ export function SessionDetailPage() {
           <span className="flex items-center gap-1">
             <MessageSquare className="h-3 w-3" />
             {session.events?.length || 0}
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
           </span>
         </div>
       </div>

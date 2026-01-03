@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/Card'
 import { PlanStatusBadge } from './PlanStatusBadge'
 import { GitBranch, Users, Clock } from 'lucide-react'
-import { format } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import type { PlanDocument } from '@/types/plan-document'
 import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 
@@ -14,7 +14,7 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
   const repoName = parseRepoName(plan.project)
   const repoUrl = getRepoUrl(plan.project)
   const hasProject = !isDefaultProject(plan.project)
-  const formattedDate = format(new Date(plan.updated_at), 'yyyy/MM/dd HH:mm')
+  const relativeTime = formatDistanceToNow(new Date(plan.updated_at), { addSuffix: true })
   const collaboratorNames = plan.collaborators.map((c) => c.display_name).join(', ')
 
   return (
@@ -59,7 +59,7 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
           )}
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formattedDate}
+            {relativeTime}
           </span>
         </div>
       </div>

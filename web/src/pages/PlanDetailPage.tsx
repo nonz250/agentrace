@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save, Copy, Check, FolderEdit } from 'lucide-react'
-import { format } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { PlanEventHistory } from '@/components/plans/PlanEventHistory'
@@ -176,7 +176,7 @@ export function PlanDetailPage() {
   const repoUrl = getRepoUrl(plan.project)
   const hasProject = !isDefaultProject(plan.project)
   const collaboratorNames = plan.collaborators.map((c) => c.display_name).join(', ')
-  const formattedDate = format(new Date(plan.updated_at), 'yyyy/MM/dd HH:mm')
+  const relativeTime = formatDistanceToNow(new Date(plan.updated_at), { addSuffix: true })
   const projectDisplayName = getProjectDisplayName(plan.project)
 
   // Build breadcrumb items - always show project from URL
@@ -292,7 +292,7 @@ export function PlanDetailPage() {
           )}
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formattedDate}
+            {relativeTime}
           </span>
         </div>
       </div>
