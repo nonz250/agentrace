@@ -1,8 +1,15 @@
 # AgenTrace
 
-A self-hosted service for reviewing Claude Code conversations with your team.
+A self-hosted service for sharing Claude Code sessions and managing implementation plans with your team.
 
 Since Claude Code logs contain source code and environment information, AgenTrace is designed to run on your local machine or internal network rather than on the public internet.
+
+**Demo:** https://satetsu888.github.io/agentrace
+
+## Features
+
+- **Session Sharing**: Automatically capture and share Claude Code conversations with your team
+- **Plan Management**: Create and track implementation plans via Claude Code's MCP tools
 
 ## Quick Start
 
@@ -12,8 +19,6 @@ Since Claude Code logs contain source code and environment information, AgenTrac
 docker run -d --name agentrace -p 9080:9080 -v $(pwd)/data:/data satetsu888/agentrace:latest
 ```
 
-Open http://localhost:9080 in your browser.
-
 ### 2. Setup CLI
 
 ```bash
@@ -21,15 +26,34 @@ npx agentrace init --url http://localhost:9080
 ```
 
 This will:
+
 1. Open your browser for registration/login
 2. Automatically configure API key
-3. Install Claude Code hooks
+3. Install Claude Code hooks and MCP server
 
-Once setup is complete, your Claude Code sessions will be automatically sent to the server.
+Once setup is complete:
+- Your Claude Code sessions will be automatically sent to the server
+- Plan management tools will be available in Claude Code
 
-### 3. View Sessions
+### 3. Browse Dashboard
 
-Open http://localhost:9080 to browse and review your sessions.
+Open http://localhost:9080 to:
+- Review shared sessions
+- View and manage implementation plans
+
+## Using Plan Management
+
+After setup, Claude Code can use the following MCP tools:
+
+| Tool | Description |
+| ---- | ----------- |
+| `list_plans` | List plans for a repository |
+| `read_plan` | Read a plan by ID |
+| `create_plan` | Create a new plan |
+| `update_plan` | Update an existing plan |
+| `set_plan_status` | Change plan status (scratch/planning/implementation/complete) |
+
+Claude Code will automatically use these tools when discussing implementation plans.
 
 ## CLI Commands
 
@@ -60,8 +84,8 @@ npx agentrace on
 | `DB_TYPE` | sqlite | Database type |
 | `DATABASE_URL` | /data/agentrace.db | Database path |
 | `DEV_MODE` | false | Enable debug logging |
-| `GITHUB_CLIENT_ID` | (empty) | GitHub OAuth Client ID |
-| `GITHUB_CLIENT_SECRET` | (empty) | GitHub OAuth Client Secret |
+| `GITHUB_CLIENT_ID` | - | GitHub OAuth Client ID |
+| `GITHUB_CLIENT_SECRET` | - | GitHub OAuth Client Secret |
 
 ```bash
 # Example: Enable debug mode
@@ -79,7 +103,9 @@ npx agentrace uninstall
 ```
 
 This removes:
+
 - Claude Code hooks from `~/.claude/settings.json`
+- MCP server configuration from `~/.claude/claude_desktop_config.json`
 - Configuration from `~/.agentrace/`
 
 ### 2. Stop and Remove Docker Container
