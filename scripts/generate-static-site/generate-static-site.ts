@@ -397,9 +397,14 @@ async function renderPage(
 
 async function buildWebApp(): Promise<void> {
   console.log("Building web app...");
+  const env = {
+    ...process.env,
+    VITE_BASE_PATH: GITHUB_PAGES_BASE || undefined,
+  };
   execSync("npm run build", {
     cwd: WEB_DIR,
     stdio: "inherit",
+    env,
   });
 }
 
