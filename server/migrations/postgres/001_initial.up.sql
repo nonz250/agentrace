@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    uuid VARCHAR(255),
     event_type VARCHAR(50),
     payload JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -121,6 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at);
 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_session_uuid ON events(session_id, uuid) WHERE uuid IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_plan_documents_project ON plan_documents(project_id);
 CREATE INDEX IF NOT EXISTS idx_plan_documents_updated ON plan_documents(updated_at);
 CREATE INDEX IF NOT EXISTS idx_plan_documents_status ON plan_documents(status);

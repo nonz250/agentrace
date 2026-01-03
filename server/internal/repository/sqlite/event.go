@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
+	"github.com/satetsu888/agentrace/server/internal/repository"
 )
 
 type EventRepository struct {
@@ -31,17 +33,30 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 		return err
 	}
 
+	// Use sql.NullString for optional uuid
+	var uuidValue sql.NullString
+	if event.UUID != "" {
+		uuidValue = sql.NullString{String: event.UUID, Valid: true}
+	}
+
 	_, err = r.db.ExecContext(ctx,
-		`INSERT INTO events (id, session_id, event_type, payload, created_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		event.ID, event.SessionID, event.EventType, string(payloadJSON), event.CreatedAt.Format(time.RFC3339),
+		`INSERT INTO events (id, session_id, uuid, event_type, payload, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		event.ID, event.SessionID, uuidValue, event.EventType, string(payloadJSON), event.CreatedAt.Format(time.RFC3339),
 	)
-	return err
+	if err != nil {
+		// Check for UNIQUE constraint violation (duplicate uuid)
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return repository.ErrDuplicateEvent
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.Event, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, session_id, event_type, payload, created_at
+		`SELECT id, session_id, uuid, event_type, payload, created_at
 		 FROM events WHERE session_id = ?
 		 ORDER BY created_at ASC`,
 		sessionID,
@@ -68,11 +83,16 @@ func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string)
 
 func (r *EventRepository) scanEvent(rows *sql.Rows) (*domain.Event, error) {
 	var event domain.Event
+	var uuidValue sql.NullString
 	var payloadStr, createdAt string
 
-	err := rows.Scan(&event.ID, &event.SessionID, &event.EventType, &payloadStr, &createdAt)
+	err := rows.Scan(&event.ID, &event.SessionID, &uuidValue, &event.EventType, &payloadStr, &createdAt)
 	if err != nil {
 		return nil, err
+	}
+
+	if uuidValue.Valid {
+		event.UUID = uuidValue.String
 	}
 
 	if err := json.Unmarshal([]byte(payloadStr), &event.Payload); err != nil {

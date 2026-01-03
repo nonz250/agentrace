@@ -2,10 +2,14 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/satetsu888/agentrace/server/internal/domain"
 )
+
+// ErrDuplicateEvent is returned when trying to create an event with a UUID that already exists
+var ErrDuplicateEvent = errors.New("duplicate event: UUID already exists for this session")
 
 // ProjectRepository はプロジェクトの永続化を担当する
 type ProjectRepository interface {

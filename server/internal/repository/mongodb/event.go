@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
+	"github.com/satetsu888/agentrace/server/internal/repository"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -24,6 +25,7 @@ func NewEventRepository(db *DB) *EventRepository {
 type eventDocument struct {
 	ID        string                 `bson:"_id"`
 	SessionID string                 `bson:"session_id"`
+	UUID      string                 `bson:"uuid,omitempty"`
 	EventType string                 `bson:"event_type"`
 	Payload   map[string]interface{} `bson:"payload"`
 	CreatedAt time.Time              `bson:"created_at"`
@@ -40,13 +42,21 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 	doc := eventDocument{
 		ID:        event.ID,
 		SessionID: event.SessionID,
+		UUID:      event.UUID,
 		EventType: event.EventType,
 		Payload:   event.Payload,
 		CreatedAt: event.CreatedAt,
 	}
 
 	_, err := r.collection.InsertOne(ctx, doc)
-	return err
+	if err != nil {
+		// Check for duplicate key error (unique index violation)
+		if mongo.IsDuplicateKeyError(err) {
+			return repository.ErrDuplicateEvent
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.Event, error) {
@@ -72,6 +82,7 @@ func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string)
 		events = append(events, &domain.Event{
 			ID:        doc.ID,
 			SessionID: doc.SessionID,
+			UUID:      doc.UUID,
 			EventType: doc.EventType,
 			Payload:   doc.Payload,
 			CreatedAt: doc.CreatedAt,

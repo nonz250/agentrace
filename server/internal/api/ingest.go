@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -97,6 +98,11 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			Payload:   line,
 		}
 
+		// Extract uuid from transcript line (Claude Code's unique identifier)
+		if uuid, ok := line["uuid"].(string); ok {
+			event.UUID = uuid
+		}
+
 		// Extract type if present
 		eventType := ""
 		if et, ok := line["type"].(string); ok {
@@ -116,6 +122,10 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := h.repos.Event.Create(ctx, event); err != nil {
+			// Skip duplicate events (same uuid within session)
+			if errors.Is(err, repository.ErrDuplicateEvent) {
+				continue
+			}
 			http.Error(w, `{"error": "failed to create event"}`, http.StatusInternalServerError)
 			return
 		}

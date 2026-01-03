@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    uuid TEXT,
     event_type TEXT,
     payload TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -119,6 +120,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_session_uuid ON events(session_id, uuid) WHERE uuid IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_plan_documents_project ON plan_documents(project_id);
 CREATE INDEX IF NOT EXISTS idx_plan_documents_updated ON plan_documents(updated_at);
 CREATE INDEX IF NOT EXISTS idx_plan_documents_status ON plan_documents(status);

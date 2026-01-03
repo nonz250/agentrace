@@ -8,16 +8,20 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
+	"github.com/satetsu888/agentrace/server/internal/repository"
 )
 
 type EventRepository struct {
 	mu     sync.RWMutex
 	events map[string]*domain.Event
+	// uuidIndex maps "session_id:uuid" -> event.ID to detect duplicates
+	uuidIndex map[string]string
 }
 
 func NewEventRepository() *EventRepository {
 	return &EventRepository{
-		events: make(map[string]*domain.Event),
+		events:    make(map[string]*domain.Event),
+		uuidIndex: make(map[string]string),
 	}
 }
 
@@ -30,6 +34,15 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 	}
 	if event.CreatedAt.IsZero() {
 		event.CreatedAt = time.Now()
+	}
+
+	// Check for duplicate uuid within the same session
+	if event.UUID != "" {
+		indexKey := event.SessionID + ":" + event.UUID
+		if _, exists := r.uuidIndex[indexKey]; exists {
+			return repository.ErrDuplicateEvent
+		}
+		r.uuidIndex[indexKey] = event.ID
 	}
 
 	r.events[event.ID] = event

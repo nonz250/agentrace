@@ -71,5 +71,24 @@ func runMigrations(db *sql.DB) error {
 
 	// Add index for updated_at if not exists
 	_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at)`)
+	if err != nil {
+		return err
+	}
+
+	// Add uuid column to events if not exists
+	var uuidColExists int
+	row = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('events') WHERE name='uuid'`)
+	if err := row.Scan(&uuidColExists); err != nil {
+		return err
+	}
+	if uuidColExists == 0 {
+		_, err = db.Exec(`ALTER TABLE events ADD COLUMN uuid TEXT`)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Add unique index for (session_id, uuid) to prevent duplicate events
+	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_session_uuid ON events(session_id, uuid) WHERE uuid IS NOT NULL`)
 	return err
 }

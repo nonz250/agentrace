@@ -137,6 +137,20 @@ func (db *DB) createIndexes(ctx context.Context) error {
 		{
 			Keys: bson.D{{Key: "created_at", Value: 1}},
 		},
+		{
+			// Unique index on (session_id, uuid) to prevent duplicate events
+			// Partial index: only index documents where uuid exists and is not empty
+			Keys: bson.D{
+				{Key: "session_id", Value: 1},
+				{Key: "uuid", Value: 1},
+			},
+			Options: options.Index().
+				SetUnique(true).
+				SetPartialFilterExpression(bson.D{
+					{Key: "uuid", Value: bson.D{{Key: "$exists", Value: true}}},
+					{Key: "uuid", Value: bson.D{{Key: "$ne", Value: ""}}},
+				}),
+		},
 	}
 	if _, err := db.Collection("events").Indexes().CreateMany(ctx, eventsIndexes); err != nil {
 		return err

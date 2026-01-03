@@ -37,5 +37,27 @@ func Open(databaseURL string) (*DB, error) {
 
 func runMigrations(db *sql.DB) error {
 	_, err := db.Exec(migrations.PostgresSchema)
+	if err != nil {
+		return err
+	}
+
+	// Add uuid column to events if not exists
+	_, err = db.Exec(`
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'events' AND column_name = 'uuid'
+			) THEN
+				ALTER TABLE events ADD COLUMN uuid VARCHAR(255);
+			END IF;
+		END $$;
+	`)
+	if err != nil {
+		return err
+	}
+
+	// Add unique index for (session_id, uuid) to prevent duplicate events
+	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_session_uuid ON events(session_id, uuid) WHERE uuid IS NOT NULL`)
 	return err
 }
