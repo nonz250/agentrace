@@ -71,6 +71,39 @@ web/src/
 | tool_group | 折りたたみ |
 | compact_summary | 展開 |
 
+## Plan表示
+
+### Markdownコードハイライト
+
+`PlanDetailPage.tsx`と`ContentBlockCard.tsx`で`react-syntax-highlighter`を使用:
+
+```tsx
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
+
+<ReactMarkdown
+  components={{
+    code({ className, children, ...props }) {
+      const match = /language-(\w+)/.exec(className || '')
+      const code = String(children).replace(/\n$/, '')
+      return match ? (
+        <SyntaxHighlighter language={match[1]} style={oneLight}>
+          {code}
+        </SyntaxHighlighter>
+      ) : (
+        <code className={className} {...props}>{children}</code>
+      )
+    },
+  }}
+>
+```
+
+### DiffView（変更履歴表示）
+
+`PlanEventHistory.tsx`で使用。diff-match-patch形式のパッチを表示:
+- URLエンコードされたパッチをデコード
+- 追加行（`+`）を緑背景、削除行（`-`）を赤背景で表示
+
 ## ルーティング
 
 ### URL構造
