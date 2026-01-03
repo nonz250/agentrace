@@ -1,14 +1,10 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowRight, Plus } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { PlanList } from '@/components/plans/PlanList'
-import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
-import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
-import { useAuth } from '@/hooks/useAuth'
 import * as projectsApi from '@/api/projects'
 import * as sessionsApi from '@/api/sessions'
 import * as plansApi from '@/api/plan-documents'
@@ -16,8 +12,6 @@ import { getProjectDisplayName } from '@/lib/project-utils'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
-  const { user } = useAuth()
-  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const { data: project, isLoading: isProjectLoading, error: projectError } = useQuery({
     queryKey: ['project', projectId],
@@ -71,21 +65,13 @@ export function ProjectDetailPage() {
       <section>
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Recent Plans</h2>
-          <div className="flex items-center gap-3">
-            {user && (
-              <Button size="sm" onClick={() => setShowCreateModal(true)}>
-                <Plus className="mr-1 h-4 w-4" />
-                Create Plan
-              </Button>
-            )}
-            <Link
-              to={`/projects/${projectId}/plans`}
-              className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-            >
-              View all
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <Link
+            to={`/projects/${projectId}/plans`}
+            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+          >
+            View all
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
         {isPlansLoading ? (
           <div className="flex justify-center py-12">
@@ -124,12 +110,6 @@ export function ProjectDetailPage() {
           <SessionList sessions={sessionsData?.sessions || []} />
         )}
       </section>
-
-      <CreatePlanModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        defaultProjectId={projectId}
-      />
     </div>
   )
 }
