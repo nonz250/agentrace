@@ -182,7 +182,7 @@ draft と pending は必要に応じて使用する補助的なステータス�
 ## 開発時の起動
 
 ```bash
-DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./dev.db WEB_URL=http://localhost:5173 go run ./cmd/server
+DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./db.sqlite3 WEB_URL=http://localhost:5173 go run ./cmd/server
 ```
 
 - `WEB_URL`を設定することで、フロントエンド（localhost:5173）からのCORSリクエストを許可

@@ -77,7 +77,7 @@ npx agentrace init --url http://localhost:9080
 
 ```bash
 # Server（WEB_URLはCORS許可とリダイレクト用）
-cd server && DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./dev.db WEB_URL=http://localhost:5173 go run ./cmd/server
+cd server && DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./db.sqlite3 WEB_URL=http://localhost:5173 go run ./cmd/server
 
 # Web（VITE_API_URLは.env.developmentで設定済み）
 cd web && npm install && npm run dev
