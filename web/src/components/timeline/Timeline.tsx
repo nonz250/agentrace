@@ -474,10 +474,21 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
   return blocks
 }
 
-// Extract user block info for navigation
-export function extractUserBlocks(blocks: DisplayBlock[]): Array<{ id: string; preview: string; timestamp: string }> {
+// Message block info for navigation (includes both user and assistant messages)
+export interface MessageBlockInfo {
+  id: string
+  preview: string
+  timestamp: string
+  role: 'user' | 'assistant'
+}
+
+// Extract message block info for navigation (user and assistant text messages)
+export function extractMessageBlocks(blocks: DisplayBlock[]): MessageBlockInfo[] {
   return blocks
-    .filter((block) => block.eventType === 'user' && block.blockType === 'text')
+    .filter((block) =>
+      (block.eventType === 'user' && block.blockType === 'text') ||
+      (block.eventType === 'assistant' && block.blockType === 'text')
+    )
     .map((block) => {
       let preview = ''
       const content = block.content
@@ -495,6 +506,7 @@ export function extractUserBlocks(blocks: DisplayBlock[]): Array<{ id: string; p
         id: block.id,
         preview,
         timestamp: block.timestamp,
+        role: block.eventType as 'user' | 'assistant',
       }
     })
 }
@@ -522,15 +534,17 @@ export function Timeline({ events, projectPath, blockRefs }: TimelineProps) {
   return (
     <div className="space-y-3">
       {displayBlocks.map((block) => {
-        const isUserText = block.eventType === 'user' && block.blockType === 'text'
-        const ref = isUserText ? blockRefs?.get(block.id) : undefined
+        const isNavigableBlock =
+          (block.eventType === 'user' && block.blockType === 'text') ||
+          (block.eventType === 'assistant' && block.blockType === 'text')
+        const ref = isNavigableBlock ? blockRefs?.get(block.id) : undefined
 
         return (
           <div
             key={block.id}
             ref={ref}
-            data-block-id={isUserText ? block.id : undefined}
-            className={isUserText ? 'scroll-mt-20' : undefined}
+            data-block-id={isNavigableBlock ? block.id : undefined}
+            className={isNavigableBlock ? 'scroll-mt-20' : undefined}
           >
             <ContentBlockCard block={block} />
           </div>

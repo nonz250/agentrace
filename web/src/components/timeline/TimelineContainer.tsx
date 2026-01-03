@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Timeline, expandEvents, extractUserBlocks } from './Timeline'
-import { UserMessageNav } from './UserMessageNav'
+import { Timeline, expandEvents, extractMessageBlocks } from './Timeline'
+import { MessageNav } from './MessageNav'
 import type { Event } from '@/types/event'
 
 interface TimelineContainerProps {
@@ -11,18 +11,18 @@ interface TimelineContainerProps {
 export function TimelineContainer({ events, projectPath }: TimelineContainerProps) {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
 
-  // Expand events and extract user blocks
+  // Expand events and extract message blocks (user + assistant)
   const displayBlocks = useMemo(() => expandEvents(events, projectPath), [events, projectPath])
-  const userBlocks = useMemo(() => extractUserBlocks(displayBlocks), [displayBlocks])
+  const messageBlocks = useMemo(() => extractMessageBlocks(displayBlocks), [displayBlocks])
 
-  // Create refs for all user blocks
+  // Create refs for all message blocks (user + assistant)
   const blockRefs = useMemo(() => {
     const refs = new Map<string, React.RefObject<HTMLDivElement | null>>()
-    userBlocks.forEach((block) => {
+    messageBlocks.forEach((block) => {
       refs.set(block.id, { current: null })
     })
     return refs
-  }, [userBlocks])
+  }, [messageBlocks])
 
   // Mutable refs container for IntersectionObserver
   const blockRefsRef = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(blockRefs)
@@ -30,7 +30,7 @@ export function TimelineContainer({ events, projectPath }: TimelineContainerProp
     blockRefsRef.current = blockRefs
   }, [blockRefs])
 
-  // Set up IntersectionObserver to track which user block is currently visible
+  // Set up IntersectionObserver to track which message block is currently visible
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -50,7 +50,7 @@ export function TimelineContainer({ events, projectPath }: TimelineContainerProp
       }
     )
 
-    // Observe all user block elements
+    // Observe all message block elements
     blockRefsRef.current.forEach((ref) => {
       if (ref.current) {
         observer.observe(ref.current)
@@ -58,7 +58,7 @@ export function TimelineContainer({ events, projectPath }: TimelineContainerProp
     })
 
     return () => observer.disconnect()
-  }, [userBlocks])
+  }, [messageBlocks])
 
   // Handle navigation to a specific block
   const handleNavigate = useCallback((blockId: string) => {
@@ -83,8 +83,8 @@ export function TimelineContainer({ events, projectPath }: TimelineContainerProp
     <div className="flex gap-6">
       {/* Left sidebar - hidden on small screens */}
       <aside className="hidden w-48 flex-shrink-0 lg:block">
-        <UserMessageNav
-          userBlocks={userBlocks}
+        <MessageNav
+          messageBlocks={messageBlocks}
           activeBlockId={activeBlockId}
           onNavigate={handleNavigate}
         />
