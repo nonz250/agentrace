@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, Home } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { ProjectIcon } from '@/components/projects/ProjectIcon'
+import type { Project } from '@/types/project'
 
 export interface BreadcrumbItem {
   label: string
@@ -8,19 +10,18 @@ export interface BreadcrumbItem {
 
 interface BreadcrumbProps {
   items: BreadcrumbItem[]
+  project?: Project  // プロジェクトが渡された場合、先頭にアイコンを表示
 }
 
-export function Breadcrumb({ items }: BreadcrumbProps) {
+export function Breadcrumb({ items, project }: BreadcrumbProps) {
   if (items.length === 0) return null
 
   return (
-    <nav className="mb-4 flex items-center gap-1 text-sm text-gray-500">
-      <Link to="/" className="flex items-center hover:text-gray-700">
-        <Home className="h-4 w-4" />
-      </Link>
+    <nav className="mb-4 flex items-center gap-2 text-sm text-gray-500">
+      {project && <ProjectIcon project={project} className="h-5 w-5" />}
       {items.map((item, index) => (
         <span key={index} className="flex items-center gap-1">
-          <ChevronRight className="h-4 w-4 text-gray-400" />
+          {index > 0 && <ChevronRight className="h-4 w-4 text-gray-400" />}
           {item.href ? (
             <Link to={item.href} className="hover:text-gray-700 truncate max-w-[200px]">
               {item.label}

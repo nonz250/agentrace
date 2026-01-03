@@ -183,7 +183,7 @@ export function PlanDetailPage() {
   const breadcrumbItems: BreadcrumbItem[] = []
   if (hasProject && plan.project) {
     breadcrumbItems.push({ label: projectDisplayName || '(no project)', href: `/projects/${plan.project.id}` })
-    breadcrumbItems.push({ label: 'Plans', href: `/plans?project_id=${plan.project.id}` })
+    breadcrumbItems.push({ label: 'Plans', href: `/projects/${plan.project.id}/plans` })
   } else {
     breadcrumbItems.push({ label: 'Plans', href: '/plans' })
   }
@@ -193,7 +193,7 @@ export function PlanDetailPage() {
 
   return (
     <div>
-      <Breadcrumb items={breadcrumbItems} />
+      <Breadcrumb items={breadcrumbItems} project={plan.project ?? undefined} />
 
       <div className="mb-6">
         {/* Title: Description + Status + Actions */}

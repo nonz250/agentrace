@@ -113,7 +113,7 @@ export function SessionDetailPage() {
   const breadcrumbItems: BreadcrumbItem[] = []
   if (hasProject && session.project) {
     breadcrumbItems.push({ label: projectDisplayName || '(no project)', href: `/projects/${session.project.id}` })
-    breadcrumbItems.push({ label: 'Sessions', href: `/sessions?project_id=${session.project.id}` })
+    breadcrumbItems.push({ label: 'Sessions', href: `/projects/${session.project.id}/sessions` })
   } else {
     breadcrumbItems.push({ label: 'Sessions', href: '/sessions' })
   }
@@ -123,7 +123,7 @@ export function SessionDetailPage() {
 
   return (
     <div>
-      <Breadcrumb items={breadcrumbItems} />
+      <Breadcrumb items={breadcrumbItems} project={session.project ?? undefined} />
 
       <div className="mb-6">
         {/* Title: Date + Title */}

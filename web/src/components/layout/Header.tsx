@@ -1,22 +1,35 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, matchPath } from 'react-router-dom'
 import { Settings, LogOut, ChevronDown, Users } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 
-const navLinks = [
-  { to: '/', label: 'Projects', exact: true },
-  { to: '/sessions', label: 'Sessions' },
-  { to: '/plans', label: 'Plans' },
-]
+function useCurrentProjectId(): string | undefined {
+  const location = useLocation()
+  // /projects/:projectId/* にマッチするか確認
+  const match = matchPath('/projects/:projectId/*', location.pathname)
+  return match?.params.projectId
+}
 
 export function Header() {
   const { user, logout, isLoggingOut } = useAuth()
   const location = useLocation()
+  const currentProjectId = useCurrentProjectId()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const isActive = (to: string, exact?: boolean) => {
-    if (exact) return location.pathname === to
+  // プロジェクト配下にいるときのみSessions/Plansリンクを表示
+  const navLinks = useMemo(() => {
+    if (currentProjectId) {
+      return [
+        { to: `/projects/${currentProjectId}/sessions`, label: 'Sessions' },
+        { to: `/projects/${currentProjectId}/plans`, label: 'Plans' },
+      ]
+    }
+    // TOPページではリンクを表示しない
+    return []
+  }, [currentProjectId])
+
+  const isActive = (to: string) => {
     return location.pathname.startsWith(to)
   }
 
@@ -44,7 +57,7 @@ export function Header() {
                 key={link.to}
                 to={link.to}
                 className={`text-sm font-medium transition-colors ${
-                  isActive(link.to, link.exact)
+                  isActive(link.to)
                     ? 'text-primary-600'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}

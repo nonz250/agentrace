@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams, Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { useSearchParams, useParams } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { PlanList } from '@/components/plans/PlanList'
 import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
@@ -53,8 +53,11 @@ const statusConfig: Record<PlanDocumentStatus, { label: string; selectedClass: s
 
 export function PlansPage() {
   const { user } = useAuth()
+  const { projectId: urlProjectId } = useParams<{ projectId: string }>()
   const [searchParams] = useSearchParams()
-  const projectId = searchParams.get('project_id')
+  const queryProjectId = searchParams.get('project_id')
+  // URLパラメータ優先、なければクエリパラメータ
+  const projectId = urlProjectId || queryProjectId
   const [page, setPage] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedStatuses, setSelectedStatuses] = useState<PlanDocumentStatus[]>(DEFAULT_SELECTED_STATUSES)
@@ -118,28 +121,10 @@ export function PlansPage() {
 
   return (
     <div>
-      <Breadcrumb items={breadcrumbItems} />
+      <Breadcrumb items={breadcrumbItems} project={projectData} />
 
       <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {projectId ? 'Plans' : 'All Plans'}
-          </h1>
-          {projectId && projectDisplayName && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">
-                Filtered by: <span className="font-medium">{projectDisplayName}</span>
-              </span>
-              <Link
-                to="/plans"
-                className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
-              >
-                <X className="h-3 w-3" />
-                Clear
-              </Link>
-            </div>
-          )}
-        </div>
+        <h1 className="text-2xl font-semibold text-gray-900">Plans</h1>
         {user && (
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="mr-1 h-4 w-4" />

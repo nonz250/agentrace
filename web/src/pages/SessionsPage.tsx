@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams, Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { useSearchParams, useParams } from 'react-router-dom'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
@@ -13,8 +13,11 @@ import { getProjectDisplayName } from '@/lib/project-utils'
 const PAGE_SIZE = 20
 
 export function SessionsPage() {
+  const { projectId: urlProjectId } = useParams<{ projectId: string }>()
   const [searchParams] = useSearchParams()
-  const projectId = searchParams.get('project_id')
+  const queryProjectId = searchParams.get('project_id')
+  // URLパラメータ優先、なければクエリパラメータ
+  const projectId = urlProjectId || queryProjectId
   const [page, setPage] = useState(1)
   const offset = (page - 1) * PAGE_SIZE
 
@@ -59,26 +62,10 @@ export function SessionsPage() {
 
   return (
     <div>
-      <Breadcrumb items={breadcrumbItems} />
+      <Breadcrumb items={breadcrumbItems} project={projectData} />
 
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          {projectId ? 'Sessions' : 'All Sessions'}
-        </h1>
-        {projectId && projectDisplayName && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">
-              Filtered by: <span className="font-medium">{projectDisplayName}</span>
-            </span>
-            <Link
-              to="/sessions"
-              className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
-            >
-              <X className="h-3 w-3" />
-              Clear
-            </Link>
-          </div>
-        )}
+        <h1 className="text-2xl font-semibold text-gray-900">Sessions</h1>
       </div>
       <SessionList sessions={sessions} />
 

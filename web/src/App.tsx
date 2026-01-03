@@ -130,7 +130,9 @@ export default function App() {
         {/* Main routes - accessible without auth */}
         <Route path="/" element={<Layout />}>
           <Route index element={<ProjectsPage />} />
-          <Route path="projects/:id" element={<ProjectDetailPage />} />
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="projects/:projectId/sessions" element={<SessionsPage />} />
+          <Route path="projects/:projectId/plans" element={<PlansPage />} />
           <Route path="sessions" element={<SessionsPage />} />
           <Route path="sessions/:id" element={<SessionDetailPage />} />
           <Route path="plans" element={<PlansPage />} />
