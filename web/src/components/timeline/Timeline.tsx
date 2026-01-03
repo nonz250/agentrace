@@ -76,7 +76,7 @@ const TOOL_PARAMS_EXTRACTORS: Record<string, ToolParamsExtractor> = {
 
 // Agentrace MCP tools
 const AGENTRACE_MCP_TOOLS = [
-  'mcp__agentrace__list_plans',
+  'mcp__agentrace__search_plans',
   'mcp__agentrace__read_plan',
   'mcp__agentrace__create_plan',
   'mcp__agentrace__update_plan',
@@ -100,7 +100,7 @@ function extractPlanLinks(
   const tool = toolName.replace('mcp__agentrace__', '')
 
   switch (tool) {
-    case 'list_plans': {
+    case 'search_plans': {
       // Result is JSON array of plans
       if (!resultText) return []
       // Skip "No plans found" message

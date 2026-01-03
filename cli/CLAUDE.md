@@ -168,7 +168,7 @@ Claude Code の MCP (Model Context Protocol) サーバーとして動作し、Pl
 
 | ツール | 説明 | 引数 |
 |--------|------|------|
-| `list_plans` | リポジトリのPlan一覧取得 | `git_remote_url` |
+| `search_plans` | Planの検索（フィルタリング対応） | `git_remote_url`, `status`, `description` |
 | `read_plan` | Plan読み込み | `id` |
 | `create_plan` | Plan作成（project は session から自動取得） | `description`, `body` |
 | `update_plan` | Plan更新（パッチ自動生成） | `id`, `body` |
@@ -179,8 +179,8 @@ Claude Code の MCP (Model Context Protocol) サーバーとして動作し、Pl
 ### 使用例
 
 ```
-# Planの一覧を取得
-list_plans(git_remote_url: "https://github.com/user/repo.git")
+# Planの検索
+search_plans(git_remote_url: "https://github.com/user/repo.git", status: "planning")
 
 # 新規Planを作成（session_id は自動注入）
 create_plan(

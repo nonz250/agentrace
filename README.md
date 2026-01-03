@@ -47,7 +47,7 @@ After setup, Claude Code can use the following MCP tools:
 
 | Tool | Description |
 | ---- | ----------- |
-| `list_plans` | List plans for a repository |
+| `search_plans` | Search plans with filtering options |
 | `read_plan` | Read a plan by ID |
 | `create_plan` | Create a new plan |
 | `update_plan` | Update an existing plan |
