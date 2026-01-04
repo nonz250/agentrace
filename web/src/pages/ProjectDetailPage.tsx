@@ -10,7 +10,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
 import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
-import { ALL_STATUSES, statusConfig, getFilterButtonClass } from '@/lib/plan-status'
+import { statusConfig, getFilterButtonClass } from '@/lib/plan-status'
 import * as projectsApi from '@/api/projects'
 import * as sessionsApi from '@/api/sessions'
 import * as plansApi from '@/api/plan-documents'
@@ -88,15 +88,15 @@ export function ProjectDetailPage() {
         </div>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-500">Filter by status:</span>
-          {ALL_STATUSES.map((status) => {
-            const isSelected = selectedStatuses.includes(status)
+          {Object.entries(statusConfig).map(([status, config]) => {
+            const isSelected = selectedStatuses.includes(status as keyof typeof statusConfig)
             return (
               <button
                 key={status}
-                onClick={() => toggleStatus(status)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${getFilterButtonClass(status, isSelected)}`}
+                onClick={() => toggleStatus(status as keyof typeof statusConfig)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${getFilterButtonClass(status as keyof typeof statusConfig, isSelected)}`}
               >
-                {statusConfig[status].label}
+                {config.label}
               </button>
             )
           })}

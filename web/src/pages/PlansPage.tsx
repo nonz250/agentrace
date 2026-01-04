@@ -12,7 +12,7 @@ import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
 import * as plansApi from '@/api/plan-documents'
 import * as projectsApi from '@/api/projects'
 import { getProjectDisplayName } from '@/lib/project-utils'
-import { ALL_STATUSES, statusConfig, getFilterButtonClass } from '@/lib/plan-status'
+import { statusConfig, getFilterButtonClass } from '@/lib/plan-status'
 
 const PAGE_SIZE = 20
 
@@ -90,15 +90,15 @@ export function PlansPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-sm text-gray-500">Filter by status:</span>
-        {ALL_STATUSES.map((status) => {
-          const isSelected = selectedStatuses.includes(status)
+        {Object.entries(statusConfig).map(([status, config]) => {
+          const isSelected = selectedStatuses.includes(status as keyof typeof statusConfig)
           return (
             <button
               key={status}
-              onClick={() => toggleStatus(status)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${getFilterButtonClass(status, isSelected)}`}
+              onClick={() => toggleStatus(status as keyof typeof statusConfig)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${getFilterButtonClass(status as keyof typeof statusConfig, isSelected)}`}
             >
-              {statusConfig[status].label}
+              {config.label}
             </button>
           )
         })}

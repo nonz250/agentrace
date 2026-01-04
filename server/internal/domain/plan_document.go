@@ -9,13 +9,14 @@ const (
 	PlanDocumentStatusDraft          PlanDocumentStatus = "draft"
 	PlanDocumentStatusPlanning       PlanDocumentStatus = "planning"
 	PlanDocumentStatusPending        PlanDocumentStatus = "pending"
+	PlanDocumentStatusReady          PlanDocumentStatus = "ready"
 	PlanDocumentStatusImplementation PlanDocumentStatus = "implementation"
 	PlanDocumentStatusComplete       PlanDocumentStatus = "complete"
 )
 
 func (s PlanDocumentStatus) IsValid() bool {
 	switch s {
-	case PlanDocumentStatusScratch, PlanDocumentStatusDraft, PlanDocumentStatusPlanning, PlanDocumentStatusPending, PlanDocumentStatusImplementation, PlanDocumentStatusComplete:
+	case PlanDocumentStatusScratch, PlanDocumentStatusDraft, PlanDocumentStatusPlanning, PlanDocumentStatusPending, PlanDocumentStatusReady, PlanDocumentStatusImplementation, PlanDocumentStatusComplete:
 		return true
 	}
 	return false

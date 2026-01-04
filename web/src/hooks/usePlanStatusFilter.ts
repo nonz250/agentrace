@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { PlanDocumentStatus } from '@/types/plan-document'
-import { ALL_STATUSES } from '@/lib/plan-status'
+import { statusConfig } from '@/lib/plan-status'
 
 const STORAGE_KEY = 'agentrace:plan-status-filter'
 
@@ -12,7 +12,7 @@ function loadFromStorage(): PlanDocumentStatus[] | null {
     }
     const parsed = JSON.parse(stored)
     if (Array.isArray(parsed)) {
-      return parsed.filter((s): s is PlanDocumentStatus => ALL_STATUSES.includes(s))
+      return parsed.filter((s): s is PlanDocumentStatus => s in statusConfig)
     }
     return null
   } catch {
@@ -50,7 +50,7 @@ export function usePlanStatusFilter() {
   }, [])
 
   const selectAll = useCallback(() => {
-    setSelectedStatuses([...ALL_STATUSES])
+    setSelectedStatuses(Object.keys(statusConfig) as PlanDocumentStatus[])
   }, [])
 
   const clearAll = useCallback(() => {

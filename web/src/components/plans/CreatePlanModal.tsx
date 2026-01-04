@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { createPlan } from '@/api/plan-documents'
 import { getProjects } from '@/api/projects'
 import { getProjectDisplayName } from '@/lib/project-utils'
+import { statusConfig } from '@/lib/plan-status'
 import type { PlanDocumentStatus } from '@/types/plan-document'
 
 interface CreatePlanModalProps {
@@ -16,15 +17,6 @@ interface CreatePlanModalProps {
   onSuccess?: () => void
   defaultProjectId?: string | null
 }
-
-const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
-  { value: 'scratch', label: 'Scratch' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'planning', label: 'Planning' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'implementation', label: 'Implementation' },
-  { value: 'complete', label: 'Complete' },
-]
 
 export function CreatePlanModal({ open, onClose, onSuccess, defaultProjectId }: CreatePlanModalProps) {
   const queryClient = useQueryClient()
@@ -96,9 +88,9 @@ export function CreatePlanModal({ open, onClose, onSuccess, defaultProjectId }: 
           value={status}
           onChange={(e) => setStatus(e.target.value as PlanDocumentStatus)}
         >
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
+          {Object.entries(statusConfig).map(([status, config]) => (
+            <option key={status} value={status}>
+              {config.label}
             </option>
           ))}
         </Select>

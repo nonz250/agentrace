@@ -53,7 +53,7 @@ const UpdatePlanSchema = z.object({
 
 const SetPlanStatusSchema = z.object({
   id: z.string().describe("Plan document ID"),
-  status: z.enum(["scratch", "draft", "planning", "pending", "implementation", "complete"]).describe("New status for the plan"),
+  status: z.enum(["scratch", "draft", "planning", "pending", "ready", "implementation", "complete"]).describe("New status for the plan"),
 });
 
 // Tool descriptions with usage guidance
@@ -106,15 +106,17 @@ Available statuses:
 - draft: Plan not yet fully considered (optional intermediate status)
 - planning: Plan is being designed/refined through discussion
 - pending: Waiting for approval or blocked
+- ready: Plan is finalized and ready for implementation (awaiting review/approval to start)
 - implementation: Active development is in progress
 - complete: The work described in the plan is finished
 
-BASIC FLOW: scratch → planning → implementation → complete
+BASIC FLOW: scratch → planning → ready → implementation → complete
 (draft and pending are optional auxiliary statuses)
 
 STATUS TRANSITION GUIDELINES:
 - scratch → planning: When you read a scratch plan (usually written by human), review its content and rewrite it into a more concrete plan, then change status to planning
-- planning → implementation: When the plan is finalized after discussion, change status to implementation before starting work
+- planning → ready: When the plan is finalized after discussion, change status to ready
+- ready → implementation: When you start working on the plan, change status to implementation
 - implementation → complete: When all work described in the plan is finished, change status to complete
 
 CAUTION:

@@ -20,17 +20,9 @@ import { useAuth } from '@/hooks/useAuth'
 import * as plansApi from '@/api/plan-documents'
 import type { PlanDocumentStatus } from '@/types/plan-document'
 import { parseRepoName, getRepoUrl, isDefaultProject, getProjectDisplayName } from '@/lib/project-utils'
+import { statusConfig } from '@/lib/plan-status'
 
 type TabType = 'content' | 'history'
-
-const STATUS_OPTIONS: { value: PlanDocumentStatus; label: string }[] = [
-  { value: 'scratch', label: 'Scratch' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'planning', label: 'Planning' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'implementation', label: 'Implementation' },
-  { value: 'complete', label: 'Complete' },
-]
 
 export function PlanDetailPage() {
   const { projectId, id } = useParams<{ projectId: string; id: string }>()
@@ -207,9 +199,9 @@ export function PlanDetailPage() {
                   disabled={statusMutation.isPending}
                   className="!py-1 !px-2 text-xs min-w-[130px]"
                 >
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {Object.entries(statusConfig).map(([status, config]) => (
+                    <option key={status} value={status}>
+                      {config.label}
                     </option>
                   ))}
                 </Select>

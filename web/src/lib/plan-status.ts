@@ -1,15 +1,5 @@
 import type { PlanDocumentStatus } from '@/types/plan-document'
 
-export const ALL_STATUSES: PlanDocumentStatus[] = [
-  'scratch',
-  'draft',
-  'planning',
-  'pending',
-  'implementation',
-  'complete',
-]
-
-// 基本のステータス設定（PlanStatusBadgeと共通）
 export const statusConfig: Record<
   PlanDocumentStatus,
   { label: string; className: string }
@@ -30,6 +20,10 @@ export const statusConfig: Record<
     label: 'Pending',
     className: 'bg-yellow-100 text-yellow-700',
   },
+  ready: {
+    label: 'Ready',
+    className: 'bg-cyan-100 text-cyan-700',
+  },
   implementation: {
     label: 'Implementation',
     className: 'bg-purple-100 text-purple-700',
@@ -46,6 +40,7 @@ const statusBorderColors: Record<PlanDocumentStatus, string> = {
   draft: 'border-gray-400',
   planning: 'border-blue-300',
   pending: 'border-yellow-300',
+  ready: 'border-cyan-300',
   implementation: 'border-purple-300',
   complete: 'border-green-300',
 }
