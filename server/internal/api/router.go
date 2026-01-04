@@ -83,6 +83,9 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 		w.Write([]byte(`{"status": "ok"}`))
 	}).Methods("GET")
 
+	// Version info (no auth)
+	r.HandleFunc("/api/version", HandleGetVersion).Methods("GET")
+
 	// Auth config (no auth) - for frontend to check available OAuth providers
 	r.HandleFunc("/auth/config", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

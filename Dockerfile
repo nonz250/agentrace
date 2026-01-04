@@ -17,6 +17,9 @@ RUN npm run build
 # =============================================================================
 FROM golang:1.24-bookworm AS go-builder
 
+# Version can be set at build time
+ARG VERSION=dev
+
 # Install build dependencies for CGO (sqlite3)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -30,9 +33,9 @@ RUN go mod download
 
 COPY server/ ./
 
-# Build with CGO enabled for sqlite3
+# Build with CGO enabled for sqlite3 and version injection
 ENV CGO_ENABLED=1
-RUN go build -o /app/agentrace-server ./cmd/server
+RUN go build -ldflags "-X github.com/satetsu888/agentrace/server/internal/version.Version=${VERSION}" -o /app/agentrace-server ./cmd/server
 
 # =============================================================================
 # Stage 3: Runtime
