@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Plus } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { PlanList } from '@/components/plans/PlanList'
+import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/hooks/useAuth'
 import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
 import { ALL_STATUSES, statusConfig, getFilterButtonClass } from '@/lib/plan-status'
 import * as projectsApi from '@/api/projects'
@@ -14,6 +18,8 @@ import { getProjectDisplayName } from '@/lib/project-utils'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
+  const { user } = useAuth()
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const { selectedStatuses, toggleStatus } = usePlanStatusFilter()
 
   const { data: project, isLoading: isProjectLoading, error: projectError } = useQuery({
@@ -73,13 +79,12 @@ export function ProjectDetailPage() {
       <section className="mb-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Recent Plans</h2>
-          <Link
-            to={`/projects/${projectId}/plans`}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-          >
-            View all
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          {user && (
+            <Button size="sm" onClick={() => setShowCreateModal(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              Create Plan
+            </Button>
+          )}
         </div>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-500">Filter by status:</span>
@@ -107,19 +112,27 @@ export function ProjectDetailPage() {
         ) : (
           <PlanList plans={plansData?.plans || []} />
         )}
-      </section>
-
-      {/* Recent Sessions */}
-      <section>
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Recent Sessions</h2>
+        <div className="mt-4 text-right">
           <Link
-            to={`/projects/${projectId}/sessions`}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+            to={`/projects/${projectId}/plans`}
+            className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
           >
             View all
             <ArrowRight className="h-4 w-4" />
           </Link>
+        </div>
+      </section>
+
+      <CreatePlanModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        defaultProjectId={projectId}
+      />
+
+      {/* Recent Sessions */}
+      <section>
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">Recent Sessions</h2>
         </div>
         {isSessionsLoading ? (
           <div className="flex justify-center py-12">
@@ -132,6 +145,15 @@ export function ProjectDetailPage() {
         ) : (
           <SessionList sessions={sessionsData?.sessions || []} />
         )}
+        <div className="mt-4 text-right">
+          <Link
+            to={`/projects/${projectId}/sessions`}
+            className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+          >
+            View all
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </section>
     </div>
   )
