@@ -5,6 +5,8 @@ import { SessionList } from '@/components/sessions/SessionList'
 import { PlanList } from '@/components/plans/PlanList'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
+import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
+import { ALL_STATUSES, statusConfig, getFilterButtonClass } from '@/lib/plan-status'
 import * as projectsApi from '@/api/projects'
 import * as sessionsApi from '@/api/sessions'
 import * as plansApi from '@/api/plan-documents'
@@ -12,6 +14,7 @@ import { getProjectDisplayName } from '@/lib/project-utils'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
+  const { selectedStatuses, toggleStatus } = usePlanStatusFilter()
 
   const { data: project, isLoading: isProjectLoading, error: projectError } = useQuery({
     queryKey: ['project', projectId],
@@ -26,8 +29,13 @@ export function ProjectDetailPage() {
   })
 
   const { data: plansData, isLoading: isPlansLoading, error: plansError } = useQuery({
-    queryKey: ['plans', 'project', projectId],
-    queryFn: () => plansApi.getPlans({ projectId: projectId!, limit: 5 }),
+    queryKey: ['plans', 'project', projectId, selectedStatuses],
+    queryFn: () =>
+      plansApi.getPlans({
+        projectId: projectId!,
+        statuses: selectedStatuses.length > 0 ? selectedStatuses : undefined,
+        limit: 5,
+      }),
     enabled: !!projectId,
   })
 
@@ -63,7 +71,7 @@ export function ProjectDetailPage() {
 
       {/* Recent Plans */}
       <section>
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Recent Plans</h2>
           <Link
             to={`/projects/${projectId}/plans`}
@@ -72,6 +80,21 @@ export function ProjectDetailPage() {
             View all
             <ArrowRight className="h-4 w-4" />
           </Link>
+        </div>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-gray-500">Filter by status:</span>
+          {ALL_STATUSES.map((status) => {
+            const isSelected = selectedStatuses.includes(status)
+            return (
+              <button
+                key={status}
+                onClick={() => toggleStatus(status)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${getFilterButtonClass(status, isSelected)}`}
+              >
+                {statusConfig[status].label}
+              </button>
+            )
+          })}
         </div>
         {isPlansLoading ? (
           <div className="flex justify-center py-12">
