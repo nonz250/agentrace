@@ -67,7 +67,7 @@ export class PlanDocumentClient {
   constructor() {
     const config = loadConfig();
     if (!config) {
-      throw new Error("Agentrace is not configured. Run 'npx agentrace init' first.");
+      throw new Error("AgenTrace is not configured. Run 'npx agentrace init' first.");
     }
     this.serverUrl = config.server_url;
     this.apiKey = config.api_key;

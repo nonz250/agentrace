@@ -25,7 +25,7 @@ function SetupGuide() {
         <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary-100">
           <Terminal className="h-8 w-8 text-primary-600" />
         </div>
-        <h1 className="text-xl font-semibold text-gray-900">Welcome to Agentrace</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Welcome to AgenTrace</h1>
         <p className="mt-2 text-gray-600">
           Get started by connecting Claude Code to this server.
         </p>

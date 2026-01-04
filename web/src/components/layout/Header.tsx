@@ -49,7 +49,7 @@ export function Header() {
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <span className="text-primary-600">&#9671;</span>
-            Agentrace
+            AgenTrace
           </Link>
           <nav className="flex items-center gap-6">
             {navLinks.map((link) => {

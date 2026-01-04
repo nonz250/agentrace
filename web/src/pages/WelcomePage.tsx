@@ -7,7 +7,7 @@ export function WelcomePage() {
       <div className="w-full max-w-md text-center">
         <h1 className="mb-2 flex items-center justify-center gap-2 text-3xl font-bold text-gray-900">
           <span className="text-primary-600">&#9671;</span>
-          Agentrace
+          AgenTrace
         </h1>
         <p className="mb-8 text-gray-600">
           Track and review Claude Code sessions with your team.

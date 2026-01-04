@@ -82,7 +82,7 @@ WHEN TO USE:
 - When the user asks you to save or persist a plan
 - When planning significant features, refactoring, or architectural changes
 
-The plan will be saved to Agentrace server and can be reviewed by the team.
+The plan will be saved to AgenTrace server and can be reviewed by the team.
 The project is automatically determined from the session's git repository.`,
 
   update_plan: `Update an existing plan document.
@@ -125,10 +125,10 @@ export async function mcpServerCommand(): Promise<void> {
   const server = new McpServer({
     name: "agentrace",
     version: "1.0.0",
-    description: `Agentrace Plan Document Management Server.
+    description: `AgenTrace Plan Document Management Server.
 
 This server provides tools to manage implementation and design plans.
-Plans are stored on the Agentrace server and can be reviewed by the team.
+Plans are stored on the AgenTrace server and can be reviewed by the team.
 
 IMPORTANT GUIDELINES:
 - When you create a design or implementation plan, ALWAYS save it using create_plan

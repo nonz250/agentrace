@@ -12,8 +12,7 @@ export function Footer() {
   return (
     <footer className="border-t border-gray-200 bg-gray-50 py-4">
       <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-2 px-4 text-sm text-gray-500 sm:flex-row sm:gap-4">
-        <div className="flex items-center gap-4">
-          <span>Developed by satetsu888</span>
+        <div className="flex items-center gap-2">
           <a
             href="https://github.com/satetsu888/agentrace"
             target="_blank"
@@ -23,6 +22,7 @@ export function Footer() {
           >
             <Github className="h-5 w-5" />
           </a>
+          <span className="font-medium">agentrace</span>
           {versionInfo && (
             <span className="text-gray-400">{versionInfo.version}</span>
           )}

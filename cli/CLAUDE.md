@@ -1,6 +1,6 @@
 # CLI 開発ガイド
 
-Claude Code の transcript を Agentrace サーバーに送信する CLI ツール。
+Claude Code の transcript を AgenTrace サーバーに送信する CLI ツール。
 
 ## 技術スタック
 

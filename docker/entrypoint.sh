@@ -13,7 +13,7 @@ export WEB_URL=${WEB_URL:-}
 export GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
 export GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
 
-echo "Starting Agentrace..."
+echo "Starting AgenTrace..."
 echo "  DB_TYPE: $DB_TYPE"
 echo "  DATABASE_URL: $DATABASE_URL"
 echo "  DEV_MODE: $DEV_MODE"

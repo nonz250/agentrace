@@ -5,7 +5,7 @@ export async function offCommand(): Promise<void> {
   // Check if config exists
   const config = loadConfig();
   if (!config) {
-    console.log("Agentrace is not configured. Run 'npx agentrace init' first.");
+    console.log("AgenTrace is not configured. Run 'npx agentrace init' first.");
     return;
   }
 

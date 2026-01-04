@@ -1,4 +1,4 @@
-# Agentrace スクリプト
+# AgenTrace スクリプト
 
 GitHub Pages 用の静的デモサイトを生成するためのスクリプト。
 

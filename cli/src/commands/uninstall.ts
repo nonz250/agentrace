@@ -2,7 +2,7 @@ import { deleteConfig } from "../config/manager.js";
 import { uninstallHooks, uninstallMcpServer, uninstallPreToolUseHook } from "../hooks/installer.js";
 
 export async function uninstallCommand(): Promise<void> {
-  console.log("Uninstalling Agentrace...\n");
+  console.log("Uninstalling AgenTrace...\n");
 
   // Remove hooks
   const hookResult = uninstallHooks();

@@ -38,7 +38,7 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     process.exit(1);
   }
 
-  console.log("Agentrace Setup\n");
+  console.log("AgenTrace Setup\n");
 
   if (options.dev) {
     console.log("[Dev Mode] Using local CLI for hooks\n");

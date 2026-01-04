@@ -11,7 +11,7 @@ import { mcpServerCommand } from "./commands/mcp-server.js";
 
 const program = new Command();
 
-program.name("agentrace").description("CLI for Agentrace").version("0.1.0");
+program.name("agentrace").description("CLI for AgenTrace").version("0.1.0");
 
 program
   .command("init")

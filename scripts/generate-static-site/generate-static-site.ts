@@ -453,7 +453,7 @@ function create404Html(): void {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agentrace Demo</title>
+  <title>AgenTrace Demo</title>
   <script>
     // GitHub Pages SPA redirect hack
     // 404ページに来たらルートにリダイレクトして、元のパスをsessionStorageに保存
@@ -477,7 +477,7 @@ function createNojekyll(): void {
 }
 
 async function main() {
-  console.log("=== Agentrace Static Site Generator ===\n");
+  console.log("=== AgenTrace Static Site Generator ===\n");
   console.log(`Server URL: ${SERVER_URL}`);
   console.log(`Web URL: ${WEB_URL}`);
   console.log(`GitHub Pages Base: ${GITHUB_PAGES_BASE}`);
