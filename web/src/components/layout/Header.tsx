@@ -1,5 +1,5 @@
 import { Link, useLocation, matchPath } from 'react-router-dom'
-import { Settings, LogOut, ChevronDown, Users } from 'lucide-react'
+import { Settings, LogOut, ChevronDown, Users, MessageSquare, FileText } from 'lucide-react'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -21,8 +21,8 @@ export function Header() {
   const navLinks = useMemo(() => {
     if (currentProjectId) {
       return [
-        { to: `/projects/${currentProjectId}/sessions`, label: 'Sessions' },
-        { to: `/projects/${currentProjectId}/plans`, label: 'Plans' },
+        { to: `/projects/${currentProjectId}/sessions`, label: 'Sessions', icon: MessageSquare },
+        { to: `/projects/${currentProjectId}/plans`, label: 'Plans', icon: FileText },
       ]
     }
     // TOPページではリンクを表示しない
@@ -52,19 +52,23 @@ export function Header() {
             Agentrace
           </Link>
           <nav className="flex items-center gap-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`text-sm font-medium transition-colors ${
-                  isActive(link.to)
-                    ? 'text-primary-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const Icon = link.icon
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`flex items-center gap-1 text-sm font-medium transition-colors ${
+                    isActive(link.to)
+                      ? 'text-primary-600'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {link.label}
+                </Link>
+              )
+            })}
           </nav>
         </div>
 

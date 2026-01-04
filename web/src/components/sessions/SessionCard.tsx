@@ -26,10 +26,13 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
     <Card hover onClick={onClick}>
       <div className="min-w-0">
         {/* Title: Date + Title */}
-        <p className="text-sm font-medium text-gray-900">
-          {formattedDate}
-          {session.title && <span className="ml-2">{session.title}</span>}
-        </p>
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 flex-shrink-0 text-gray-500" />
+          <p className="text-sm font-medium text-gray-900">
+            {formattedDate}
+            {session.title && <span className="ml-2">{session.title}</span>}
+          </p>
+        </div>
         {/* Metadata: repo, branch, path, user, events, updated */}
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
           {hasProject && repoName && (

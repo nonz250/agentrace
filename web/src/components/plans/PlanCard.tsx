@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/Card'
 import { PlanStatusBadge } from './PlanStatusBadge'
-import { GitBranch, Users, Clock } from 'lucide-react'
+import { GitBranch, Users, Clock, FileText } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { PlanDocument } from '@/types/plan-document'
 import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
@@ -22,6 +22,7 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
       <div className="min-w-0">
         {/* Title: Description + Status */}
         <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 flex-shrink-0 text-gray-500" />
           <p className="text-sm font-medium text-gray-900 truncate">{plan.description}</p>
           <PlanStatusBadge status={plan.status} />
         </div>
