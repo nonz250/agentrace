@@ -66,11 +66,11 @@ export function ProjectDetailPage() {
   const projectDisplayName = getProjectDisplayName(project) || '(no project)'
 
   return (
-    <div className="space-y-10">
+    <div>
       <Breadcrumb items={[{ label: projectDisplayName }]} project={project} />
 
       {/* Recent Plans */}
-      <section>
+      <section className="mb-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Recent Plans</h2>
           <Link
