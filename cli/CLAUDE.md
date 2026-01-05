@@ -16,7 +16,7 @@ cli/src/
 ├── commands/            # コマンド実装
 │   ├── init.ts          # 初期セットアップ（ブラウザ連携）
 │   ├── login.ts         # Webログイン
-│   ├── send.ts          # transcript送信（hooks用）
+│   ├── send.ts          # transcript送信（hooks用 + 手動送信）
 │   ├── mcp-server.ts    # MCPサーバー
 │   ├── on.ts            # hooks有効化
 │   ├── off.ts           # hooks無効化
@@ -29,7 +29,8 @@ cli/src/
 └── utils/               # ユーティリティ
     ├── http.ts          # HTTP APIクライアント
     ├── callback-server.ts # ローカルHTTP callbackサーバー
-    └── browser.ts       # ブラウザ起動
+    ├── browser.ts       # ブラウザ起動
+    └── session-finder.ts # Claude Codeセッションファイル検索
 ```
 
 ## 設計方針
@@ -45,7 +46,8 @@ cli/src/
 
 ### エラーハンドリング
 
-- **send コマンド**: すべてのエラーで `exit(0)` → hooks をブロックしない
+- **send コマンド（hooks経由）**: すべてのエラーで `exit(0)` → hooks をブロックしない
+- **send コマンド（手動）**: エラーで `exit(1)` → ユーザーにエラーを通知
 - **init コマンド**: 致命的エラーで `exit(1)` → ユーザーに再試行を促す
 
 ### 差分送信の仕組み
@@ -67,7 +69,8 @@ cli/src/
 | `init --url <url>` | 初期設定 + hooks + MCP インストール |
 | `init --url <url> --dev` | 開発モード（ローカルCLIパス使用） |
 | `login` | Webログイン URL 発行 |
-| `send` | transcript 差分送信（hooks用） |
+| `send` | transcript 差分送信（hooks用、stdin から JSON 受け取り） |
+| `send --claude-session-id <id>` | 既存セッションを手動送信（差分のみ） |
 | `mcp-server` | MCPサーバー起動（stdio通信） |
 | `on` / `off` | hooks + MCP 有効化/無効化 |
 | `uninstall` | hooks/MCP/config 削除 |
@@ -218,6 +221,25 @@ transcript送信は以下の4つのタイミングで発火:
   "cwd": "/current/working/directory"
 }
 ```
+
+## 手動送信
+
+hooks を使わずに既存のセッションを手動で送信できる。
+
+```bash
+npx agentrace send --claude-session-id <session-id>
+```
+
+### 動作
+
+1. `~/.claude/projects/` 配下を再帰検索し、`{session-id}.jsonl` を探す
+2. JSONL 内の `type: "user"` エントリから `cwd` を抽出
+3. 差分のみ送信（カーソル管理は hooks と共通）
+
+### 注意点
+
+- 会話データ（user/assistant メッセージ）を含むセッションファイルのみ有効
+- `file-history-snapshot` のみのファイルはサーバー側でイベントとして処理されない
 
 ## 開発モード
 
