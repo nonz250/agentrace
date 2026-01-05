@@ -3,7 +3,7 @@
 import { Command } from "commander";
 import { initCommand } from "./commands/init.js";
 import { loginCommand } from "./commands/login.js";
-import { sendCommand } from "./commands/send.js";
+import { sendCommand, sendManualCommand } from "./commands/send.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { onCommand } from "./commands/on.js";
 import { offCommand } from "./commands/off.js";
@@ -31,9 +31,14 @@ program
 
 program
   .command("send")
-  .description("Send event to server (used by hooks)")
-  .action(async () => {
-    await sendCommand();
+  .description("Send event to server (used by hooks, or manually with --claude-session-id)")
+  .option("--claude-session-id <id>", "Send existing Claude session by ID")
+  .action(async (options: { claudeSessionId?: string }) => {
+    if (options.claudeSessionId) {
+      await sendManualCommand({ sessionId: options.claudeSessionId });
+    } else {
+      await sendCommand();
+    }
   });
 
 program
