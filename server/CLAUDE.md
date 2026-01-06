@@ -41,7 +41,7 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 ### Repository パターン
 
 - データアクセスをインターフェースで抽象化
-- Memory / SQLite / PostgreSQL / MongoDB を切り替え可能
+- Memory / SQLite / PostgreSQL / MongoDB / Turso を切り替え可能
 - 新しいエンティティ追加時は `repository/interface.go` にインターフェース追加
 
 ### ドメインモデル
@@ -97,6 +97,7 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 | sqlite | `./data/agentrace.db` | ローカル/小規模運用 |
 | postgres | `postgres://user:pass@localhost:5432/agentrace?sslmode=disable` | 本番運用 |
 | mongodb | `mongodb://user:pass@localhost:27017/agentrace` | AWS DocumentDB 環境 |
+| turso | `libsql://[db-name]-[org].turso.io?authToken=[token]` | エッジ環境/サーバーレス |
 
 ## 認証方式
 

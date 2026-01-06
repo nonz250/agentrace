@@ -12,6 +12,7 @@ const (
 	DBTypeSQLite   DBType = "sqlite"
 	DBTypePostgres DBType = "postgres"
 	DBTypeMongoDB  DBType = "mongodb"
+	DBTypeTurso    DBType = "turso"
 )
 
 // RepositoryFactory creates repositories based on the database type
@@ -31,6 +32,8 @@ func NewRepositoryFactory(dbType string, databaseURL string) (RepositoryFactory,
 		return NewPostgresFactory(databaseURL)
 	case DBTypeMongoDB:
 		return NewMongoDBFactory(databaseURL)
+	case DBTypeTurso:
+		return NewTursoFactory(databaseURL)
 	default:
 		return nil, fmt.Errorf("unknown database type: %s", dbType)
 	}
@@ -116,5 +119,27 @@ func (f *MongoDBFactory) Create() (*Repositories, error) {
 }
 
 func (f *MongoDBFactory) Close() error {
+	return nil
+}
+
+// TursoFactory creates Turso repositories
+type TursoFactory struct {
+	databaseURL string
+	db          interface{} // Will be *sql.DB
+}
+
+func NewTursoFactory(databaseURL string) (*TursoFactory, error) {
+	if databaseURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL is required for turso")
+	}
+	return &TursoFactory{databaseURL: databaseURL}, nil
+}
+
+func (f *TursoFactory) Create() (*Repositories, error) {
+	// Will be implemented in turso package
+	return nil, fmt.Errorf("turso factory not implemented yet")
+}
+
+func (f *TursoFactory) Close() error {
 	return nil
 }

@@ -81,7 +81,7 @@ npx agentrace on
 
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
-| `DB_TYPE` | sqlite | Database type (`memory`, `sqlite`, `postgres`, `mongodb`) |
+| `DB_TYPE` | sqlite | Database type (`memory`, `sqlite`, `postgres`, `mongodb`, `turso`) |
 | `DATABASE_URL` | /data/agentrace.db | Database connection string |
 | `DEV_MODE` | false | Enable debug logging |
 | `GITHUB_CLIENT_ID` | - | GitHub OAuth Client ID |
@@ -95,6 +95,7 @@ npx agentrace on
 | sqlite | `/data/agentrace.db` | Local/Small-scale |
 | postgres | `postgres://user:pass@localhost:5432/agentrace?sslmode=disable` | Production |
 | mongodb | `mongodb://user:pass@localhost:27017/agentrace` | AWS DocumentDB |
+| turso | `libsql://[db-name]-[org].turso.io?authToken=[token]` | Edge/Serverless |
 
 ```bash
 # SQLite (default)
@@ -110,6 +111,12 @@ docker run -d -p 9080:9080 \
 docker run -d -p 9080:9080 \
   -e DB_TYPE=mongodb \
   -e DATABASE_URL="mongodb://user:pass@host:27017/agentrace" \
+  satetsu888/agentrace:latest
+
+# Turso
+docker run -d -p 9080:9080 \
+  -e DB_TYPE=turso \
+  -e DATABASE_URL="libsql://your-db-your-org.turso.io?authToken=your-token" \
   satetsu888/agentrace:latest
 ```
 

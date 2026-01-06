@@ -13,6 +13,7 @@ import (
 	"github.com/satetsu888/agentrace/server/internal/repository/mongodb"
 	"github.com/satetsu888/agentrace/server/internal/repository/postgres"
 	"github.com/satetsu888/agentrace/server/internal/repository/sqlite"
+	"github.com/satetsu888/agentrace/server/internal/repository/turso"
 )
 
 func main() {
@@ -77,6 +78,17 @@ func initRepositories(cfg *config.Config) (*repository.Repositories, io.Closer, 
 			return nil, nil, fmt.Errorf("failed to open MongoDB database: %w", err)
 		}
 		return mongodb.NewRepositories(db), db, nil
+
+	case "turso":
+		log.Printf("Using Turso database: %s", cfg.DatabaseURL)
+		if cfg.DatabaseURL == "" {
+			return nil, nil, fmt.Errorf("DATABASE_URL is required for turso")
+		}
+		db, err := turso.Open(cfg.DatabaseURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to open Turso database: %w", err)
+		}
+		return turso.NewRepositories(db), db, nil
 
 	default:
 		return nil, nil, fmt.Errorf("unknown database type: %s", cfg.DBType)
