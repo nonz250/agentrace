@@ -5,6 +5,7 @@ import { ProjectList } from '@/components/projects/ProjectList'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import * as projectsApi from '@/api/projects'
+import * as sessionsApi from '@/api/sessions'
 
 const PAGE_SIZE = 20
 
@@ -67,13 +68,20 @@ export function ProjectsPage() {
   const [page, setPage] = useState(1)
   const offset = (page - 1) * PAGE_SIZE
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading: isLoadingProjects, error } = useQuery({
     queryKey: ['projects', 'list', page],
     queryFn: () => projectsApi.getProjects({ limit: PAGE_SIZE, offset }),
   })
 
+  // Check if any sessions exist (limit: 1 for efficiency)
+  const { data: sessionsData, isLoading: isLoadingSessions } = useQuery({
+    queryKey: ['sessions', 'exists'],
+    queryFn: () => sessionsApi.getSessions({ limit: 1 }),
+  })
+
   const projects = data?.projects || []
   const hasMore = projects.length === PAGE_SIZE
+  const isLoading = isLoadingProjects || isLoadingSessions
 
   if (isLoading) {
     return (
@@ -95,9 +103,10 @@ export function ProjectsPage() {
   const hasRealProjects = projects.some(
     (p) => p.id !== '00000000-0000-0000-0000-000000000000' && p.canonical_git_repository
   )
+  const hasAnySessions = (sessionsData?.sessions?.length ?? 0) > 0
 
-  // Show setup guide when there are no real projects
-  if (!hasRealProjects) {
+  // Show setup guide only when there are no real projects AND no sessions
+  if (!hasRealProjects && !hasAnySessions) {
     return (
       <div className="py-12">
         <SetupGuide />
