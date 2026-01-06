@@ -175,6 +175,7 @@ IMPORTANT GUIDELINES:
           id: plan.id,
           description: plan.description,
           status: plan.status,
+          git_remote_url: plan.project?.canonical_git_repository || null,
           updated_at: plan.updated_at,
           collaborators: plan.collaborators.map((c) => c.display_name).join(", "),
         }));
