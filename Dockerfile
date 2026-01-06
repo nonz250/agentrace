@@ -45,7 +45,6 @@ FROM debian:bookworm-slim
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nginx \
-    supervisor \
     libsqlite3-0 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -62,7 +61,6 @@ COPY --from=node-builder /app/web/dist /var/www/html
 
 # Copy configuration files
 COPY docker/nginx.conf /etc/nginx/nginx.conf
-COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
@@ -82,4 +80,3 @@ EXPOSE 9080
 VOLUME ["/data"]
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

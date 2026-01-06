@@ -18,4 +18,19 @@ echo "  DB_TYPE: $DB_TYPE"
 echo "  DATABASE_URL: $DATABASE_URL"
 echo "  DEV_MODE: $DEV_MODE"
 
-exec "$@"
+# Start nginx in background
+nginx -g "daemon off;" &
+NGINX_PID=$!
+
+# Cleanup function
+cleanup() {
+    echo "Shutting down..."
+    kill $NGINX_PID 2>/dev/null || true
+    exit 0
+}
+
+trap cleanup SIGTERM SIGINT
+
+# Start agentrace-server in foreground (as agentrace user)
+# If it exits, the container will exit
+exec su -s /bin/sh agentrace -c "/usr/local/bin/agentrace-server"
