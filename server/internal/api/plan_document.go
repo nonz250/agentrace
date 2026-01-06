@@ -358,12 +358,12 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create initial event (empty patch for creation)
+	// Create initial event with body as "all additions" diff
 	event := &domain.PlanDocumentEvent{
 		PlanDocumentID:  doc.ID,
 		ClaudeSessionID: req.ClaudeSessionID,
 		ToolUseID:       req.ToolUseID,
-		Patch:           "", // Empty patch for initial creation
+		Patch:           bodyToInitialPatch(req.Body),
 	}
 	if userID != "" {
 		event.UserID = &userID
@@ -544,4 +544,18 @@ func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// bodyToInitialPatch converts body content to an "all additions" diff format.
+// Each line is prefixed with "+" to indicate it was added.
+func bodyToInitialPatch(body string) string {
+	if body == "" {
+		return ""
+	}
+	lines := strings.Split(body, "\n")
+	result := make([]string, len(lines))
+	for i, line := range lines {
+		result[i] = "+" + line
+	}
+	return strings.Join(result, "\n")
 }
