@@ -1,10 +1,13 @@
 # AgenTrace
 
-A self-hosted service for sharing Claude Code sessions and managing implementation plans with your team.
+![Session View](images/session.png)
+
+AgenTrace is a self-hosted service for sharing Claude Code sessions and managing implementation plans with your team.
 
 Since Claude Code logs contain source code and environment information, AgenTrace is designed to run on your local machine or internal network rather than on the public internet.
 
-**Demo:** https://satetsu888.github.io/agentrace
+**Live Demo:** https://satetsu888.github.io/agentrace
+
 
 ## Features
 
