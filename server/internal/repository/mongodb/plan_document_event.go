@@ -120,6 +120,29 @@ func (r *PlanDocumentEventRepository) GetCollaboratorUserIDs(ctx context.Context
 	return userIDs, nil
 }
 
+func (r *PlanDocumentEventRepository) GetPlanDocumentIDsByUserIDs(ctx context.Context, userIDs []string) ([]string, error) {
+	if len(userIDs) == 0 {
+		return []string{}, nil
+	}
+
+	// Use distinct to get unique plan_document_ids for the given user_ids
+	results, err := r.collection.Distinct(ctx, "plan_document_id", bson.M{
+		"user_id": bson.M{"$in": userIDs},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var planDocIDs []string
+	for _, result := range results {
+		if planDocID, ok := result.(string); ok {
+			planDocIDs = append(planDocIDs, planDocID)
+		}
+	}
+
+	return planDocIDs, nil
+}
+
 func docToPlanDocumentEvent(doc *planDocumentEventDocument) *domain.PlanDocumentEvent {
 	eventType := domain.PlanDocumentEventType(doc.EventType)
 	if eventType == "" {

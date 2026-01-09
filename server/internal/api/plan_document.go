@@ -162,7 +162,7 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 
 // Handlers
 
-// List returns all plan documents, optionally filtered by project_id, git_remote_url, or status
+// List returns all plan documents, optionally filtered by project_id, git_remote_url, status, or collaborator
 func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -184,6 +184,7 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 	gitRemoteURL := r.URL.Query().Get("git_remote_url")
 	statusParam := r.URL.Query().Get("status")
 	descriptionParam := r.URL.Query().Get("description")
+	collaboratorParam := r.URL.Query().Get("collaborator")
 
 	// Parse status parameter (comma-separated)
 	var statuses []domain.PlanDocumentStatus
@@ -194,6 +195,17 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 			status := domain.PlanDocumentStatus(s)
 			if status.IsValid() {
 				statuses = append(statuses, status)
+			}
+		}
+	}
+
+	// Parse collaborator parameter (comma-separated user IDs)
+	var collaboratorUserIDs []string
+	if collaboratorParam != "" {
+		for _, id := range strings.Split(collaboratorParam, ",") {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				collaboratorUserIDs = append(collaboratorUserIDs, id)
 			}
 		}
 	}
@@ -211,11 +223,30 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// If collaborator filter is specified, first get matching plan document IDs
+	var planDocumentIDs []string
+	if len(collaboratorUserIDs) > 0 {
+		ids, err := h.repos.PlanDocumentEvent.GetPlanDocumentIDsByUserIDs(ctx, collaboratorUserIDs)
+		if err != nil {
+			http.Error(w, `{"error": "failed to filter by collaborator"}`, http.StatusInternalServerError)
+			return
+		}
+		planDocumentIDs = ids
+		// If no plan documents match the collaborator filter, return empty list
+		if len(planDocumentIDs) == 0 {
+			response := PlanDocumentListResponse{Plans: []*PlanDocumentResponse{}}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+	}
+
 	// Use unified Find method with query object
 	query := domain.PlanDocumentQuery{
 		ProjectID:           projectID,
 		Statuses:            statuses,
 		DescriptionContains: descriptionParam,
+		PlanDocumentIDs:     planDocumentIDs,
 		Limit:               limit,
 		Offset:              offset,
 	}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
@@ -7,12 +7,15 @@ import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { MultiSelect } from '@/components/ui/MultiSelect'
 import { useAuth } from '@/hooks/useAuth'
 import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
+import { usePlanCollaboratorFilter } from '@/hooks/usePlanCollaboratorFilter'
 import * as plansApi from '@/api/plan-documents'
 import * as projectsApi from '@/api/projects'
 import { getProjectDisplayName } from '@/lib/project-utils'
-import { statusConfig, getFilterButtonClass } from '@/lib/plan-status'
+import { statusConfig } from '@/lib/plan-status'
+import type { Collaborator, PlanDocumentStatus } from '@/types/plan-document'
 
 const PAGE_SIZE = 20
 
@@ -21,13 +24,26 @@ export function PlansPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const [page, setPage] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const { selectedStatuses, toggleStatus: baseToggleStatus } = usePlanStatusFilter()
+  const { selectedStatuses, setStatuses } = usePlanStatusFilter()
+  const { selectedCollaboratorIds, setCollaboratorIds } = usePlanCollaboratorFilter()
   const offset = (page - 1) * PAGE_SIZE
 
-  const toggleStatus = (status: typeof selectedStatuses[number]) => {
-    baseToggleStatus(status)
+  const handleStatusChange = (statuses: string[]) => {
+    setStatuses(statuses as PlanDocumentStatus[])
     setPage(1) // Reset to first page when filter changes
   }
+
+  const handleCollaboratorChange = (collaboratorIds: string[]) => {
+    setCollaboratorIds(collaboratorIds)
+    setPage(1) // Reset to first page when filter changes
+  }
+
+  // Status options for MultiSelect
+  const statusOptions = Object.entries(statusConfig).map(([status, config]) => ({
+    value: status,
+    label: config.label,
+    badgeClassName: config.className,
+  }))
 
   const { data: projectData } = useQuery({
     queryKey: ['project', projectId],
@@ -35,35 +51,50 @@ export function PlansPage() {
     enabled: !!projectId,
   })
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['plans', 'list', page, projectId, selectedStatuses],
+  // Query to get all collaborators (without collaborator filter)
+  const { data: allPlansData } = useQuery({
+    queryKey: ['plans', 'all-collaborators', projectId, selectedStatuses],
     queryFn: () =>
       plansApi.getPlans({
         projectId: projectId || undefined,
         statuses: selectedStatuses.length > 0 ? selectedStatuses : undefined,
+        limit: 100, // Get enough plans to collect collaborators
+      }),
+  })
+
+  // Collect unique collaborators from all plans
+  const allCollaborators = useMemo(() => {
+    const collaboratorMap = new Map<string, Collaborator>()
+    for (const plan of allPlansData?.plans || []) {
+      for (const collaborator of plan.collaborators || []) {
+        if (!collaboratorMap.has(collaborator.id)) {
+          collaboratorMap.set(collaborator.id, collaborator)
+        }
+      }
+    }
+    return Array.from(collaboratorMap.values()).sort((a, b) =>
+      a.display_name.localeCompare(b.display_name)
+    )
+  }, [allPlansData])
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['plans', 'list', page, projectId, selectedStatuses, selectedCollaboratorIds],
+    queryFn: () =>
+      plansApi.getPlans({
+        projectId: projectId || undefined,
+        statuses: selectedStatuses.length > 0 ? selectedStatuses : undefined,
+        collaboratorIds: selectedCollaboratorIds.length > 0 ? selectedCollaboratorIds : undefined,
         limit: PAGE_SIZE,
         offset,
       }),
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   })
 
   const plans = data?.plans || []
   const hasMore = plans.length === PAGE_SIZE
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-        Failed to load plans: {error.message}
-      </div>
-    )
-  }
+  // Only show full-page loading on initial load (no data yet)
+  const showInitialLoading = isLoading && !data
 
   const projectDisplayName = projectData ? getProjectDisplayName(projectData) : null
 
@@ -88,23 +119,43 @@ export function PlansPage() {
         )}
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-sm text-gray-500">Filter by status:</span>
-        {Object.entries(statusConfig).map(([status, config]) => {
-          const isSelected = selectedStatuses.includes(status as keyof typeof statusConfig)
-          return (
-            <button
-              key={status}
-              onClick={() => toggleStatus(status as keyof typeof statusConfig)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${getFilterButtonClass(status as keyof typeof statusConfig, isSelected)}`}
-            >
-              {config.label}
-            </button>
-          )
-        })}
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Status:</span>
+          <MultiSelect
+            options={statusOptions}
+            selectedValues={selectedStatuses}
+            onChange={handleStatusChange}
+            placeholder="All statuses"
+          />
+        </div>
+
+        {allCollaborators.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Collaborator:</span>
+            <MultiSelect
+              options={allCollaborators.map((c) => ({ value: c.id, label: c.display_name }))}
+              selectedValues={selectedCollaboratorIds}
+              onChange={handleCollaboratorChange}
+              placeholder="All collaborators"
+            />
+          </div>
+        )}
       </div>
 
-      <PlanList plans={plans} />
+      {showInitialLoading ? (
+        <div className="flex justify-center py-12">
+          <Spinner size="lg" />
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+          Failed to load plans: {error.message}
+        </div>
+      ) : (
+        <div className={isFetching ? 'opacity-50 transition-opacity' : ''}>
+          <PlanList plans={plans} />
+        </div>
+      )}
 
       <CreatePlanModal
         open={showCreateModal}

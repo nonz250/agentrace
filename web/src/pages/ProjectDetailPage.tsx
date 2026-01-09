@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowRight, Plus } from 'lucide-react'
@@ -8,19 +8,38 @@ import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { MultiSelect } from '@/components/ui/MultiSelect'
 import { useAuth } from '@/hooks/useAuth'
 import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
-import { statusConfig, getFilterButtonClass } from '@/lib/plan-status'
+import { usePlanCollaboratorFilter } from '@/hooks/usePlanCollaboratorFilter'
+import { statusConfig } from '@/lib/plan-status'
 import * as projectsApi from '@/api/projects'
 import * as sessionsApi from '@/api/sessions'
 import * as plansApi from '@/api/plan-documents'
 import { getProjectDisplayName } from '@/lib/project-utils'
+import type { Collaborator, PlanDocumentStatus } from '@/types/plan-document'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const { selectedStatuses, toggleStatus } = usePlanStatusFilter()
+  const { selectedStatuses, setStatuses } = usePlanStatusFilter()
+  const { selectedCollaboratorIds, setCollaboratorIds } = usePlanCollaboratorFilter()
+
+  const handleStatusChange = (statuses: string[]) => {
+    setStatuses(statuses as PlanDocumentStatus[])
+  }
+
+  const handleCollaboratorChange = (collaboratorIds: string[]) => {
+    setCollaboratorIds(collaboratorIds)
+  }
+
+  // Status options for MultiSelect
+  const statusOptions = Object.entries(statusConfig).map(([status, config]) => ({
+    value: status,
+    label: config.label,
+    badgeClassName: config.className,
+  }))
 
   const { data: project, isLoading: isProjectLoading, error: projectError } = useQuery({
     queryKey: ['project', projectId],
@@ -34,16 +53,47 @@ export function ProjectDetailPage() {
     enabled: !!projectId,
   })
 
-  const { data: plansData, isLoading: isPlansLoading, error: plansError } = useQuery({
-    queryKey: ['plans', 'project', projectId, selectedStatuses],
+  // Query to get all collaborators (without collaborator filter)
+  const { data: allPlansData } = useQuery({
+    queryKey: ['plans', 'all-collaborators', projectId, selectedStatuses],
     queryFn: () =>
       plansApi.getPlans({
         projectId: projectId!,
         statuses: selectedStatuses.length > 0 ? selectedStatuses : undefined,
-        limit: 5,
+        limit: 100,
       }),
     enabled: !!projectId,
   })
+
+  // Collect unique collaborators from all plans
+  const allCollaborators = useMemo(() => {
+    const collaboratorMap = new Map<string, Collaborator>()
+    for (const plan of allPlansData?.plans || []) {
+      for (const collaborator of plan.collaborators || []) {
+        if (!collaboratorMap.has(collaborator.id)) {
+          collaboratorMap.set(collaborator.id, collaborator)
+        }
+      }
+    }
+    return Array.from(collaboratorMap.values()).sort((a, b) =>
+      a.display_name.localeCompare(b.display_name)
+    )
+  }, [allPlansData])
+
+  const { data: plansData, isLoading: isPlansLoading, isFetching: isPlansFetching, error: plansError } = useQuery({
+    queryKey: ['plans', 'project', projectId, selectedStatuses, selectedCollaboratorIds],
+    queryFn: () =>
+      plansApi.getPlans({
+        projectId: projectId!,
+        statuses: selectedStatuses.length > 0 ? selectedStatuses : undefined,
+        collaboratorIds: selectedCollaboratorIds.length > 0 ? selectedCollaboratorIds : undefined,
+        limit: 5,
+      }),
+    enabled: !!projectId,
+    placeholderData: (previousData) => previousData,
+  })
+
+  const showInitialPlansLoading = isPlansLoading && !plansData
 
   if (isProjectLoading) {
     return (
@@ -86,22 +136,30 @@ export function ProjectDetailPage() {
             </Button>
           )}
         </div>
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-gray-500">Filter by status:</span>
-          {Object.entries(statusConfig).map(([status, config]) => {
-            const isSelected = selectedStatuses.includes(status as keyof typeof statusConfig)
-            return (
-              <button
-                key={status}
-                onClick={() => toggleStatus(status as keyof typeof statusConfig)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${getFilterButtonClass(status as keyof typeof statusConfig, isSelected)}`}
-              >
-                {config.label}
-              </button>
-            )
-          })}
+        <div className="mb-4 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Status:</span>
+            <MultiSelect
+              options={statusOptions}
+              selectedValues={selectedStatuses}
+              onChange={handleStatusChange}
+              placeholder="All statuses"
+            />
+          </div>
+
+          {allCollaborators.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Collaborator:</span>
+              <MultiSelect
+                options={allCollaborators.map((c) => ({ value: c.id, label: c.display_name }))}
+                selectedValues={selectedCollaboratorIds}
+                onChange={handleCollaboratorChange}
+                placeholder="All collaborators"
+              />
+            </div>
+          )}
         </div>
-        {isPlansLoading ? (
+        {showInitialPlansLoading ? (
           <div className="flex justify-center py-12">
             <Spinner size="lg" />
           </div>
@@ -110,7 +168,9 @@ export function ProjectDetailPage() {
             Failed to load plans: {plansError.message}
           </div>
         ) : (
-          <PlanList plans={plansData?.plans || []} />
+          <div className={isPlansFetching ? 'opacity-50 transition-opacity' : ''}>
+            <PlanList plans={plansData?.plans || []} />
+          </div>
         )}
         <div className="mt-4 text-right">
           <Link

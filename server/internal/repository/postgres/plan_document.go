@@ -60,6 +60,16 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 	paramIdx := 1
 
 	// Build WHERE conditions
+	if len(query.PlanDocumentIDs) > 0 {
+		placeholders := make([]string, len(query.PlanDocumentIDs))
+		for i, id := range query.PlanDocumentIDs {
+			placeholders[i] = fmt.Sprintf("$%d", paramIdx)
+			args = append(args, id)
+			paramIdx++
+		}
+		conditions = append(conditions, "id IN ("+strings.Join(placeholders, ", ")+")")
+	}
+
 	if len(query.Statuses) > 0 {
 		placeholders := make([]string, len(query.Statuses))
 		for i, s := range query.Statuses {

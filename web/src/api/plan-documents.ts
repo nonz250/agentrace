@@ -5,6 +5,7 @@ interface GetPlansParams {
   projectId?: string
   gitRemoteUrl?: string // For backward compatibility
   statuses?: string[]
+  collaboratorIds?: string[]
   limit?: number
   offset?: number
 }
@@ -15,6 +16,9 @@ export async function getPlans(params?: GetPlansParams): Promise<{ plans: PlanDo
   if (params?.gitRemoteUrl) searchParams.set('git_remote_url', params.gitRemoteUrl)
   if (params?.statuses && params.statuses.length > 0) {
     searchParams.set('status', params.statuses.join(','))
+  }
+  if (params?.collaboratorIds && params.collaboratorIds.length > 0) {
+    searchParams.set('collaborator', params.collaboratorIds.join(','))
   }
   if (params?.limit) searchParams.set('limit', params.limit.toString())
   if (params?.offset) searchParams.set('offset', params.offset.toString())

@@ -103,6 +103,7 @@ type PlanDocumentEventRepository interface {
 	FindByPlanDocumentID(ctx context.Context, planDocumentID string) ([]*domain.PlanDocumentEvent, error)
 	FindByClaudeSessionID(ctx context.Context, claudeSessionID string) ([]*domain.PlanDocumentEvent, error)
 	GetCollaboratorUserIDs(ctx context.Context, planDocumentID string) ([]string, error)
+	GetPlanDocumentIDsByUserIDs(ctx context.Context, userIDs []string) ([]string, error)
 }
 
 // Repositories は全リポジトリをまとめる

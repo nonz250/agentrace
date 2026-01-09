@@ -3,6 +3,7 @@ package turso
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,6 +107,40 @@ func (r *PlanDocumentEventRepository) GetCollaboratorUserIDs(ctx context.Context
 	}
 
 	return userIDs, rows.Err()
+}
+
+func (r *PlanDocumentEventRepository) GetPlanDocumentIDsByUserIDs(ctx context.Context, userIDs []string) ([]string, error) {
+	if len(userIDs) == 0 {
+		return []string{}, nil
+	}
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(userIDs))
+	args := make([]any, len(userIDs))
+	for i, id := range userIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := `SELECT DISTINCT plan_document_id FROM plan_document_events
+		 WHERE user_id IN (` + strings.Join(placeholders, ", ") + `)`
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var planDocIDs []string
+	for rows.Next() {
+		var planDocID string
+		if err := rows.Scan(&planDocID); err != nil {
+			return nil, err
+		}
+		planDocIDs = append(planDocIDs, planDocID)
+	}
+
+	return planDocIDs, rows.Err()
 }
 
 func (r *PlanDocumentEventRepository) scanEvent(rows *sql.Rows) (*domain.PlanDocumentEvent, error) {

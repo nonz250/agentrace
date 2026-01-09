@@ -71,12 +71,25 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		}
 	}
 
+	// Build plan document ID set for fast lookup
+	var planDocIDSet map[string]bool
+	if len(query.PlanDocumentIDs) > 0 {
+		planDocIDSet = make(map[string]bool)
+		for _, id := range query.PlanDocumentIDs {
+			planDocIDSet[id] = true
+		}
+	}
+
 	// Prepare description filter
 	lowerDescFilter := strings.ToLower(query.DescriptionContains)
 
 	// Filter documents
 	docs := make([]*domain.PlanDocument, 0)
 	for _, d := range r.documents {
+		// Check plan document ID filter
+		if planDocIDSet != nil && !planDocIDSet[d.ID] {
+			continue
+		}
 		// Check status filter
 		if statusSet != nil && !statusSet[d.Status] {
 			continue

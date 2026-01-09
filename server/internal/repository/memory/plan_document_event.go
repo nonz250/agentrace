@@ -95,3 +95,35 @@ func (r *PlanDocumentEventRepository) GetCollaboratorUserIDs(ctx context.Context
 
 	return userIDs, nil
 }
+
+func (r *PlanDocumentEventRepository) GetPlanDocumentIDsByUserIDs(ctx context.Context, userIDs []string) ([]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if len(userIDs) == 0 {
+		return []string{}, nil
+	}
+
+	// Build user ID set for fast lookup
+	userIDSet := make(map[string]struct{})
+	for _, id := range userIDs {
+		userIDSet[id] = struct{}{}
+	}
+
+	// Find plan document IDs where any of the specified users have events
+	planDocIDSet := make(map[string]struct{})
+	for _, e := range r.events {
+		if e.UserID != nil {
+			if _, ok := userIDSet[*e.UserID]; ok {
+				planDocIDSet[e.PlanDocumentID] = struct{}{}
+			}
+		}
+	}
+
+	planDocIDs := make([]string, 0, len(planDocIDSet))
+	for id := range planDocIDSet {
+		planDocIDs = append(planDocIDs, id)
+	}
+
+	return planDocIDs, nil
+}

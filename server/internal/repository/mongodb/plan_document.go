@@ -80,6 +80,10 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 	filter := bson.M{}
 
 	// Build filter conditions
+	if len(query.PlanDocumentIDs) > 0 {
+		filter["_id"] = bson.M{"$in": query.PlanDocumentIDs}
+	}
+
 	if len(query.Statuses) > 0 {
 		statusStrings := make([]string, len(query.Statuses))
 		for i, s := range query.Statuses {

@@ -39,6 +39,10 @@ export function usePlanStatusFilter() {
     saveToStorage(selectedStatuses)
   }, [selectedStatuses])
 
+  const setStatuses = useCallback((statuses: PlanDocumentStatus[]) => {
+    setSelectedStatuses(statuses)
+  }, [])
+
   const toggleStatus = useCallback((status: PlanDocumentStatus) => {
     setSelectedStatuses((prev) => {
       if (prev.includes(status)) {
@@ -59,6 +63,7 @@ export function usePlanStatusFilter() {
 
   return {
     selectedStatuses,
+    setStatuses,
     toggleStatus,
     selectAll,
     clearAll,
