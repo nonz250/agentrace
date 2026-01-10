@@ -1,7 +1,9 @@
 import { Card } from '@/components/ui/Card'
+import { FavoriteButton } from '@/components/ui/FavoriteButton'
 import { PlanStatusBadge } from './PlanStatusBadge'
 import { GitBranch, Users, Clock, FileText } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { useAuth } from '@/hooks/useAuth'
 import type { PlanDocument } from '@/types/plan-document'
 import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 
@@ -11,6 +13,7 @@ interface PlanCardProps {
 }
 
 export function PlanCard({ plan, onClick }: PlanCardProps) {
+  const { user } = useAuth()
   const repoName = parseRepoName(plan.project)
   const repoUrl = getRepoUrl(plan.project)
   const hasProject = !isDefaultProject(plan.project)
@@ -19,7 +22,17 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
 
   return (
     <Card hover onClick={onClick}>
-      <div className="min-w-0">
+      <div className="flex items-start gap-2">
+        {user && (
+          <FavoriteButton
+            targetType="plan"
+            targetId={plan.id}
+            isFavorited={plan.is_favorited}
+            size="sm"
+            className="flex-shrink-0 mt-0.5"
+          />
+        )}
+        <div className="min-w-0 flex-1">
         {/* Title: Description + Status */}
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 flex-shrink-0 text-gray-500" />
@@ -62,6 +75,7 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
             <Clock className="h-3 w-3" />
             {relativeTime}
           </span>
+        </div>
         </div>
       </div>
     </Card>

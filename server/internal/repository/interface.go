@@ -106,6 +106,17 @@ type PlanDocumentEventRepository interface {
 	GetPlanDocumentIDsByUserIDs(ctx context.Context, userIDs []string) ([]string, error)
 }
 
+// UserFavoriteRepository はUserFavoriteの永続化を担当する
+type UserFavoriteRepository interface {
+	Create(ctx context.Context, favorite *domain.UserFavorite) error
+	Delete(ctx context.Context, id string) error
+	DeleteByUserAndTarget(ctx context.Context, userID string, targetType domain.UserFavoriteTargetType, targetID string) error
+	FindByUserID(ctx context.Context, userID string) ([]*domain.UserFavorite, error)
+	FindByUserAndTargetType(ctx context.Context, userID string, targetType domain.UserFavoriteTargetType) ([]*domain.UserFavorite, error)
+	FindByUserAndTarget(ctx context.Context, userID string, targetType domain.UserFavoriteTargetType, targetID string) (*domain.UserFavorite, error)
+	GetTargetIDs(ctx context.Context, userID string, targetType domain.UserFavoriteTargetType) ([]string, error)
+}
+
 // Repositories は全リポジトリをまとめる
 type Repositories struct {
 	Project            ProjectRepository
@@ -118,4 +129,5 @@ type Repositories struct {
 	OAuthConnection    OAuthConnectionRepository
 	PlanDocument       PlanDocumentRepository
 	PlanDocumentEvent  PlanDocumentEventRepository
+	UserFavorite       UserFavoriteRepository
 }

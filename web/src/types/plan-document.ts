@@ -16,6 +16,7 @@ export interface PlanDocument {
   collaborators: Collaborator[]
   created_at: string
   updated_at: string
+  is_favorited: boolean
 }
 
 export type PlanDocumentEventType = 'body_change' | 'status_change'

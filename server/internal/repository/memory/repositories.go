@@ -14,5 +14,6 @@ func NewRepositories() *repository.Repositories {
 		OAuthConnection:    NewOAuthConnectionRepository(),
 		PlanDocument:       NewPlanDocumentRepository(),
 		PlanDocumentEvent:  NewPlanDocumentEventRepository(),
+		UserFavorite:       NewUserFavoriteRepository(),
 	}
 }

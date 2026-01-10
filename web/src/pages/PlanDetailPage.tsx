@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select } from '@/components/ui/Select'
 import { ProjectSelect } from '@/components/ui/ProjectSelect'
+import { FavoriteButton } from '@/components/ui/FavoriteButton'
 import { useAuth } from '@/hooks/useAuth'
 import * as plansApi from '@/api/plan-documents'
 import type { PlanDocumentStatus } from '@/types/plan-document'
@@ -190,6 +191,13 @@ export function PlanDetailPage() {
         {/* Title: Description + Status + Actions */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
+            {user && (
+              <FavoriteButton
+                targetType="plan"
+                targetId={plan.id}
+                isFavorited={plan.is_favorited}
+              />
+            )}
             <h1 className="text-lg font-medium text-gray-900">{plan.description}</h1>
             {isEditingStatus ? (
               <span className="flex items-center gap-1">

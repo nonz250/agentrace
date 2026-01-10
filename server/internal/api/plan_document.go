@@ -41,6 +41,7 @@ type PlanDocumentResponse struct {
 	Collaborators []*CollaboratorResponse      `json:"collaborators"`
 	CreatedAt     string                       `json:"created_at"`
 	UpdatedAt     string                       `json:"updated_at"`
+	IsFavorited   bool                         `json:"is_favorited"`
 }
 
 type PlanDocumentListResponse struct {
@@ -89,7 +90,7 @@ type SetPlanDocumentStatusRequest struct {
 
 // Helper functions
 
-func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *domain.PlanDocument) (*PlanDocumentResponse, error) {
+func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *domain.PlanDocument, isFavorited bool) (*PlanDocumentResponse, error) {
 	// Get collaborator user IDs from events
 	userIDs, err := h.repos.PlanDocumentEvent.GetCollaboratorUserIDs(ctx, doc.ID)
 	if err != nil {
@@ -129,6 +130,7 @@ func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *d
 		Collaborators: collaborators,
 		CreatedAt:     doc.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     doc.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		IsFavorited:   isFavorited,
 	}, nil
 }
 
@@ -165,6 +167,7 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 // List returns all plan documents, optionally filtered by project_id, git_remote_url, status, or collaborator
 func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	userID := GetUserIDFromContext(ctx)
 
 	// Parse query parameters
 	limit := 100
@@ -257,9 +260,21 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get favorited plan IDs for the current user
+	favoritedIDs := make(map[string]bool)
+	if userID != "" {
+		targetIDs, err := h.repos.UserFavorite.GetTargetIDs(ctx, userID, domain.UserFavoriteTargetTypePlan)
+		if err == nil {
+			for _, id := range targetIDs {
+				favoritedIDs[id] = true
+			}
+		}
+	}
+
 	plans := make([]*PlanDocumentResponse, 0, len(docs))
 	for _, doc := range docs {
-		resp, err := h.planDocumentToResponse(ctx, doc)
+		isFavorited := favoritedIDs[doc.ID]
+		resp, err := h.planDocumentToResponse(ctx, doc, isFavorited)
 		if err != nil {
 			http.Error(w, `{"error": "failed to build response"}`, http.StatusInternalServerError)
 			return
@@ -267,15 +282,33 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		plans = append(plans, resp)
 	}
 
+	// Sort: favorited plans first, then by updated_at desc (already sorted by repo)
+	sortPlansByFavorite(plans)
+
 	response := PlanDocumentListResponse{Plans: plans}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
+// sortPlansByFavorite sorts plans with favorited ones first, maintaining original order within each group
+func sortPlansByFavorite(plans []*PlanDocumentResponse) {
+	favorited := make([]*PlanDocumentResponse, 0)
+	notFavorited := make([]*PlanDocumentResponse, 0)
+	for _, p := range plans {
+		if p.IsFavorited {
+			favorited = append(favorited, p)
+		} else {
+			notFavorited = append(notFavorited, p)
+		}
+	}
+	copy(plans, append(favorited, notFavorited...))
+}
+
 // Get returns a single plan document by ID
 func (h *PlanDocumentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	userID := GetUserIDFromContext(ctx)
 	vars := mux.Vars(r)
 	id := vars["id"]
 
@@ -289,7 +322,16 @@ func (h *PlanDocumentHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.planDocumentToResponse(ctx, doc)
+	// Check if favorited
+	var isFavorited bool
+	if userID != "" {
+		fav, err := h.repos.UserFavorite.FindByUserAndTarget(ctx, userID, domain.UserFavoriteTargetTypePlan, id)
+		if err == nil && fav != nil {
+			isFavorited = true
+		}
+	}
+
+	resp, err := h.planDocumentToResponse(ctx, doc, isFavorited)
 	if err != nil {
 		http.Error(w, `{"error": "failed to build response"}`, http.StatusInternalServerError)
 		return
@@ -405,7 +447,7 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		// The document was created successfully
 	}
 
-	resp, err := h.planDocumentToResponse(ctx, doc)
+	resp, err := h.planDocumentToResponse(ctx, doc, false)
 	if err != nil {
 		http.Error(w, `{"error": "failed to build response"}`, http.StatusInternalServerError)
 		return
@@ -419,6 +461,7 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 // Update updates an existing plan document
 func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	currentUserID := GetUserIDFromContext(ctx)
 	vars := mux.Vars(r)
 	id := vars["id"]
 
@@ -475,7 +518,16 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp, err := h.planDocumentToResponse(ctx, doc)
+	// Check if favorited
+	var isFavorited bool
+	if currentUserID != "" {
+		fav, err := h.repos.UserFavorite.FindByUserAndTarget(ctx, currentUserID, domain.UserFavoriteTargetTypePlan, id)
+		if err == nil && fav != nil {
+			isFavorited = true
+		}
+	}
+
+	resp, err := h.planDocumentToResponse(ctx, doc, isFavorited)
 	if err != nil {
 		http.Error(w, `{"error": "failed to build response"}`, http.StatusInternalServerError)
 		return
@@ -512,6 +564,7 @@ func (h *PlanDocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // SetStatus sets the status of a plan document
 func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	currentUserID := GetUserIDFromContext(ctx)
 	vars := mux.Vars(r)
 	id := vars["id"]
 
@@ -567,7 +620,16 @@ func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := h.planDocumentToResponse(ctx, doc)
+	// Check if favorited
+	var isFavorited bool
+	if currentUserID != "" {
+		fav, err := h.repos.UserFavorite.FindByUserAndTarget(ctx, currentUserID, domain.UserFavoriteTargetTypePlan, id)
+		if err == nil && fav != nil {
+			isFavorited = true
+		}
+	}
+
+	resp, err := h.planDocumentToResponse(ctx, doc, isFavorited)
 	if err != nil {
 		http.Error(w, `{"error": "failed to build response"}`, http.StatusInternalServerError)
 		return

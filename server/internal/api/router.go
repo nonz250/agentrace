@@ -31,6 +31,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	authHandler := NewAuthHandler(cfg, repos)
 	planDocumentHandler := NewPlanDocumentHandler(repos)
 	projectHandler := NewProjectHandler(repos)
+	userFavoriteHandler := NewUserFavoriteHandler(repos)
 
 	// Auth routes (no auth required)
 	r.HandleFunc("/auth/register", authHandler.Register).Methods("POST")
@@ -64,6 +65,9 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiSession.HandleFunc("/keys", authHandler.ListKeys).Methods("GET")
 	apiSession.HandleFunc("/keys", authHandler.CreateKey).Methods("POST")
 	apiSession.HandleFunc("/keys/{id}", authHandler.DeleteKey).Methods("DELETE")
+	apiSession.HandleFunc("/user-favorites", userFavoriteHandler.List).Methods("GET")
+	apiSession.HandleFunc("/user-favorites", userFavoriteHandler.Create).Methods("POST")
+	apiSession.HandleFunc("/user-favorites", userFavoriteHandler.Delete).Methods("DELETE")
 
 	// API routes (Optional auth - public read access)
 	apiOptional := r.PathPrefix("/api").Subrouter()

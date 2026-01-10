@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { ProjectSelect } from '@/components/ui/ProjectSelect'
+import { FavoriteButton } from '@/components/ui/FavoriteButton'
 import { useAuth } from '@/hooks/useAuth'
 import * as sessionsApi from '@/api/sessions'
 import { parseRepoName, getRepoUrl, isDefaultProject, getProjectDisplayName } from '@/lib/project-utils'
@@ -145,6 +146,13 @@ export function SessionDetailPage() {
             </div>
           ) : (
             <>
+              {user && (
+                <FavoriteButton
+                  targetType="session"
+                  targetId={session.id}
+                  isFavorited={session.is_favorited}
+                />
+              )}
               <h1 className="text-lg font-medium text-gray-900">
                 {format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')}
                 {session.title && <span className="ml-2">{session.title}</span>}

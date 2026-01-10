@@ -14,6 +14,7 @@ export interface Session {
   ended_at: string | null
   updated_at: string
   event_count: number
+  is_favorited: boolean
 }
 
 export interface SessionDetail extends Session {

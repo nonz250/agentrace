@@ -1,6 +1,8 @@
 import { Card } from '@/components/ui/Card'
+import { FavoriteButton } from '@/components/ui/FavoriteButton'
 import { GitBranch, Folder, MessageSquare, Clock, User } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
+import { useAuth } from '@/hooks/useAuth'
 import type { Session } from '@/types/session'
 import { parseRepoName, getRepoUrl, isDefaultProject } from '@/lib/project-utils'
 
@@ -16,6 +18,7 @@ function getDirectoryName(path: string): string {
 }
 
 export function SessionCard({ session, onClick }: SessionCardProps) {
+  const { user } = useAuth()
   const repoName = parseRepoName(session.project)
   const repoUrl = getRepoUrl(session.project)
   const hasProject = !isDefaultProject(session.project)
@@ -24,7 +27,17 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
 
   return (
     <Card hover onClick={onClick}>
-      <div className="min-w-0">
+      <div className="flex items-start gap-2">
+        {user && (
+          <FavoriteButton
+            targetType="session"
+            targetId={session.id}
+            isFavorited={session.is_favorited}
+            size="sm"
+            className="flex-shrink-0 mt-0.5"
+          />
+        )}
+        <div className="min-w-0 flex-1">
         {/* Title: Date + Title */}
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 flex-shrink-0 text-gray-500" />
@@ -76,6 +89,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
             <Clock className="h-3 w-3" />
             {relativeTime}
           </span>
+        </div>
         </div>
       </div>
     </Card>

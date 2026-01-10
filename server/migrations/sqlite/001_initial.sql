@@ -105,6 +105,16 @@ CREATE TABLE IF NOT EXISTS plan_document_events (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- User Favorites table
+CREATE TABLE IF NOT EXISTS user_favorites (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, target_type, target_id)
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_password_credentials_user ON password_credentials(user_id);
@@ -129,3 +139,6 @@ CREATE INDEX IF NOT EXISTS idx_plan_document_events_doc ON plan_document_events(
 CREATE INDEX IF NOT EXISTS idx_plan_document_events_claude_session ON plan_document_events(claude_session_id);
 CREATE INDEX IF NOT EXISTS idx_plan_document_events_user ON plan_document_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_plan_document_events_type ON plan_document_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_favorites_user_type ON user_favorites(user_id, target_type);
+CREATE INDEX IF NOT EXISTS idx_user_favorites_target ON user_favorites(target_type, target_id);
