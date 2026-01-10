@@ -68,7 +68,7 @@ func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSes
 	return nil, nil
 }
 
-func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error) {
+func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int, sortBy string) ([]*domain.Session, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -77,10 +77,17 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 		sessions = append(sessions, s)
 	}
 
-	// Sort by UpdatedAt descending (newest first)
-	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
-	})
+	// Sort by specified field descending (newest first)
+	if sortBy == "created_at" {
+		sort.Slice(sessions, func(i, j int) bool {
+			return sessions[i].CreatedAt.After(sessions[j].CreatedAt)
+		})
+	} else {
+		// Default: sort by UpdatedAt
+		sort.Slice(sessions, func(i, j int) bool {
+			return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
+		})
+	}
 
 	// Apply offset and limit
 	if offset >= len(sessions) {
@@ -94,7 +101,7 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 	return sessions, nil
 }
 
-func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.Session, error) {
+func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int, sortBy string) ([]*domain.Session, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -105,10 +112,17 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 		}
 	}
 
-	// Sort by UpdatedAt descending (newest first)
-	sort.Slice(sessions, func(i, j int) bool {
-		return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
-	})
+	// Sort by specified field descending (newest first)
+	if sortBy == "created_at" {
+		sort.Slice(sessions, func(i, j int) bool {
+			return sessions[i].CreatedAt.After(sessions[j].CreatedAt)
+		})
+	} else {
+		// Default: sort by UpdatedAt
+		sort.Slice(sessions, func(i, j int) bool {
+			return sessions[i].UpdatedAt.After(sessions[j].UpdatedAt)
+		})
+	}
 
 	// Apply offset and limit
 	if offset >= len(sessions) {

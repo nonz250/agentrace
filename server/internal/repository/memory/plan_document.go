@@ -105,10 +105,17 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		docs = append(docs, d)
 	}
 
-	// Sort by UpdatedAt descending (newest first)
-	sort.Slice(docs, func(i, j int) bool {
-		return docs[i].UpdatedAt.After(docs[j].UpdatedAt)
-	})
+	// Sort by specified field descending (newest first)
+	if query.SortBy == "created_at" {
+		sort.Slice(docs, func(i, j int) bool {
+			return docs[i].CreatedAt.After(docs[j].CreatedAt)
+		})
+	} else {
+		// Default: sort by UpdatedAt
+		sort.Slice(docs, func(i, j int) bool {
+			return docs[i].UpdatedAt.After(docs[j].UpdatedAt)
+		})
+	}
 
 	// Apply offset and limit
 	if query.Offset >= len(docs) {

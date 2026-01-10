@@ -96,7 +96,13 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		filter["project_id"] = query.ProjectID
 	}
 
-	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
+	// Validate sortBy
+	sortField := "updated_at"
+	if query.SortBy == "created_at" {
+		sortField = "created_at"
+	}
+
+	opts := options.Find().SetSort(bson.D{{Key: sortField, Value: -1}})
 	if query.Limit > 0 {
 		opts.SetLimit(int64(query.Limit))
 		opts.SetSkip(int64(query.Offset))

@@ -139,6 +139,11 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit := 100
 	offset := 0
 	projectID := r.URL.Query().Get("project_id")
+	sortBy := r.URL.Query().Get("sort")
+	// Validate sortBy - default to updated_at
+	if sortBy != "created_at" {
+		sortBy = "updated_at"
+	}
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
 			limit = l
@@ -153,9 +158,9 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	var sessions []*domain.Session
 	var err error
 	if projectID != "" {
-		sessions, err = h.repos.Session.FindByProjectID(ctx, projectID, limit, offset)
+		sessions, err = h.repos.Session.FindByProjectID(ctx, projectID, limit, offset, sortBy)
 	} else {
-		sessions, err = h.repos.Session.FindAll(ctx, limit, offset)
+		sessions, err = h.repos.Session.FindAll(ctx, limit, offset, sortBy)
 	}
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch sessions"}`, http.StatusInternalServerError)

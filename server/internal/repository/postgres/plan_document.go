@@ -97,7 +97,12 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		baseQuery += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	baseQuery += " ORDER BY updated_at DESC"
+	// Validate sortBy to prevent SQL injection
+	orderColumn := "updated_at"
+	if query.SortBy == "created_at" {
+		orderColumn = "created_at"
+	}
+	baseQuery += " ORDER BY " + orderColumn + " DESC"
 
 	if query.Limit > 0 {
 		baseQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", paramIdx, paramIdx+1)

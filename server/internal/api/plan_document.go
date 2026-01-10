@@ -188,6 +188,11 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 	statusParam := r.URL.Query().Get("status")
 	descriptionParam := r.URL.Query().Get("description")
 	collaboratorParam := r.URL.Query().Get("collaborator")
+	sortBy := r.URL.Query().Get("sort")
+	// Validate sortBy - default to updated_at
+	if sortBy != "created_at" {
+		sortBy = "updated_at"
+	}
 
 	// Parse status parameter (comma-separated)
 	var statuses []domain.PlanDocumentStatus
@@ -252,6 +257,7 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		PlanDocumentIDs:     planDocumentIDs,
 		Limit:               limit,
 		Offset:              offset,
+		SortBy:              sortBy,
 	}
 	docs, err := h.repos.PlanDocument.Find(ctx, query)
 

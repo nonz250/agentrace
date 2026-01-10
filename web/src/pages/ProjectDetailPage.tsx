@@ -12,6 +12,7 @@ import { MultiSelect } from '@/components/ui/MultiSelect'
 import { useAuth } from '@/hooks/useAuth'
 import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
 import { usePlanCollaboratorFilter } from '@/hooks/usePlanCollaboratorFilter'
+import { useSortPreference } from '@/hooks/useSortPreference'
 import { statusConfig } from '@/lib/plan-status'
 import * as projectsApi from '@/api/projects'
 import * as sessionsApi from '@/api/sessions'
@@ -25,6 +26,8 @@ export function ProjectDetailPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const { selectedStatuses, setStatuses } = usePlanStatusFilter()
   const { selectedCollaboratorIds, setCollaboratorIds } = usePlanCollaboratorFilter()
+  const { sort: plansSort, updateSort: updatePlansSort } = useSortPreference('plans')
+  const { sort: sessionsSort, updateSort: updateSessionsSort } = useSortPreference('sessions')
 
   const handleStatusChange = (statuses: string[]) => {
     setStatuses(statuses as PlanDocumentStatus[])
@@ -32,6 +35,14 @@ export function ProjectDetailPage() {
 
   const handleCollaboratorChange = (collaboratorIds: string[]) => {
     setCollaboratorIds(collaboratorIds)
+  }
+
+  const handlePlansSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updatePlansSort(e.target.value as 'updated_at' | 'created_at')
+  }
+
+  const handleSessionsSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateSessionsSort(e.target.value as 'updated_at' | 'created_at')
   }
 
   // Status options for MultiSelect
@@ -48,8 +59,8 @@ export function ProjectDetailPage() {
   })
 
   const { data: sessionsData, isLoading: isSessionsLoading, error: sessionsError } = useQuery({
-    queryKey: ['sessions', 'project', projectId],
-    queryFn: () => sessionsApi.getSessions({ projectId: projectId!, limit: 5 }),
+    queryKey: ['sessions', 'project', projectId, sessionsSort],
+    queryFn: () => sessionsApi.getSessions({ projectId: projectId!, limit: 5, sort: sessionsSort }),
     enabled: !!projectId,
   })
 
@@ -81,13 +92,14 @@ export function ProjectDetailPage() {
   }, [allPlansData])
 
   const { data: plansData, isLoading: isPlansLoading, isFetching: isPlansFetching, error: plansError } = useQuery({
-    queryKey: ['plans', 'project', projectId, selectedStatuses, selectedCollaboratorIds],
+    queryKey: ['plans', 'project', projectId, selectedStatuses, selectedCollaboratorIds, plansSort],
     queryFn: () =>
       plansApi.getPlans({
         projectId: projectId!,
         statuses: selectedStatuses.length > 0 ? selectedStatuses : undefined,
         collaboratorIds: selectedCollaboratorIds.length > 0 ? selectedCollaboratorIds : undefined,
         limit: 5,
+        sort: plansSort,
       }),
     enabled: !!projectId,
     placeholderData: (previousData) => previousData,
@@ -158,6 +170,18 @@ export function ProjectDetailPage() {
               />
             </div>
           )}
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Sort:</span>
+            <select
+              value={plansSort}
+              onChange={handlePlansSortChange}
+              className="rounded-lg bg-transparent px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none"
+            >
+              <option value="updated_at">Updated</option>
+              <option value="created_at">Created</option>
+            </select>
+          </div>
         </div>
         {showInitialPlansLoading ? (
           <div className="flex justify-center py-12">
@@ -191,8 +215,21 @@ export function ProjectDetailPage() {
 
       {/* Recent Sessions */}
       <section>
-        <div className="mb-6">
+        <div className="mb-4">
           <h2 className="text-xl font-semibold text-gray-900">Recent Sessions</h2>
+        </div>
+        <div className="mb-4 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Sort:</span>
+            <select
+              value={sessionsSort}
+              onChange={handleSessionsSortChange}
+              className="rounded-lg bg-transparent px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none"
+            >
+              <option value="updated_at">Updated</option>
+              <option value="created_at">Created</option>
+            </select>
+          </div>
         </div>
         {isSessionsLoading ? (
           <div className="flex justify-center py-12">

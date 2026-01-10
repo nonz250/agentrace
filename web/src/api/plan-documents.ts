@@ -1,6 +1,8 @@
 import { fetchAPI } from './client'
 import type { PlanDocument, PlanDocumentEvent, PlanDocumentStatus } from '@/types/plan-document'
 
+export type SortBy = 'updated_at' | 'created_at'
+
 interface GetPlansParams {
   projectId?: string
   gitRemoteUrl?: string // For backward compatibility
@@ -8,6 +10,7 @@ interface GetPlansParams {
   collaboratorIds?: string[]
   limit?: number
   offset?: number
+  sort?: SortBy
 }
 
 export async function getPlans(params?: GetPlansParams): Promise<{ plans: PlanDocument[] }> {
@@ -22,6 +25,7 @@ export async function getPlans(params?: GetPlansParams): Promise<{ plans: PlanDo
   }
   if (params?.limit) searchParams.set('limit', params.limit.toString())
   if (params?.offset) searchParams.set('offset', params.offset.toString())
+  if (params?.sort) searchParams.set('sort', params.sort)
   const query = searchParams.toString()
   return fetchAPI(`/api/plans${query ? `?${query}` : ''}`)
 }

@@ -96,8 +96,14 @@ func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSes
 	return docToSession(&doc), nil
 }
 
-func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
+func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int, sortBy string) ([]*domain.Session, error) {
+	// Validate sortBy
+	sortField := "updated_at"
+	if sortBy == "created_at" {
+		sortField = "created_at"
+	}
+
+	opts := options.Find().SetSort(bson.D{{Key: sortField, Value: -1}})
 	if limit > 0 {
 		opts.SetLimit(int64(limit))
 		opts.SetSkip(int64(offset))
@@ -121,8 +127,14 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 	return sessions, cursor.Err()
 }
 
-func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.Session, error) {
-	opts := options.Find().SetSort(bson.D{{Key: "updated_at", Value: -1}})
+func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int, sortBy string) ([]*domain.Session, error) {
+	// Validate sortBy
+	sortField := "updated_at"
+	if sortBy == "created_at" {
+		sortField = "created_at"
+	}
+
+	opts := options.Find().SetSort(bson.D{{Key: sortField, Value: -1}})
 	if limit > 0 {
 		opts.SetLimit(int64(limit))
 		opts.SetSkip(int64(offset))

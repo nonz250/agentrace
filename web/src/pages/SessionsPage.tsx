@@ -6,6 +6,7 @@ import { SessionList } from '@/components/sessions/SessionList'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { useSortPreference } from '@/hooks/useSortPreference'
 import * as sessionsApi from '@/api/sessions'
 import * as projectsApi from '@/api/projects'
 import { getProjectDisplayName } from '@/lib/project-utils'
@@ -15,7 +16,13 @@ const PAGE_SIZE = 20
 export function SessionsPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const [page, setPage] = useState(1)
+  const { sort, updateSort } = useSortPreference('sessions')
   const offset = (page - 1) * PAGE_SIZE
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateSort(e.target.value as 'updated_at' | 'created_at')
+    setPage(1) // Reset to first page when sort changes
+  }
 
   const { data: projectData } = useQuery({
     queryKey: ['project', projectId],
@@ -24,8 +31,8 @@ export function SessionsPage() {
   })
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['sessions', 'list', page, projectId],
-    queryFn: () => sessionsApi.getSessions({ projectId: projectId || undefined, limit: PAGE_SIZE, offset }),
+    queryKey: ['sessions', 'list', page, projectId, sort],
+    queryFn: () => sessionsApi.getSessions({ projectId: projectId || undefined, limit: PAGE_SIZE, offset, sort }),
   })
 
   const sessions = data?.sessions || []
@@ -62,6 +69,20 @@ export function SessionsPage() {
 
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-900">Sessions</h1>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Sort:</span>
+          <select
+            value={sort}
+            onChange={handleSortChange}
+            className="rounded-lg bg-transparent px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none"
+          >
+            <option value="updated_at">Updated</option>
+            <option value="created_at">Created</option>
+          </select>
+        </div>
       </div>
       <SessionList sessions={sessions} />
 

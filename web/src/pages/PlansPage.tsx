@@ -11,6 +11,7 @@ import { MultiSelect } from '@/components/ui/MultiSelect'
 import { useAuth } from '@/hooks/useAuth'
 import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
 import { usePlanCollaboratorFilter } from '@/hooks/usePlanCollaboratorFilter'
+import { useSortPreference } from '@/hooks/useSortPreference'
 import * as plansApi from '@/api/plan-documents'
 import * as projectsApi from '@/api/projects'
 import { getProjectDisplayName } from '@/lib/project-utils'
@@ -26,6 +27,7 @@ export function PlansPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const { selectedStatuses, setStatuses } = usePlanStatusFilter()
   const { selectedCollaboratorIds, setCollaboratorIds } = usePlanCollaboratorFilter()
+  const { sort, updateSort } = useSortPreference('plans')
   const offset = (page - 1) * PAGE_SIZE
 
   const handleStatusChange = (statuses: string[]) => {
@@ -36,6 +38,11 @@ export function PlansPage() {
   const handleCollaboratorChange = (collaboratorIds: string[]) => {
     setCollaboratorIds(collaboratorIds)
     setPage(1) // Reset to first page when filter changes
+  }
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateSort(e.target.value as 'updated_at' | 'created_at')
+    setPage(1) // Reset to first page when sort changes
   }
 
   // Status options for MultiSelect
@@ -78,7 +85,7 @@ export function PlansPage() {
   }, [allPlansData])
 
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['plans', 'list', page, projectId, selectedStatuses, selectedCollaboratorIds],
+    queryKey: ['plans', 'list', page, projectId, selectedStatuses, selectedCollaboratorIds, sort],
     queryFn: () =>
       plansApi.getPlans({
         projectId: projectId || undefined,
@@ -86,6 +93,7 @@ export function PlansPage() {
         collaboratorIds: selectedCollaboratorIds.length > 0 ? selectedCollaboratorIds : undefined,
         limit: PAGE_SIZE,
         offset,
+        sort,
       }),
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
   })
@@ -141,6 +149,18 @@ export function PlansPage() {
             />
           </div>
         )}
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Sort:</span>
+          <select
+            value={sort}
+            onChange={handleSortChange}
+            className="rounded-lg bg-transparent px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 focus:outline-none"
+          >
+            <option value="updated_at">Updated</option>
+            <option value="created_at">Created</option>
+          </select>
+        </div>
       </div>
 
       {showInitialLoading ? (

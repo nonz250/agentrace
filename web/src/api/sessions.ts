@@ -1,10 +1,13 @@
 import { fetchAPI } from './client'
 import type { Session, SessionDetail } from '@/types/session'
 
+export type SortBy = 'updated_at' | 'created_at'
+
 interface GetSessionsParams {
   projectId?: string
   limit?: number
   offset?: number
+  sort?: SortBy
 }
 
 export async function getSessions(params?: GetSessionsParams): Promise<{ sessions: Session[] }> {
@@ -12,6 +15,7 @@ export async function getSessions(params?: GetSessionsParams): Promise<{ session
   if (params?.projectId) searchParams.set('project_id', params.projectId)
   if (params?.limit) searchParams.set('limit', params.limit.toString())
   if (params?.offset) searchParams.set('offset', params.offset.toString())
+  if (params?.sort) searchParams.set('sort', params.sort)
   const query = searchParams.toString()
   return fetchAPI(`/api/sessions${query ? `?${query}` : ''}`)
 }

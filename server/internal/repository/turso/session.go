@@ -66,9 +66,15 @@ func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSes
 	))
 }
 
-func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Session, error) {
+func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int, sortBy string) ([]*domain.Session, error) {
+	// Validate sortBy to prevent SQL injection
+	orderColumn := "updated_at"
+	if sortBy == "created_at" {
+		orderColumn = "created_at"
+	}
+
 	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
-		 FROM sessions ORDER BY updated_at DESC`
+		 FROM sessions ORDER BY ` + orderColumn + ` DESC`
 
 	if limit > 0 {
 		query += ` LIMIT ? OFFSET ?`
@@ -100,9 +106,15 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int) 
 	return sessions, rows.Err()
 }
 
-func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int) ([]*domain.Session, error) {
+func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int, sortBy string) ([]*domain.Session, error) {
+	// Validate sortBy to prevent SQL injection
+	orderColumn := "updated_at"
+	if sortBy == "created_at" {
+		orderColumn = "created_at"
+	}
+
 	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
-		 FROM sessions WHERE project_id = ? ORDER BY updated_at DESC`
+		 FROM sessions WHERE project_id = ? ORDER BY ` + orderColumn + ` DESC`
 
 	if limit > 0 {
 		query += ` LIMIT ? OFFSET ?`
