@@ -17,10 +17,12 @@ server/
 │   └── repository/          # データアクセス層
 │       ├── interface.go     # インターフェース定義
 │       ├── factory.go       # Factory パターン
+│       ├── testsuite/       # 共通テストスイート
 │       ├── memory/          # オンメモリ実装
 │       ├── sqlite/          # SQLite実装
 │       ├── postgres/        # PostgreSQL実装
-│       └── mongodb/         # MongoDB実装
+│       ├── mongodb/         # MongoDB実装
+│       └── turso/           # Turso（libSQL）実装
 └── migrations/              # スキーママイグレーション
 ```
 
@@ -187,3 +189,36 @@ DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./db.sqlite3 WEB_URL=http://localhost:
 ```
 
 - `WEB_URL`を設定することで、フロントエンド（localhost:5173）からのCORSリクエストを許可
+
+## テスト
+
+### Repository テスト
+
+共通テストスイート（`testsuite/`）を使用して、全実装で同じ振る舞いを保証。
+
+```bash
+# 通常テスト（memory, sqlite）
+go test ./internal/repository/memory/...
+go test ./internal/repository/sqlite/...
+
+# 統合テスト（要DB接続、ビルドタグ integration）
+DATABASE_URL="postgres://..." go test -tags=integration ./internal/repository/postgres/...
+MONGODB_URL="mongodb://..." go test -tags=integration ./internal/repository/mongodb/...
+TURSO_URL="libsql://..." go test -tags=integration ./internal/repository/turso/...
+```
+
+### テストスイート構成
+
+| スイート | テスト対象 |
+|---------|-----------|
+| ProjectRepositorySuite | Project CRUD、FindOrCreate |
+| SessionRepositorySuite | Session CRUD、各種Update |
+| EventRepositorySuite | Event作成、重複チェック |
+| UserRepositorySuite | User CRUD |
+| APIKeyRepositorySuite | APIKey CRUD、LastUsedAt更新 |
+| WebSessionRepositorySuite | WebSession CRUD、期限切れ削除 |
+| PasswordCredentialRepositorySuite | パスワード認証情報 CRUD |
+| OAuthConnectionRepositorySuite | OAuth連携 CRUD |
+| PlanDocumentRepositorySuite | Plan CRUD、Find クエリ |
+| PlanDocumentEventRepositorySuite | Plan変更イベント、共同作業者取得 |
+| UserFavoriteRepositorySuite | お気に入り CRUD |
