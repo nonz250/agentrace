@@ -75,5 +75,21 @@ func runMigrations(db *sql.DB) error {
 			END IF;
 		END $$;
 	`)
+	if err != nil {
+		return err
+	}
+
+	// Add message column to plan_document_events if not exists
+	_, err = db.Exec(`
+		DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'plan_document_events' AND column_name = 'message'
+			) THEN
+				ALTER TABLE plan_document_events ADD COLUMN message TEXT NOT NULL DEFAULT '';
+			END IF;
+		END $$;
+	`)
 	return err
 }

@@ -57,6 +57,7 @@ type PlanDocumentEventResponse struct {
 	UserName        *string `json:"user_name"`
 	EventType       string  `json:"event_type"`
 	Patch           string  `json:"patch"`
+	Message         string  `json:"message"`
 	CreatedAt       string  `json:"created_at"`
 }
 
@@ -79,13 +80,15 @@ type UpdatePlanDocumentRequest struct {
 	Description     *string `json:"description"`
 	Body            *string `json:"body"`
 	Patch           *string `json:"patch"`
+	Message         *string `json:"message"`
 	ClaudeSessionID *string `json:"claude_session_id"`
 	ToolUseID       *string `json:"tool_use_id"`
 	ProjectID       *string `json:"project_id"`
 }
 
 type SetPlanDocumentStatusRequest struct {
-	Status string `json:"status"`
+	Status  string  `json:"status"`
+	Message *string `json:"message"`
 }
 
 // Helper functions
@@ -158,6 +161,7 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 		UserName:        userName,
 		EventType:       eventType,
 		Patch:           event.Patch,
+		Message:         event.Message,
 		CreatedAt:       event.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
@@ -514,6 +518,9 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 			ToolUseID:       req.ToolUseID,
 			Patch:           *req.Patch,
 		}
+		if req.Message != nil {
+			event.Message = *req.Message
+		}
 		if userID != "" {
 			event.UserID = &userID
 		}
@@ -612,6 +619,9 @@ func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 		PlanDocumentID: doc.ID,
 		EventType:      domain.PlanDocumentEventTypeStatusChange,
 		Patch:          string(oldStatus) + " -> " + string(status),
+	}
+	if req.Message != nil {
+		event.Message = *req.Message
 	}
 	if userID != "" {
 		event.UserID = &userID

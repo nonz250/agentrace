@@ -140,6 +140,29 @@ func (s *PlanDocumentEventRepositorySuite) TestCreate_StatusChange() {
 	s.NotEmpty(event.ID)
 }
 
+func (s *PlanDocumentEventRepositorySuite) TestCreate_WithMessage() {
+	ctx := context.Background()
+
+	s.createTestPlanDocument("plan-with-message")
+
+	event := &domain.PlanDocumentEvent{
+		PlanDocumentID: "plan-with-message",
+		EventType:      domain.PlanDocumentEventTypeBodyChange,
+		Patch:          "@@ -1,3 +1,4 @@\n+Added line",
+		Message:        "Added background section",
+	}
+
+	err := s.Repo.Create(ctx, event)
+	s.Require().NoError(err)
+	s.NotEmpty(event.ID)
+
+	// Retrieve and verify message is persisted
+	events, err := s.Repo.FindByPlanDocumentID(ctx, "plan-with-message")
+	s.Require().NoError(err)
+	s.Require().Len(events, 1)
+	s.Equal("Added background section", events[0].Message)
+}
+
 func (s *PlanDocumentEventRepositorySuite) TestFindByPlanDocumentID() {
 	ctx := context.Background()
 

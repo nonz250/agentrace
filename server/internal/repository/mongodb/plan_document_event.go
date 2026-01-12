@@ -29,6 +29,7 @@ type planDocumentEventDocument struct {
 	UserID          *string   `bson:"user_id,omitempty"`
 	EventType       string    `bson:"event_type"`
 	Patch           string    `bson:"patch"`
+	Message         string    `bson:"message"`
 	CreatedAt       time.Time `bson:"created_at"`
 }
 
@@ -51,6 +52,7 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 		UserID:          event.UserID,
 		EventType:       string(event.EventType),
 		Patch:           event.Patch,
+		Message:         event.Message,
 		CreatedAt:       event.CreatedAt,
 	}
 
@@ -156,6 +158,7 @@ func docToPlanDocumentEvent(doc *planDocumentEventDocument) *domain.PlanDocument
 		UserID:          doc.UserID,
 		EventType:       eventType,
 		Patch:           doc.Patch,
+		Message:         doc.Message,
 		CreatedAt:       doc.CreatedAt,
 	}
 }

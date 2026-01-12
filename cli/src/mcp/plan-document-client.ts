@@ -28,6 +28,7 @@ export interface PlanDocumentEvent {
   user_id: string | null;
   user_name: string | null;
   patch: string;
+  message: string;
   created_at: string;
 }
 
@@ -56,6 +57,7 @@ export interface UpdatePlanRequest {
   description?: string;
   body?: string;
   patch?: string;
+  message?: string;
   claude_session_id?: string;
   tool_use_id?: string;
 }
@@ -145,7 +147,7 @@ export class PlanDocumentClient {
     await this.request<void>("DELETE", `/api/plans/${id}`);
   }
 
-  async setStatus(id: string, status: PlanDocumentStatus): Promise<PlanDocument> {
-    return this.request<PlanDocument>("PATCH", `/api/plans/${id}/status`, { status });
+  async setStatus(id: string, status: PlanDocumentStatus, message?: string): Promise<PlanDocument> {
+    return this.request<PlanDocument>("PATCH", `/api/plans/${id}/status`, { status, message });
   }
 }

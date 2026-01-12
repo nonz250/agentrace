@@ -49,11 +49,13 @@ const CreatePlanSchema = z.object({
 const UpdatePlanSchema = z.object({
   id: z.string().describe("Plan document ID"),
   body: z.string().describe("Updated plan content in Markdown format"),
+  message: z.string().optional().describe("One-line description of what was changed"),
 });
 
 const SetPlanStatusSchema = z.object({
   id: z.string().describe("Plan document ID"),
   status: z.enum(["scratch", "draft", "planning", "pending", "ready", "implementation", "complete"]).describe("New status for the plan"),
+  message: z.string().optional().describe("One-line description of why the status is being changed"),
 });
 
 // Tool descriptions with usage guidance
@@ -292,6 +294,7 @@ IMPORTANT GUIDELINES:
         const plan = await getClient().updatePlan(args.id, {
           body: args.body,
           patch: patchText,
+          message: args.message,
           claude_session_id: sessionInfo.session_id,
           tool_use_id: sessionInfo.tool_use_id,
         });
@@ -325,7 +328,7 @@ IMPORTANT GUIDELINES:
     SetPlanStatusSchema.shape,
     async (args) => {
       try {
-        const plan = await getClient().setStatus(args.id, args.status);
+        const plan = await getClient().setStatus(args.id, args.status, args.message);
 
         return {
           content: [

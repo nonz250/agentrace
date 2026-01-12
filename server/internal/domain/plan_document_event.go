@@ -17,5 +17,6 @@ type PlanDocumentEvent struct {
 	UserID          *string               // nullable - user who made the change
 	EventType       PlanDocumentEventType // body_change or status_change
 	Patch           string                // diff-match-patch format (for body_change) or "old_status -> new_status" (for status_change)
+	Message         string                // one-line description of the change
 	CreatedAt       time.Time
 }

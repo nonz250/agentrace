@@ -29,5 +29,6 @@ export interface PlanDocumentEvent {
   user_name: string | null
   event_type: PlanDocumentEventType
   patch: string
+  message: string
   created_at: string
 }

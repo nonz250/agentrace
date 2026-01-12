@@ -97,5 +97,18 @@ func runMigrations(db *sql.DB) error {
 		}
 	}
 
+	// Add message column to plan_document_events if not exists
+	var messageColExists int
+	row = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('plan_document_events') WHERE name='message'`)
+	if err := row.Scan(&messageColExists); err != nil {
+		return err
+	}
+	if messageColExists == 0 {
+		_, err = db.Exec(`ALTER TABLE plan_document_events ADD COLUMN message TEXT NOT NULL DEFAULT ''`)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

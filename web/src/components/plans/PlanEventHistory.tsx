@@ -52,6 +52,9 @@ export function PlanEventHistory({ events }: PlanEventHistoryProps) {
                     </Link>
                   )}
                 </div>
+                {event.message && (
+                  <p className="mt-2 text-sm text-gray-700">{event.message}</p>
+                )}
                 <div className="mt-2">
                   {isInitial ? (
                     <div>
