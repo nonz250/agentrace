@@ -24,7 +24,94 @@ server/
 │       ├── mongodb/         # MongoDB実装
 │       └── turso/           # Turso（libSQL）実装
 └── migrations/              # スキーママイグレーション
+    ├── embed.go             # SQLファイルの埋め込み
+    ├── runner.go            # migration実行ロジック
+    ├── sqlite/initial.sql   # SQLite用スキーマ
+    └── postgres/initial.up.sql # PostgreSQL用スキーマ
 ```
+
+## Migration 管理
+
+### 概要
+
+- **initial.sql**: v0.0.1-alpha時点のスキーマ（バージョン管理前）
+- **v0.0.1以降**: セマンティックバージョンで `schema_migrations` テーブルにより管理
+
+### ファイル構成
+
+```
+migrations/
+├── embed.go                           # SQLファイル埋め込み + Migration型定義
+├── runner.go                          # migration実行ロジック
+├── sqlite/
+│   ├── initial.sql                    # 初期スキーマ（v0.0.1-alpha）
+│   └── v0.0.1_add_something.sql       # v0.0.1用migration（例）
+└── postgres/
+    ├── initial.up.sql                 # 初期スキーマ（v0.0.1-alpha）
+    └── v0.0.1_add_something.up.sql    # v0.0.1用migration（例）
+```
+
+### 新しいmigrationの追加手順
+
+v0.0.1 など新しいバージョン用のmigrationを追加する場合:
+
+#### 1. SQLファイルを作成
+
+```sql
+-- migrations/sqlite/v0.0.1_add_new_table.sql
+CREATE TABLE IF NOT EXISTS new_table (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+-- migrations/postgres/v0.0.1_add_new_table.up.sql
+CREATE TABLE IF NOT EXISTS new_table (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL
+);
+```
+
+#### 2. embed.go に追加
+
+```go
+// 新しいmigrationファイルを埋め込み
+//go:embed sqlite/v0.0.1_add_new_table.sql
+var SQLiteMigration_0_0_1 string
+
+//go:embed postgres/v0.0.1_add_new_table.up.sql
+var PostgresMigration_0_0_1 string
+
+// Migrations() に追加
+func SQLiteMigrations() []Migration {
+    return []Migration{
+        {Version: "0.0.1", SQL: SQLiteMigration_0_0_1},
+    }
+}
+
+func PostgresMigrations() []Migration {
+    return []Migration{
+        {Version: "0.0.1", SQL: PostgresMigration_0_0_1},
+    }
+}
+```
+
+### 実行フロー
+
+アプリケーション起動時に `migrations.Runner.Run()` が以下を実行:
+
+1. **initial.sql を適用**: 全てIF NOT EXISTSで冪等
+2. **既存DB用の後方互換処理**: messageカラム等の存在チェック
+3. **schema_migrations から適用済みバージョンを取得**
+4. **未適用のセマンティックバージョンmigrationを順次実行**
+5. **適用したバージョンを schema_migrations に記録**
+
+### 注意事項
+
+- **バージョン形式**: セマンティックバージョン（例: "0.0.1", "0.1.0", "1.0.0"）
+- **ソート**: `golang.org/x/mod/semver` でバージョン順にソートされる
+- **冪等性**: 可能な限り IF NOT EXISTS を使用
+- **SQLite/PostgreSQL両方**: 必ず両方のSQLファイルを作成すること
+- **Turso**: SQLite互換のため、SQLite用のmigrationが使用される
 
 ## レイヤードアーキテクチャ
 

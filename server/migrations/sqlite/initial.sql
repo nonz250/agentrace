@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS plan_document_events (
     user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     event_type TEXT NOT NULL DEFAULT 'body_change',
     patch TEXT NOT NULL,
+    message TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -129,6 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_claude_id ON sessions(claude_session_id)
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at);
 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_session_uuid ON events(session_id, uuid) WHERE uuid IS NOT NULL;
@@ -142,3 +144,9 @@ CREATE INDEX IF NOT EXISTS idx_plan_document_events_type ON plan_document_events
 CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_favorites_user_type ON user_favorites(user_id, target_type);
 CREATE INDEX IF NOT EXISTS idx_user_favorites_target ON user_favorites(target_type, target_id);
+
+-- Schema Migrations table (for tracking applied migrations)
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

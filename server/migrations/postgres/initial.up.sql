@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS plan_document_events (
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     event_type VARCHAR(32) NOT NULL DEFAULT 'body_change',
     patch TEXT NOT NULL,
+    message TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -144,3 +145,9 @@ CREATE INDEX IF NOT EXISTS idx_plan_document_events_type ON plan_document_events
 CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_favorites_user_type ON user_favorites(user_id, target_type);
 CREATE INDEX IF NOT EXISTS idx_user_favorites_target ON user_favorites(target_type, target_id);
+
+-- Schema Migrations table (for tracking applied migrations)
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
