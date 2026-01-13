@@ -686,9 +686,10 @@ export function Timeline({ events, projectPath, blockRefs }: TimelineProps) {
         return (
           <div
             key={block.id}
+            id={`event-${block.id}`}
             ref={ref}
             data-block-id={isNavigableBlock ? block.id : undefined}
-            className={isNavigableBlock ? 'scroll-mt-20' : undefined}
+            className="scroll-mt-20"
           >
             <ContentBlockCard block={block} />
           </div>

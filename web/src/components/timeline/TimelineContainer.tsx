@@ -30,6 +30,29 @@ export function TimelineContainer({ events, projectPath }: TimelineContainerProp
     blockRefsRef.current = blockRefs
   }, [blockRefs])
 
+  // Scroll to hash on initial load and hash change
+  useEffect(() => {
+    const scrollToHash = () => {
+      const hash = window.location.hash
+      if (hash && hash.startsWith('#event-')) {
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
+          const element = document.getElementById(hash.slice(1))
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+        }, 100)
+      }
+    }
+
+    // Initial load
+    scrollToHash()
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', scrollToHash)
+    return () => window.removeEventListener('hashchange', scrollToHash)
+  }, [events]) // Re-run when events change (data loaded)
+
   // Set up IntersectionObserver to track which message block is currently visible
   useEffect(() => {
     const observer = new IntersectionObserver(

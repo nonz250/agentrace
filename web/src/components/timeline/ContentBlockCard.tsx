@@ -1,5 +1,5 @@
 import { cn } from '@/lib/cn'
-import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal, FileText, ExternalLink, Loader2, ArrowRight } from 'lucide-react'
+import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal, FileText, ExternalLink, Loader2, ArrowRight, Link2, Check } from 'lucide-react'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -473,6 +473,33 @@ function renderContent(block: DisplayBlock) {
   )
 }
 
+// Permalink button component with copy feedback
+function PermalinkButton({ blockId }: { blockId: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const url = `${window.location.origin}${window.location.pathname}#event-${blockId}`
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="rounded p-1 text-gray-400 opacity-0 transition-all hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100"
+      title="Copy link to this block"
+    >
+      {copied ? (
+        <Check className="h-3.5 w-3.5 text-green-500" />
+      ) : (
+        <Link2 className="h-3.5 w-3.5" />
+      )}
+    </button>
+  )
+}
+
 export function ContentBlockCard({ block }: ContentBlockCardProps) {
   const isSecondary = isSecondaryBlock(block)
   // Use shouldExpandByDefault for initial state
@@ -483,7 +510,7 @@ export function ContentBlockCard({ block }: ContentBlockCardProps) {
   if (!isSecondary) {
     return (
       <div className={styles.wrapper}>
-        <div className={cn('overflow-hidden rounded-xl', styles.container)}>
+        <div className={cn('group overflow-hidden rounded-xl', styles.container)}>
           <div className={cn('flex items-center justify-between', styles.header)}>
             <div className="flex items-center gap-2">
               <span
@@ -496,8 +523,9 @@ export function ContentBlockCard({ block }: ContentBlockCardProps) {
               </span>
               <span className="font-medium text-gray-900">{block.label.text}</span>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
               <span>{format(new Date(block.timestamp), 'HH:mm:ss')}</span>
+              <PermalinkButton blockId={block.id} />
             </div>
           </div>
           <div className="border-t border-gray-100 px-4 py-3">
@@ -511,16 +539,12 @@ export function ContentBlockCard({ block }: ContentBlockCardProps) {
   // Secondary blocks have collapse functionality
   return (
     <div className={styles.wrapper}>
-      <div className={cn('overflow-hidden rounded-xl', styles.container)}>
-        <button
-          className={cn(
-            'flex w-full items-center justify-between',
-            styles.header,
-            'text-left transition-colors hover:bg-gray-50/50'
-          )}
-          onClick={() => setExpanded(!expanded)}
-        >
-          <div className="flex items-center gap-2">
+      <div className={cn('group overflow-hidden rounded-xl', styles.container)}>
+        <div className={cn('flex w-full items-center justify-between', styles.header)}>
+          <button
+            className="flex flex-1 items-center gap-2 text-left transition-colors hover:bg-gray-50/50"
+            onClick={() => setExpanded(!expanded)}
+          >
             <span
               className={cn(
                 'flex h-5 w-5 items-center justify-center rounded-full',
@@ -537,16 +561,22 @@ export function ContentBlockCard({ block }: ContentBlockCardProps) {
                 {block.label.params}
               </code>
             )}
-          </div>
+          </button>
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <span>{format(new Date(block.timestamp), 'HH:mm:ss')}</span>
-            {expanded ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
-            )}
+            <PermalinkButton blockId={block.id} />
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="p-0.5 hover:bg-gray-100 rounded"
+            >
+              {expanded ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </button>
           </div>
-        </button>
+        </div>
 
         {expanded && (
           <div className="border-t border-gray-100 px-3 py-2">
