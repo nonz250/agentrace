@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getPlan } from '@/api/plan-documents'
@@ -320,6 +321,7 @@ function renderContent(block: DisplayBlock) {
       return (
         <div className="prose prose-sm max-w-none text-gray-700 prose-headings:text-gray-900 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-gray-800 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-gray-100 prose-pre:text-gray-800">
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               code({ className, children, ...props }) {
                 const match = /language-(\w+)/.exec(className || '')
@@ -357,6 +359,7 @@ function renderContent(block: DisplayBlock) {
     return (
       <div className="prose prose-sm max-w-none text-purple-900 prose-headings:text-purple-900 prose-code:rounded prose-code:bg-purple-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-purple-800 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-purple-50 prose-pre:text-purple-900">
         <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
           components={{
             code({ className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '')
