@@ -48,7 +48,9 @@ export function Header() {
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <span className="text-primary-600">&#9671;</span>
+            <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 2 L30 16 L16 30 L2 16 Z" className="fill-primary-600"/>
+            </svg>
             AgenTrace
           </Link>
           <nav className="flex items-center gap-6">
