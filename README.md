@@ -87,7 +87,7 @@ npx agentrace on
 
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
-| `DB_TYPE` | sqlite | Database type (`memory`, `sqlite`, `postgres`, `mongodb`, `turso`) |
+| `DB_TYPE` | sqlite | Database type (`memory`, `sqlite`, `postgres`, `dynamodb`, `turso`) |
 | `DATABASE_URL` | /data/agentrace.db | Database connection string |
 | `DEV_MODE` | false | Enable debug logging |
 | `GITHUB_CLIENT_ID` | - | GitHub OAuth Client ID |
@@ -100,7 +100,7 @@ npx agentrace on
 | memory | - | Development/Testing |
 | sqlite | `/data/agentrace.db` | Local/Small-scale |
 | postgres | `postgres://user:pass@localhost:5432/agentrace?sslmode=disable` | Production |
-| mongodb | `mongodb://user:pass@localhost:27017/agentrace` | AWS DocumentDB |
+| dynamodb | `dynamodb://us-east-1/agentrace_` | AWS Serverless |
 | turso | `libsql://[db-name]-[org].turso.io?authToken=[token]` | Edge/Serverless |
 
 ```bash
@@ -113,10 +113,10 @@ docker run -d -p 9080:9080 \
   -e DATABASE_URL="postgres://user:pass@host:5432/agentrace?sslmode=disable" \
   satetsu888/agentrace:latest
 
-# MongoDB
+# DynamoDB
 docker run -d -p 9080:9080 \
-  -e DB_TYPE=mongodb \
-  -e DATABASE_URL="mongodb://user:pass@host:27017/agentrace" \
+  -e DB_TYPE=dynamodb \
+  -e DATABASE_URL="dynamodb://us-east-1/agentrace_" \
   satetsu888/agentrace:latest
 
 # Turso

@@ -17,7 +17,7 @@ Claude Codeのやりとりをチームでレビューできるサービス
 |----------------|------|
 | CLI | Node.js / TypeScript（npx配布） |
 | バックエンド | Go + Gorilla Mux |
-| データ層 | Repository パターン（Memory / SQLite / PostgreSQL / MongoDB） |
+| データ層 | Repository パターン（Memory / SQLite / PostgreSQL / DynamoDB / Turso） |
 | フロントエンド | React + Vite + Tailwind CSS |
 
 ## プロジェクト構成
@@ -55,7 +55,7 @@ agentrace/
                          ↓ POST /api/ingest
 ┌──────────────────────────────────────────────────────────┐
 │                   AgenTrace Server                       │
-│  Repository パターン（Memory/SQLite/PostgreSQL/MongoDB） │
+│  Repository パターン（Memory/SQLite/PostgreSQL/DynamoDB/Turso） │
 └──────────────────────────────────────────────────────────┘
                          ↓ REST API
 ┌──────────────────────────────────────────────────────────┐
