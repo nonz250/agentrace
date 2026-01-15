@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
+	"github.com/satetsu888/agentrace/server/internal/repository"
 )
 
 type SessionRepository struct {
@@ -66,7 +67,7 @@ func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSes
 	))
 }
 
-func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int, sortBy string) ([]*domain.Session, error) {
+func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) {
 	// Validate sortBy to prevent SQL injection
 	orderColumn := "updated_at"
 	if sortBy == "created_at" {
@@ -74,23 +75,33 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int, 
 	}
 
 	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
-		 FROM sessions ORDER BY ` + orderColumn + ` DESC`
+		 FROM sessions`
 
-	if limit > 0 {
-		query += ` LIMIT ? OFFSET ?`
+	var args []any
+
+	// Apply cursor filter
+	if cursor != "" {
+		cursorInfo := repository.DecodeCursor(cursor)
+		if cursorInfo != nil {
+			cursorTime, err := cursorInfo.ParseSortTime()
+			if err == nil {
+				query += ` WHERE (` + orderColumn + ` < ? OR (` + orderColumn + ` = ? AND id < ?))`
+				cursorTimeStr := cursorTime.Format(time.RFC3339Nano)
+				args = append(args, cursorTimeStr, cursorTimeStr, cursorInfo.ID)
+			}
+		}
 	}
 
-	var rows *sql.Rows
-	var err error
+	query += ` ORDER BY ` + orderColumn + ` DESC, id DESC`
 
 	if limit > 0 {
-		rows, err = r.db.QueryContext(ctx, query, limit, offset)
-	} else {
-		rows, err = r.db.QueryContext(ctx, query)
+		query += ` LIMIT ?`
+		args = append(args, limit+1)
 	}
 
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer rows.Close()
 
@@ -98,15 +109,33 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, offset int, 
 	for rows.Next() {
 		session, err := r.scanSessionFromRows(rows)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		sessions = append(sessions, session)
 	}
 
-	return sessions, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+
+	// Generate next cursor if there are more results
+	var nextCursor string
+	if limit > 0 && len(sessions) > limit {
+		sessions = sessions[:limit]
+		lastItem := sessions[limit-1]
+		var sortTime time.Time
+		if sortBy == "created_at" {
+			sortTime = lastItem.CreatedAt
+		} else {
+			sortTime = lastItem.UpdatedAt
+		}
+		nextCursor = repository.EncodeCursor(sortTime, lastItem.ID)
+	}
+
+	return sessions, nextCursor, nil
 }
 
-func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, offset int, sortBy string) ([]*domain.Session, error) {
+func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) {
 	// Validate sortBy to prevent SQL injection
 	orderColumn := "updated_at"
 	if sortBy == "created_at" {
@@ -114,23 +143,33 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 	}
 
 	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
-		 FROM sessions WHERE project_id = ? ORDER BY ` + orderColumn + ` DESC`
+		 FROM sessions WHERE project_id = ?`
 
-	if limit > 0 {
-		query += ` LIMIT ? OFFSET ?`
+	args := []any{projectID}
+
+	// Apply cursor filter
+	if cursor != "" {
+		cursorInfo := repository.DecodeCursor(cursor)
+		if cursorInfo != nil {
+			cursorTime, err := cursorInfo.ParseSortTime()
+			if err == nil {
+				query += ` AND (` + orderColumn + ` < ? OR (` + orderColumn + ` = ? AND id < ?))`
+				cursorTimeStr := cursorTime.Format(time.RFC3339Nano)
+				args = append(args, cursorTimeStr, cursorTimeStr, cursorInfo.ID)
+			}
+		}
 	}
 
-	var rows *sql.Rows
-	var err error
+	query += ` ORDER BY ` + orderColumn + ` DESC, id DESC`
 
 	if limit > 0 {
-		rows, err = r.db.QueryContext(ctx, query, projectID, limit, offset)
-	} else {
-		rows, err = r.db.QueryContext(ctx, query, projectID)
+		query += ` LIMIT ?`
+		args = append(args, limit+1)
 	}
 
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer rows.Close()
 
@@ -138,12 +177,30 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 	for rows.Next() {
 		session, err := r.scanSessionFromRows(rows)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		sessions = append(sessions, session)
 	}
 
-	return sessions, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+
+	// Generate next cursor if there are more results
+	var nextCursor string
+	if limit > 0 && len(sessions) > limit {
+		sessions = sessions[:limit]
+		lastItem := sessions[limit-1]
+		var sortTime time.Time
+		if sortBy == "created_at" {
+			sortTime = lastItem.CreatedAt
+		} else {
+			sortTime = lastItem.UpdatedAt
+		}
+		nextCursor = repository.EncodeCursor(sortTime, lastItem.ID)
+	}
+
+	return sessions, nextCursor, nil
 }
 
 func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error) {

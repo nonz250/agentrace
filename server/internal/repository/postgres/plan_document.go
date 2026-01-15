@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
+	"github.com/satetsu888/agentrace/server/internal/repository"
 )
 
 type PlanDocumentRepository struct {
@@ -53,11 +54,17 @@ func (r *PlanDocumentRepository) FindByID(ctx context.Context, id string) (*doma
 	))
 }
 
-func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, error) {
+func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, string, error) {
 	baseQuery := `SELECT id, project_id, description, body, status, created_at, updated_at FROM plan_documents`
 	var conditions []string
 	var args []any
 	paramIdx := 1
+
+	// Validate sortBy to prevent SQL injection
+	orderColumn := "updated_at"
+	if query.SortBy == "created_at" {
+		orderColumn = "created_at"
+	}
 
 	// Build WHERE conditions
 	if len(query.PlanDocumentIDs) > 0 {
@@ -92,26 +99,34 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 		paramIdx++
 	}
 
+	// Apply cursor filter
+	if query.Cursor != "" {
+		cursorInfo := repository.DecodeCursor(query.Cursor)
+		if cursorInfo != nil {
+			cursorTime, err := cursorInfo.ParseSortTime()
+			if err == nil {
+				conditions = append(conditions, fmt.Sprintf("(%s < $%d OR (%s = $%d AND id < $%d))", orderColumn, paramIdx, orderColumn, paramIdx+1, paramIdx+2))
+				args = append(args, cursorTime, cursorTime, cursorInfo.ID)
+				paramIdx += 3
+			}
+		}
+	}
+
 	// Combine query parts
 	if len(conditions) > 0 {
 		baseQuery += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Validate sortBy to prevent SQL injection
-	orderColumn := "updated_at"
-	if query.SortBy == "created_at" {
-		orderColumn = "created_at"
-	}
-	baseQuery += " ORDER BY " + orderColumn + " DESC"
+	baseQuery += " ORDER BY " + orderColumn + " DESC, id DESC"
 
 	if query.Limit > 0 {
-		baseQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", paramIdx, paramIdx+1)
-		args = append(args, query.Limit, query.Offset)
+		baseQuery += fmt.Sprintf(" LIMIT $%d", paramIdx)
+		args = append(args, query.Limit+1)
 	}
 
 	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer rows.Close()
 
@@ -119,12 +134,30 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 	for rows.Next() {
 		doc, err := r.scanDocumentFromRows(rows)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		docs = append(docs, doc)
 	}
 
-	return docs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+
+	// Generate next cursor if there are more results
+	var nextCursor string
+	if query.Limit > 0 && len(docs) > query.Limit {
+		docs = docs[:query.Limit]
+		lastItem := docs[query.Limit-1]
+		var sortTime time.Time
+		if query.SortBy == "created_at" {
+			sortTime = lastItem.CreatedAt
+		} else {
+			sortTime = lastItem.UpdatedAt
+		}
+		nextCursor = repository.EncodeCursor(sortTime, lastItem.ID)
+	}
+
+	return docs, nextCursor, nil
 }
 
 func (r *PlanDocumentRepository) Update(ctx context.Context, doc *domain.PlanDocument) error {

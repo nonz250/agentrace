@@ -150,10 +150,11 @@ func (s *SessionRepositorySuite) TestFindAll() {
 		s.Require().NoError(err)
 	}
 
-	// Find all with limit, default sort (updated_at)
-	sessions, err := s.Repo.FindAll(ctx, 3, 0, "")
+	// Find all with limit, default sort (updated_at), cursor-based pagination
+	sessions, nextCursor, err := s.Repo.FindAll(ctx, 3, "", "")
 	s.Require().NoError(err)
 	s.Len(sessions, 3)
+	s.NotEmpty(nextCursor) // More items available
 }
 
 func (s *SessionRepositorySuite) TestFindAll_SortByCreatedAt() {
@@ -169,8 +170,8 @@ func (s *SessionRepositorySuite) TestFindAll_SortByCreatedAt() {
 		s.Require().NoError(err)
 	}
 
-	// Find all sorted by created_at
-	sessions, err := s.Repo.FindAll(ctx, 5, 0, "created_at")
+	// Find all sorted by created_at (cursor-based pagination)
+	sessions, _, err := s.Repo.FindAll(ctx, 5, "", "created_at")
 	s.Require().NoError(err)
 	s.GreaterOrEqual(len(sessions), 5)
 
@@ -206,8 +207,8 @@ func (s *SessionRepositorySuite) TestFindByProjectID() {
 	err := s.Repo.Create(ctx, otherSession)
 	s.Require().NoError(err)
 
-	// Find by project ID
-	sessions, err := s.Repo.FindByProjectID(ctx, projectID, 10, 0, "")
+	// Find by project ID (cursor-based pagination)
+	sessions, _, err := s.Repo.FindByProjectID(ctx, projectID, 10, "", "")
 	s.Require().NoError(err)
 	s.Len(sessions, 3)
 

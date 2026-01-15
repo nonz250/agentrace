@@ -9,8 +9,8 @@ import (
 	"github.com/satetsu888/agentrace/server/internal/api"
 	"github.com/satetsu888/agentrace/server/internal/config"
 	"github.com/satetsu888/agentrace/server/internal/repository"
+	"github.com/satetsu888/agentrace/server/internal/repository/dynamodb"
 	"github.com/satetsu888/agentrace/server/internal/repository/memory"
-	"github.com/satetsu888/agentrace/server/internal/repository/mongodb"
 	"github.com/satetsu888/agentrace/server/internal/repository/postgres"
 	"github.com/satetsu888/agentrace/server/internal/repository/sqlite"
 	"github.com/satetsu888/agentrace/server/internal/repository/turso"
@@ -68,17 +68,6 @@ func initRepositories(cfg *config.Config) (*repository.Repositories, io.Closer, 
 		}
 		return postgres.NewRepositories(db), db, nil
 
-	case "mongodb":
-		log.Printf("Using MongoDB database: %s", cfg.DatabaseURL)
-		if cfg.DatabaseURL == "" {
-			return nil, nil, fmt.Errorf("DATABASE_URL is required for mongodb")
-		}
-		db, err := mongodb.Open(cfg.DatabaseURL)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to open MongoDB database: %w", err)
-		}
-		return mongodb.NewRepositories(db), db, nil
-
 	case "turso":
 		log.Printf("Using Turso database: %s", cfg.DatabaseURL)
 		if cfg.DatabaseURL == "" {
@@ -89,6 +78,17 @@ func initRepositories(cfg *config.Config) (*repository.Repositories, io.Closer, 
 			return nil, nil, fmt.Errorf("failed to open Turso database: %w", err)
 		}
 		return turso.NewRepositories(db), db, nil
+
+	case "dynamodb":
+		log.Printf("Using DynamoDB: %s", cfg.DatabaseURL)
+		if cfg.DatabaseURL == "" {
+			return nil, nil, fmt.Errorf("DATABASE_URL is required for dynamodb (format: dynamodb://region/table-prefix or dynamodb://localhost:8000/prefix)")
+		}
+		db, err := dynamodb.Open(cfg.DatabaseURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to open DynamoDB: %w", err)
+		}
+		return dynamodb.NewRepositories(db), db, nil
 
 	default:
 		return nil, nil, fmt.Errorf("unknown database type: %s", cfg.DBType)

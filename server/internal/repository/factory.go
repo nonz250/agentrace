@@ -11,8 +11,8 @@ const (
 	DBTypeMemory   DBType = "memory"
 	DBTypeSQLite   DBType = "sqlite"
 	DBTypePostgres DBType = "postgres"
-	DBTypeMongoDB  DBType = "mongodb"
 	DBTypeTurso    DBType = "turso"
+	DBTypeDynamoDB DBType = "dynamodb"
 )
 
 // RepositoryFactory creates repositories based on the database type
@@ -30,10 +30,10 @@ func NewRepositoryFactory(dbType string, databaseURL string) (RepositoryFactory,
 		return NewSQLiteFactory(databaseURL)
 	case DBTypePostgres:
 		return NewPostgresFactory(databaseURL)
-	case DBTypeMongoDB:
-		return NewMongoDBFactory(databaseURL)
 	case DBTypeTurso:
 		return NewTursoFactory(databaseURL)
+	case DBTypeDynamoDB:
+		return NewDynamoDBFactory(databaseURL)
 	default:
 		return nil, fmt.Errorf("unknown database type: %s", dbType)
 	}
@@ -100,25 +100,22 @@ func (f *PostgresFactory) Close() error {
 	return nil
 }
 
-// MongoDBFactory creates MongoDB repositories
-type MongoDBFactory struct {
-	databaseURL string
-	client      interface{} // Will be *mongo.Client
+// DynamoDBFactory creates DynamoDB repositories
+type DynamoDBFactory struct {
+	endpoint string // Optional endpoint URL for local development
 }
 
-func NewMongoDBFactory(databaseURL string) (*MongoDBFactory, error) {
-	if databaseURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL is required for mongodb")
-	}
-	return &MongoDBFactory{databaseURL: databaseURL}, nil
+func NewDynamoDBFactory(endpoint string) (*DynamoDBFactory, error) {
+	// endpoint is optional (empty string means use AWS defaults)
+	return &DynamoDBFactory{endpoint: endpoint}, nil
 }
 
-func (f *MongoDBFactory) Create() (*Repositories, error) {
-	// Will be implemented in mongodb package
-	return nil, fmt.Errorf("mongodb factory not implemented yet")
+func (f *DynamoDBFactory) Create() (*Repositories, error) {
+	// Will be implemented in dynamodb package
+	return nil, fmt.Errorf("dynamodb factory not implemented yet")
 }
 
-func (f *MongoDBFactory) Close() error {
+func (f *DynamoDBFactory) Close() error {
 	return nil
 }
 

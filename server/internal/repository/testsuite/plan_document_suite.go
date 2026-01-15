@@ -119,7 +119,7 @@ func (s *PlanDocumentRepositorySuite) TestFind_ByProjectID() {
 	err := s.Repo.Create(ctx, otherDoc)
 	s.Require().NoError(err)
 
-	docs, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{ProjectID: projectID})
+	docs, _, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{ProjectID: projectID})
 	s.Require().NoError(err)
 	s.Len(docs, 3)
 
@@ -153,7 +153,7 @@ func (s *PlanDocumentRepositorySuite) TestFind_ByStatuses() {
 	}
 
 	// Find only planning and implementation
-	docs, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
+	docs, _, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
 		ProjectID: "status-project",
 		Statuses: []domain.PlanDocumentStatus{
 			domain.PlanDocumentStatusPlanning,
@@ -187,7 +187,7 @@ func (s *PlanDocumentRepositorySuite) TestFind_ByDescriptionContains() {
 	}
 
 	// Find by description containing "feature" (case-insensitive)
-	docs, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
+	docs, _, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
 		ProjectID:           "desc-project",
 		DescriptionContains: "feature",
 	})
@@ -216,7 +216,7 @@ func (s *PlanDocumentRepositorySuite) TestFind_ByPlanDocumentIDs() {
 
 	// Find specific IDs
 	targetIDs := []string{ids[0], ids[2], ids[4]}
-	docs, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
+	docs, _, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
 		PlanDocumentIDs: targetIDs,
 	})
 	s.Require().NoError(err)
@@ -231,7 +231,7 @@ func (s *PlanDocumentRepositorySuite) TestFind_ByPlanDocumentIDs() {
 	}
 }
 
-func (s *PlanDocumentRepositorySuite) TestFind_WithLimitOffset() {
+func (s *PlanDocumentRepositorySuite) TestFind_WithCursor() {
 	ctx := context.Background()
 
 	s.createTestProject("pagination-project")
@@ -248,20 +248,20 @@ func (s *PlanDocumentRepositorySuite) TestFind_WithLimitOffset() {
 		s.Require().NoError(err)
 	}
 
-	// First page
-	docs, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
+	// First page (cursor-based pagination)
+	docs, nextCursor, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
 		ProjectID: "pagination-project",
 		Limit:     3,
-		Offset:    0,
 	})
 	s.Require().NoError(err)
 	s.Len(docs, 3)
+	s.NotEmpty(nextCursor) // More items available
 
-	// Second page
-	docs2, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
+	// Second page using cursor
+	docs2, _, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
 		ProjectID: "pagination-project",
 		Limit:     3,
-		Offset:    3,
+		Cursor:    nextCursor,
 	})
 	s.Require().NoError(err)
 	s.Len(docs2, 3)
@@ -291,7 +291,7 @@ func (s *PlanDocumentRepositorySuite) TestFind_SortByCreatedAt() {
 		s.Require().NoError(err)
 	}
 
-	docs, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
+	docs, _, err := s.Repo.Find(ctx, domain.PlanDocumentQuery{
 		ProjectID: "sort-created-project",
 		SortBy:    "created_at",
 	})

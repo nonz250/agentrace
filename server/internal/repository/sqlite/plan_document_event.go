@@ -33,7 +33,7 @@ func (r *PlanDocumentEventRepository) Create(ctx context.Context, event *domain.
 		`INSERT INTO plan_document_events (id, plan_document_id, claude_session_id, tool_use_id, user_id, event_type, patch, message, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.ID, event.PlanDocumentID, event.ClaudeSessionID, event.ToolUseID, event.UserID, string(event.EventType), event.Patch, event.Message,
-		event.CreatedAt.Format(time.RFC3339),
+		event.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return err
 }
@@ -170,7 +170,7 @@ func (r *PlanDocumentEventRepository) scanEvent(rows *sql.Rows) (*domain.PlanDoc
 	if event.EventType == "" {
 		event.EventType = domain.PlanDocumentEventTypeBodyChange
 	}
-	event.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	event.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 
 	return &event, nil
 }

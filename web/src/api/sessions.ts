@@ -6,15 +6,20 @@ export type SortBy = 'updated_at' | 'created_at'
 interface GetSessionsParams {
   projectId?: string
   limit?: number
-  offset?: number
+  cursor?: string
   sort?: SortBy
 }
 
-export async function getSessions(params?: GetSessionsParams): Promise<{ sessions: Session[] }> {
+interface GetSessionsResponse {
+  sessions: Session[]
+  next_cursor?: string
+}
+
+export async function getSessions(params?: GetSessionsParams): Promise<GetSessionsResponse> {
   const searchParams = new URLSearchParams()
   if (params?.projectId) searchParams.set('project_id', params.projectId)
   if (params?.limit) searchParams.set('limit', params.limit.toString())
-  if (params?.offset) searchParams.set('offset', params.offset.toString())
+  if (params?.cursor) searchParams.set('cursor', params.cursor)
   if (params?.sort) searchParams.set('sort', params.sort)
   const query = searchParams.toString()
   return fetchAPI(`/api/sessions${query ? `?${query}` : ''}`)

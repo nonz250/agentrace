@@ -21,7 +21,7 @@ server/
 │       ├── memory/          # オンメモリ実装
 │       ├── sqlite/          # SQLite実装
 │       ├── postgres/        # PostgreSQL実装
-│       ├── mongodb/         # MongoDB実装
+│       ├── dynamodb/        # AWS DynamoDB実装
 │       └── turso/           # Turso（libSQL）実装
 └── migrations/              # スキーママイグレーション
     ├── embed.go             # SQLファイルの埋め込み
@@ -130,8 +130,9 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 ### Repository パターン
 
 - データアクセスをインターフェースで抽象化
-- Memory / SQLite / PostgreSQL / MongoDB / Turso を切り替え可能
+- Memory / SQLite / PostgreSQL / DynamoDB / Turso を切り替え可能
 - 新しいエンティティ追加時は `repository/interface.go` にインターフェース追加
+- ページネーションはカーソルベース（`next_cursor` フィールド）を使用
 
 ### ドメインモデル
 
@@ -185,7 +186,7 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 | memory | - | 開発・テスト |
 | sqlite | `./data/agentrace.db` | ローカル/小規模運用 |
 | postgres | `postgres://user:pass@localhost:5432/agentrace?sslmode=disable` | 本番運用 |
-| mongodb | `mongodb://user:pass@localhost:27017/agentrace` | AWS DocumentDB 環境 |
+| dynamodb | `dynamodb://us-east-1/agentrace_` または `dynamodb://localhost:8000/agentrace_` | AWS環境/サーバーレス |
 | turso | `libsql://[db-name]-[org].turso.io?authToken=[token]` | エッジ環境/サーバーレス |
 
 ## 認証方式
@@ -290,7 +291,7 @@ go test ./internal/repository/sqlite/...
 
 # 統合テスト（要DB接続、ビルドタグ integration）
 DATABASE_URL="postgres://..." go test -tags=integration ./internal/repository/postgres/...
-MONGODB_URL="mongodb://..." go test -tags=integration ./internal/repository/mongodb/...
+DATABASE_URL="dynamodb://localhost:8000/test_" go test -tags=integration ./internal/repository/dynamodb/...
 TURSO_URL="libsql://..." go test -tags=integration ./internal/repository/turso/...
 ```
 

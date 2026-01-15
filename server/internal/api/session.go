@@ -128,7 +128,8 @@ func filterEvents(events []*domain.Event) []*domain.Event {
 }
 
 type SessionListResponse struct {
-	Sessions []*SessionResponse `json:"sessions"`
+	Sessions   []*SessionResponse `json:"sessions"`
+	NextCursor string             `json:"next_cursor,omitempty"`
 }
 
 func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +138,7 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	// Parse query parameters
 	limit := 100
-	offset := 0
+	cursor := r.URL.Query().Get("cursor")
 	projectID := r.URL.Query().Get("project_id")
 	sortBy := r.URL.Query().Get("sort")
 	// Validate sortBy - default to updated_at
@@ -149,18 +150,14 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 			limit = l
 		}
 	}
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-			offset = o
-		}
-	}
 
 	var sessions []*domain.Session
+	var nextCursor string
 	var err error
 	if projectID != "" {
-		sessions, err = h.repos.Session.FindByProjectID(ctx, projectID, limit, offset, sortBy)
+		sessions, nextCursor, err = h.repos.Session.FindByProjectID(ctx, projectID, limit, cursor, sortBy)
 	} else {
-		sessions, err = h.repos.Session.FindAll(ctx, limit, offset, sortBy)
+		sessions, nextCursor, err = h.repos.Session.FindAll(ctx, limit, cursor, sortBy)
 	}
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch sessions"}`, http.StatusInternalServerError)
@@ -204,7 +201,8 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 	sortSessionsByFavorite(sessionResponses)
 
 	response := SessionListResponse{
-		Sessions: sessionResponses,
+		Sessions:   sessionResponses,
+		NextCursor: nextCursor,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

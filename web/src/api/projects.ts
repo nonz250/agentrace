@@ -7,13 +7,18 @@ interface ProjectListItem extends Project {
 
 interface GetProjectsParams {
   limit?: number
-  offset?: number
+  cursor?: string
 }
 
-export async function getProjects(params?: GetProjectsParams): Promise<{ projects: ProjectListItem[] }> {
+interface GetProjectsResponse {
+  projects: ProjectListItem[]
+  next_cursor?: string
+}
+
+export async function getProjects(params?: GetProjectsParams): Promise<GetProjectsResponse> {
   const searchParams = new URLSearchParams()
   if (params?.limit) searchParams.set('limit', params.limit.toString())
-  if (params?.offset) searchParams.set('offset', params.offset.toString())
+  if (params?.cursor) searchParams.set('cursor', params.cursor)
   const query = searchParams.toString()
   return fetchAPI(`/api/projects${query ? `?${query}` : ''}`)
 }

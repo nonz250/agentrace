@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
+	"github.com/satetsu888/agentrace/server/internal/repository"
 )
 
 type PlanDocumentRepository struct {
@@ -58,7 +59,7 @@ func (r *PlanDocumentRepository) FindByID(ctx context.Context, id string) (*doma
 	return doc, nil
 }
 
-func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, error) {
+func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -106,27 +107,49 @@ func (r *PlanDocumentRepository) Find(ctx context.Context, query domain.PlanDocu
 	}
 
 	// Sort by specified field descending (newest first)
-	if query.SortBy == "created_at" {
-		sort.Slice(docs, func(i, j int) bool {
-			return docs[i].CreatedAt.After(docs[j].CreatedAt)
-		})
-	} else {
-		// Default: sort by UpdatedAt
-		sort.Slice(docs, func(i, j int) bool {
-			return docs[i].UpdatedAt.After(docs[j].UpdatedAt)
-		})
+	getSortTime := func(d *domain.PlanDocument) time.Time {
+		if query.SortBy == "created_at" {
+			return d.CreatedAt
+		}
+		return d.UpdatedAt
 	}
 
-	// Apply offset and limit
-	if query.Offset >= len(docs) {
-		return []*domain.PlanDocument{}, nil
+	sort.Slice(docs, func(i, j int) bool {
+		ti, tj := getSortTime(docs[i]), getSortTime(docs[j])
+		if ti.Equal(tj) {
+			return docs[i].ID > docs[j].ID
+		}
+		return ti.After(tj)
+	})
+
+	// Apply cursor filter
+	if query.Cursor != "" {
+		cursorInfo := repository.DecodeCursor(query.Cursor)
+		if cursorInfo != nil {
+			cursorTime, err := cursorInfo.ParseSortTime()
+			if err == nil {
+				startIdx := 0
+				for i, d := range docs {
+					sortTime := getSortTime(d)
+					if sortTime.Before(cursorTime) || (sortTime.Equal(cursorTime) && d.ID < cursorInfo.ID) {
+						startIdx = i
+						break
+					}
+				}
+				docs = docs[startIdx:]
+			}
+		}
 	}
-	docs = docs[query.Offset:]
+
+	// Apply limit and generate next cursor
+	var nextCursor string
 	if query.Limit > 0 && query.Limit < len(docs) {
+		lastItem := docs[query.Limit-1]
+		nextCursor = repository.EncodeCursor(getSortTime(lastItem), lastItem.ID)
 		docs = docs[:query.Limit]
 	}
 
-	return docs, nil
+	return docs, nextCursor, nil
 }
 
 func (r *PlanDocumentRepository) Update(ctx context.Context, doc *domain.PlanDocument) error {

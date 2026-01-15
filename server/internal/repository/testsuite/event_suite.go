@@ -155,6 +155,55 @@ func (s *EventRepositorySuite) TestFindBySessionID() {
 	}
 }
 
+func (s *EventRepositorySuite) TestFindBySessionID_ChronologicalOrder() {
+	ctx := context.Background()
+
+	sessionID := "session-chrono"
+	s.createTestSession(sessionID)
+
+	baseTime := time.Now()
+
+	// Create events in non-sequential order but with specific timestamps
+	// We'll create them out of order to ensure sorting is by CreatedAt, not insertion order
+	timestamps := []time.Duration{
+		300 * time.Millisecond, // third
+		100 * time.Millisecond, // first
+		500 * time.Millisecond, // fifth
+		200 * time.Millisecond, // second
+		400 * time.Millisecond, // fourth
+	}
+
+	for i, offset := range timestamps {
+		event := &domain.Event{
+			SessionID: sessionID,
+			UUID:      "chrono-event-" + string(rune('a'+i)),
+			EventType: "message",
+			Payload:   map[string]interface{}{"order": i},
+			CreatedAt: baseTime.Add(offset),
+		}
+		err := s.Repo.Create(ctx, event)
+		s.Require().NoError(err)
+	}
+
+	// Find events
+	events, err := s.Repo.FindBySessionID(ctx, sessionID)
+	s.Require().NoError(err)
+	s.Require().Len(events, 5)
+
+	// Verify events are in chronological order (ascending by CreatedAt)
+	for i := 1; i < len(events); i++ {
+		s.True(
+			events[i-1].CreatedAt.Before(events[i].CreatedAt) || events[i-1].CreatedAt.Equal(events[i].CreatedAt),
+			"Events should be in chronological order: event[%d].CreatedAt=%v should be <= event[%d].CreatedAt=%v",
+			i-1, events[i-1].CreatedAt, i, events[i].CreatedAt,
+		)
+	}
+
+	// Also verify the first and last events have the expected timestamps
+	s.Equal(baseTime.Add(100*time.Millisecond).UnixNano(), events[0].CreatedAt.UnixNano(), "First event should have earliest timestamp")
+	s.Equal(baseTime.Add(500*time.Millisecond).UnixNano(), events[4].CreatedAt.UnixNano(), "Last event should have latest timestamp")
+}
+
 func (s *EventRepositorySuite) TestFindBySessionID_Empty() {
 	ctx := context.Background()
 

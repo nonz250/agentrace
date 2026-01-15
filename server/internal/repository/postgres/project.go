@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
+	"github.com/satetsu888/agentrace/server/internal/repository"
 )
 
 type ProjectRepository struct {
@@ -82,25 +84,36 @@ func (r *ProjectRepository) FindOrCreateByCanonicalGitRepository(ctx context.Con
 	return newProject, nil
 }
 
-func (r *ProjectRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Project, error) {
-	var rows *sql.Rows
-	var err error
+func (r *ProjectRepository) FindAll(ctx context.Context, limit int, cursor string) ([]*domain.Project, string, error) {
+	query := `SELECT id, canonical_git_repository, created_at
+		 FROM projects`
 
-	if limit > 0 {
-		rows, err = r.db.QueryContext(ctx,
-			`SELECT id, canonical_git_repository, created_at
-			 FROM projects ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
-			limit, offset,
-		)
-	} else {
-		rows, err = r.db.QueryContext(ctx,
-			`SELECT id, canonical_git_repository, created_at
-			 FROM projects ORDER BY created_at DESC`,
-		)
+	var args []any
+	paramIdx := 1
+
+	// Apply cursor filter
+	if cursor != "" {
+		cursorInfo := repository.DecodeCursor(cursor)
+		if cursorInfo != nil {
+			cursorTime, err := cursorInfo.ParseSortTime()
+			if err == nil {
+				query += ` WHERE (created_at < $1 OR (created_at = $2 AND id < $3))`
+				args = append(args, cursorTime, cursorTime, cursorInfo.ID)
+				paramIdx = 4
+			}
+		}
 	}
 
+	query += ` ORDER BY created_at DESC, id DESC`
+
+	if limit > 0 {
+		query += fmt.Sprintf(` LIMIT $%d`, paramIdx)
+		args = append(args, limit+1)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer rows.Close()
 
@@ -108,12 +121,24 @@ func (r *ProjectRepository) FindAll(ctx context.Context, limit int, offset int) 
 	for rows.Next() {
 		project, err := r.scanProjectFromRows(rows)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		projects = append(projects, project)
 	}
 
-	return projects, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+
+	// Generate next cursor if there are more results
+	var nextCursor string
+	if limit > 0 && len(projects) > limit {
+		projects = projects[:limit]
+		lastItem := projects[limit-1]
+		nextCursor = repository.EncodeCursor(lastItem.CreatedAt, lastItem.ID)
+	}
+
+	return projects, nextCursor, nil
 }
 
 func (r *ProjectRepository) GetDefaultProject(ctx context.Context) (*domain.Project, error) {

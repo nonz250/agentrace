@@ -34,6 +34,7 @@ export interface PlanDocumentEvent {
 
 export interface ListPlansResponse {
   plans: PlanDocument[];
+  next_cursor?: string;
 }
 
 export interface SearchPlansParams {

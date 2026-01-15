@@ -39,6 +39,6 @@ type PlanDocumentQuery struct {
 	DescriptionContains string               // Filter by description containing this text (case-insensitive)
 	PlanDocumentIDs     []string             // Filter by specific plan document IDs (empty = all)
 	Limit               int                  // Max results (0 = use default)
-	Offset              int                  // Skip first N results
+	Cursor              string               // Cursor for pagination (empty = first page)
 	SortBy              string               // Sort field: "updated_at" (default) or "created_at"
 }

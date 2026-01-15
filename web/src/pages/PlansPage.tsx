@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
@@ -24,25 +24,30 @@ export function PlansPage() {
   const { user } = useAuth()
   const { projectId } = useParams<{ projectId: string }>()
   const [page, setPage] = useState(1)
+  const [cursors, setCursors] = useState<string[]>(['']) // cursors[0] = '' for first page
   const [showCreateModal, setShowCreateModal] = useState(false)
   const { selectedStatuses, setStatuses } = usePlanStatusFilter()
   const { selectedCollaboratorIds, setCollaboratorIds } = usePlanCollaboratorFilter()
   const { sort, updateSort } = useSortPreference('plans')
-  const offset = (page - 1) * PAGE_SIZE
+
+  const resetPagination = useCallback(() => {
+    setPage(1)
+    setCursors([''])
+  }, [])
 
   const handleStatusChange = (statuses: string[]) => {
     setStatuses(statuses as PlanDocumentStatus[])
-    setPage(1) // Reset to first page when filter changes
+    resetPagination()
   }
 
   const handleCollaboratorChange = (collaboratorIds: string[]) => {
     setCollaboratorIds(collaboratorIds)
-    setPage(1) // Reset to first page when filter changes
+    resetPagination()
   }
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     updateSort(e.target.value as 'updated_at' | 'created_at')
-    setPage(1) // Reset to first page when sort changes
+    resetPagination()
   }
 
   // Status options for MultiSelect
@@ -84,22 +89,41 @@ export function PlansPage() {
     )
   }, [allPlansData])
 
+  const cursor = cursors[page - 1] || ''
+
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ['plans', 'list', page, projectId, selectedStatuses, selectedCollaboratorIds, sort],
+    queryKey: ['plans', 'list', page, projectId, selectedStatuses, selectedCollaboratorIds, sort, cursor],
     queryFn: () =>
       plansApi.getPlans({
         projectId: projectId || undefined,
         statuses: selectedStatuses.length > 0 ? selectedStatuses : undefined,
         collaboratorIds: selectedCollaboratorIds.length > 0 ? selectedCollaboratorIds : undefined,
         limit: PAGE_SIZE,
-        offset,
+        cursor: cursor || undefined,
         sort,
       }),
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
   })
 
   const plans = data?.plans || []
-  const hasMore = plans.length === PAGE_SIZE
+  const nextCursor = data?.next_cursor
+  const hasMore = !!nextCursor
+
+  // Store next cursor when we get it
+  const goToNextPage = useCallback(() => {
+    if (nextCursor) {
+      setCursors(prev => {
+        const newCursors = [...prev]
+        newCursors[page] = nextCursor
+        return newCursors
+      })
+      setPage(p => p + 1)
+    }
+  }, [nextCursor, page])
+
+  const goToPrevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1))
+  }, [])
 
   // Only show full-page loading on initial load (no data yet)
   const showInitialLoading = isLoading && !data
@@ -188,7 +212,7 @@ export function PlansPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={goToPrevPage}
             disabled={page === 1}
           >
             <ChevronLeft className="mr-1 h-4 w-4" />
@@ -198,7 +222,7 @@ export function PlansPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setPage((p) => p + 1)}
+            onClick={goToNextPage}
             disabled={!hasMore}
           >
             Next

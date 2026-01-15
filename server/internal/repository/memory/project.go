@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
+	"github.com/satetsu888/agentrace/server/internal/repository"
 )
 
 type ProjectRepository struct {
@@ -97,7 +98,7 @@ func (r *ProjectRepository) FindOrCreateByCanonicalGitRepository(ctx context.Con
 	return project, nil
 }
 
-func (r *ProjectRepository) FindAll(ctx context.Context, limit int, offset int) ([]*domain.Project, error) {
+func (r *ProjectRepository) FindAll(ctx context.Context, limit int, cursor string) ([]*domain.Project, string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -108,19 +109,39 @@ func (r *ProjectRepository) FindAll(ctx context.Context, limit int, offset int) 
 
 	// Sort by CreatedAt descending (newest first)
 	sort.Slice(projects, func(i, j int) bool {
+		if projects[i].CreatedAt.Equal(projects[j].CreatedAt) {
+			return projects[i].ID > projects[j].ID
+		}
 		return projects[i].CreatedAt.After(projects[j].CreatedAt)
 	})
 
-	// Apply offset and limit
-	if offset >= len(projects) {
-		return []*domain.Project{}, nil
+	// Apply cursor filter
+	if cursor != "" {
+		cursorInfo := repository.DecodeCursor(cursor)
+		if cursorInfo != nil {
+			cursorTime, err := cursorInfo.ParseSortTime()
+			if err == nil {
+				startIdx := 0
+				for i, p := range projects {
+					if p.CreatedAt.Before(cursorTime) || (p.CreatedAt.Equal(cursorTime) && p.ID < cursorInfo.ID) {
+						startIdx = i
+						break
+					}
+				}
+				projects = projects[startIdx:]
+			}
+		}
 	}
-	projects = projects[offset:]
+
+	// Apply limit and generate next cursor
+	var nextCursor string
 	if limit > 0 && limit < len(projects) {
+		lastItem := projects[limit-1]
+		nextCursor = repository.EncodeCursor(lastItem.CreatedAt, lastItem.ID)
 		projects = projects[:limit]
 	}
 
-	return projects, nil
+	return projects, nextCursor, nil
 }
 
 func (r *ProjectRepository) GetDefaultProject(ctx context.Context) (*domain.Project, error) {

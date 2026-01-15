@@ -17,8 +17,8 @@ type ProjectRepository interface {
 	FindByID(ctx context.Context, id string) (*domain.Project, error)
 	FindByCanonicalGitRepository(ctx context.Context, canonicalGitRepo string) (*domain.Project, error)
 	FindOrCreateByCanonicalGitRepository(ctx context.Context, canonicalGitRepo string) (*domain.Project, error)
-	FindAll(ctx context.Context, limit int, offset int) ([]*domain.Project, error)
-	GetDefaultProject(ctx context.Context) (*domain.Project, error) // CanonicalGitRepository が空のプロジェクト
+	FindAll(ctx context.Context, limit int, cursor string) ([]*domain.Project, string, error) // Returns (projects, nextCursor, error)
+	GetDefaultProject(ctx context.Context) (*domain.Project, error)                           // CanonicalGitRepository が空のプロジェクト
 }
 
 // SessionRepository はセッションの永続化を担当する
@@ -26,8 +26,8 @@ type SessionRepository interface {
 	Create(ctx context.Context, session *domain.Session) error
 	FindByID(ctx context.Context, id string) (*domain.Session, error)
 	FindByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error)
-	FindAll(ctx context.Context, limit int, offset int, sortBy string) ([]*domain.Session, error)
-	FindByProjectID(ctx context.Context, projectID string, limit int, offset int, sortBy string) ([]*domain.Session, error)
+	FindAll(ctx context.Context, limit int, cursor string, sortBy string) ([]*domain.Session, string, error)                      // Returns (sessions, nextCursor, error)
+	FindByProjectID(ctx context.Context, projectID string, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) // Returns (sessions, nextCursor, error)
 	FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error)
 	UpdateUserID(ctx context.Context, id string, userID string) error
 	UpdateProjectPath(ctx context.Context, id string, projectPath string) error
@@ -91,7 +91,7 @@ type OAuthConnectionRepository interface {
 type PlanDocumentRepository interface {
 	Create(ctx context.Context, doc *domain.PlanDocument) error
 	FindByID(ctx context.Context, id string) (*domain.PlanDocument, error)
-	Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, error)
+	Find(ctx context.Context, query domain.PlanDocumentQuery) ([]*domain.PlanDocument, string, error) // Returns (docs, nextCursor, error)
 	Update(ctx context.Context, doc *domain.PlanDocument) error
 	Delete(ctx context.Context, id string) error
 	SetStatus(ctx context.Context, id string, status domain.PlanDocumentStatus) error

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Terminal, Copy, Check } from 'lucide-react'
 import { ProjectList } from '@/components/projects/ProjectList'
@@ -66,11 +66,13 @@ function SetupGuide() {
 
 export function ProjectsPage() {
   const [page, setPage] = useState(1)
-  const offset = (page - 1) * PAGE_SIZE
+  const [cursors, setCursors] = useState<string[]>(['']) // cursors[0] = '' for first page
+
+  const cursor = cursors[page - 1] || ''
 
   const { data, isLoading: isLoadingProjects, error } = useQuery({
-    queryKey: ['projects', 'list', page],
-    queryFn: () => projectsApi.getProjects({ limit: PAGE_SIZE, offset }),
+    queryKey: ['projects', 'list', page, cursor],
+    queryFn: () => projectsApi.getProjects({ limit: PAGE_SIZE, cursor: cursor || undefined }),
   })
 
   // Check if any sessions exist (limit: 1 for efficiency)
@@ -80,8 +82,25 @@ export function ProjectsPage() {
   })
 
   const projects = data?.projects || []
-  const hasMore = projects.length === PAGE_SIZE
+  const nextCursor = data?.next_cursor
+  const hasMore = !!nextCursor
   const isLoading = isLoadingProjects || isLoadingSessions
+
+  // Store next cursor when we get it
+  const goToNextPage = useCallback(() => {
+    if (nextCursor) {
+      setCursors(prev => {
+        const newCursors = [...prev]
+        newCursors[page] = nextCursor
+        return newCursors
+      })
+      setPage(p => p + 1)
+    }
+  }, [nextCursor, page])
+
+  const goToPrevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1))
+  }, [])
 
   if (isLoading) {
     return (
@@ -124,7 +143,7 @@ export function ProjectsPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={goToPrevPage}
             disabled={page === 1}
           >
             <ChevronLeft className="mr-1 h-4 w-4" />
@@ -134,7 +153,7 @@ export function ProjectsPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setPage((p) => p + 1)}
+            onClick={goToNextPage}
             disabled={!hasMore}
           >
             Next

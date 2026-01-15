@@ -161,10 +161,11 @@ func (s *ProjectRepositorySuite) TestFindAll() {
 		s.Require().NoError(err)
 	}
 
-	// Find all with limit
-	projects, err := s.Repo.FindAll(ctx, 3, 0)
+	// Find all with limit (cursor-based pagination)
+	projects, nextCursor, err := s.Repo.FindAll(ctx, 3, "")
 	s.Require().NoError(err)
 	s.Len(projects, 3)
+	s.NotEmpty(nextCursor) // More items available
 
 	// Verify order (newest first)
 	for i := 0; i < len(projects)-1; i++ {
@@ -172,23 +173,36 @@ func (s *ProjectRepositorySuite) TestFindAll() {
 	}
 }
 
-func (s *ProjectRepositorySuite) TestFindAll_WithOffset() {
+func (s *ProjectRepositorySuite) TestFindAll_WithCursor() {
 	ctx := context.Background()
 
 	// Create multiple projects
 	for i := 0; i < 5; i++ {
 		project := &domain.Project{
-			CanonicalGitRepository: "https://github.com/example/offset-repo-" + string(rune('a'+i)),
+			CanonicalGitRepository: "https://github.com/example/cursor-repo-" + string(rune('a'+i)),
 		}
 		time.Sleep(1 * time.Millisecond)
 		err := s.Repo.Create(ctx, project)
 		s.Require().NoError(err)
 	}
 
-	// Find with offset
-	projects, err := s.Repo.FindAll(ctx, 10, 2)
+	// First page
+	projects1, nextCursor, err := s.Repo.FindAll(ctx, 2, "")
 	s.Require().NoError(err)
-	s.GreaterOrEqual(len(projects), 3) // At least 3 from our 5 created
+	s.Len(projects1, 2)
+	s.NotEmpty(nextCursor)
+
+	// Second page using cursor
+	projects2, _, err := s.Repo.FindAll(ctx, 2, nextCursor)
+	s.Require().NoError(err)
+	s.Len(projects2, 2)
+
+	// No overlap between pages
+	for _, p1 := range projects1 {
+		for _, p2 := range projects2 {
+			s.NotEqual(p1.ID, p2.ID)
+		}
+	}
 }
 
 func (s *ProjectRepositorySuite) TestGetDefaultProject() {

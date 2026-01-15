@@ -9,11 +9,16 @@ interface GetPlansParams {
   statuses?: string[]
   collaboratorIds?: string[]
   limit?: number
-  offset?: number
+  cursor?: string
   sort?: SortBy
 }
 
-export async function getPlans(params?: GetPlansParams): Promise<{ plans: PlanDocument[] }> {
+interface GetPlansResponse {
+  plans: PlanDocument[]
+  next_cursor?: string
+}
+
+export async function getPlans(params?: GetPlansParams): Promise<GetPlansResponse> {
   const searchParams = new URLSearchParams()
   if (params?.projectId) searchParams.set('project_id', params.projectId)
   if (params?.gitRemoteUrl) searchParams.set('git_remote_url', params.gitRemoteUrl)
@@ -24,7 +29,7 @@ export async function getPlans(params?: GetPlansParams): Promise<{ plans: PlanDo
     searchParams.set('collaborator', params.collaboratorIds.join(','))
   }
   if (params?.limit) searchParams.set('limit', params.limit.toString())
-  if (params?.offset) searchParams.set('offset', params.offset.toString())
+  if (params?.cursor) searchParams.set('cursor', params.cursor)
   if (params?.sort) searchParams.set('sort', params.sort)
   const query = searchParams.toString()
   return fetchAPI(`/api/plans${query ? `?${query}` : ''}`)

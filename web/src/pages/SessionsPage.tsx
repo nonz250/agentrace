@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -16,12 +16,13 @@ const PAGE_SIZE = 20
 export function SessionsPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const [page, setPage] = useState(1)
+  const [cursors, setCursors] = useState<string[]>(['']) // cursors[0] = '' for first page
   const { sort, updateSort } = useSortPreference('sessions')
-  const offset = (page - 1) * PAGE_SIZE
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     updateSort(e.target.value as 'updated_at' | 'created_at')
-    setPage(1) // Reset to first page when sort changes
+    setPage(1)
+    setCursors(['']) // Reset cursors when sort changes
   }
 
   const { data: projectData } = useQuery({
@@ -30,13 +31,32 @@ export function SessionsPage() {
     enabled: !!projectId,
   })
 
+  const cursor = cursors[page - 1] || ''
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['sessions', 'list', page, projectId, sort],
-    queryFn: () => sessionsApi.getSessions({ projectId: projectId || undefined, limit: PAGE_SIZE, offset, sort }),
+    queryKey: ['sessions', 'list', page, projectId, sort, cursor],
+    queryFn: () => sessionsApi.getSessions({ projectId: projectId || undefined, limit: PAGE_SIZE, cursor: cursor || undefined, sort }),
   })
 
   const sessions = data?.sessions || []
-  const hasMore = sessions.length === PAGE_SIZE
+  const nextCursor = data?.next_cursor
+  const hasMore = !!nextCursor
+
+  // Store next cursor when we get it
+  const goToNextPage = useCallback(() => {
+    if (nextCursor) {
+      setCursors(prev => {
+        const newCursors = [...prev]
+        newCursors[page] = nextCursor
+        return newCursors
+      })
+      setPage(p => p + 1)
+    }
+  }, [nextCursor, page])
+
+  const goToPrevPage = useCallback(() => {
+    setPage(p => Math.max(1, p - 1))
+  }, [])
 
   if (isLoading) {
     return (
@@ -91,7 +111,7 @@ export function SessionsPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={goToPrevPage}
             disabled={page === 1}
           >
             <ChevronLeft className="mr-1 h-4 w-4" />
@@ -101,7 +121,7 @@ export function SessionsPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setPage((p) => p + 1)}
+            onClick={goToNextPage}
             disabled={!hasMore}
           >
             Next

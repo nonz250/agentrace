@@ -26,7 +26,8 @@ type ProjectListItemResponse struct {
 }
 
 type ProjectListResponse struct {
-	Projects []*ProjectListItemResponse `json:"projects"`
+	Projects   []*ProjectListItemResponse `json:"projects"`
+	NextCursor string                     `json:"next_cursor,omitempty"`
 }
 
 type ProjectResponse struct {
@@ -41,19 +42,14 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	// Parse query parameters
 	limit := 100
-	offset := 0
+	cursor := r.URL.Query().Get("cursor")
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
 			limit = l
 		}
 	}
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-			offset = o
-		}
-	}
 
-	projects, err := h.repos.Project.FindAll(ctx, limit, offset)
+	projects, nextCursor, err := h.repos.Project.FindAll(ctx, limit, cursor)
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch projects"}`, http.StatusInternalServerError)
 		return
@@ -68,7 +64,10 @@ func (h *ProjectHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := ProjectListResponse{Projects: responses}
+	response := ProjectListResponse{
+		Projects:   responses,
+		NextCursor: nextCursor,
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)

@@ -45,7 +45,8 @@ type PlanDocumentResponse struct {
 }
 
 type PlanDocumentListResponse struct {
-	Plans []*PlanDocumentResponse `json:"plans"`
+	Plans      []*PlanDocumentResponse `json:"plans"`
+	NextCursor string                  `json:"next_cursor,omitempty"`
 }
 
 type PlanDocumentEventResponse struct {
@@ -175,15 +176,10 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	// Parse query parameters
 	limit := 100
-	offset := 0
+	cursor := r.URL.Query().Get("cursor")
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
 			limit = l
-		}
-	}
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-			offset = o
 		}
 	}
 
@@ -260,10 +256,10 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 		DescriptionContains: descriptionParam,
 		PlanDocumentIDs:     planDocumentIDs,
 		Limit:               limit,
-		Offset:              offset,
+		Cursor:              cursor,
 		SortBy:              sortBy,
 	}
-	docs, err := h.repos.PlanDocument.Find(ctx, query)
+	docs, nextCursor, err := h.repos.PlanDocument.Find(ctx, query)
 
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch plan documents"}`, http.StatusInternalServerError)
@@ -295,7 +291,10 @@ func (h *PlanDocumentHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Sort: favorited plans first, then by updated_at desc (already sorted by repo)
 	sortPlansByFavorite(plans)
 
-	response := PlanDocumentListResponse{Plans: plans}
+	response := PlanDocumentListResponse{
+		Plans:      plans,
+		NextCursor: nextCursor,
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
