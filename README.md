@@ -103,6 +103,8 @@ npx agentrace on
 | dynamodb | `dynamodb://us-east-1/agentrace_` | AWS Serverless |
 | turso | `libsql://[db-name]-[org].turso.io?authToken=[token]` | Edge/Serverless |
 
+> **Note:** For DynamoDB, the path component (e.g., `agentrace_`) is used as a table name prefix. Tables will be created as `agentrace_sessions`, `agentrace_users`, etc.
+
 ```bash
 # SQLite (default)
 docker run -d -p 9080:9080 -v $(pwd)/data:/data satetsu888/agentrace:latest

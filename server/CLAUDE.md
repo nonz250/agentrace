@@ -189,6 +189,8 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 | dynamodb | `dynamodb://us-east-1/agentrace_` または `dynamodb://localhost:8000/agentrace_` | AWS環境/サーバーレス |
 | turso | `libsql://[db-name]-[org].turso.io?authToken=[token]` | エッジ環境/サーバーレス |
 
+※ DynamoDBの場合、パス部分（例: `agentrace_`）はテーブル名のプレフィックスとして使用される。`agentrace_sessions`、`agentrace_users` などのテーブルが作成される。
+
 ## 認証方式
 
 | 方式 | 用途 | 有効期間 |
