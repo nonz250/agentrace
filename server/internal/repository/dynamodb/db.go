@@ -103,9 +103,15 @@ func Open(databaseURL string) (*DB, error) {
 		TablePrefix: dbConfig.TablePrefix,
 	}
 
-	// Ensure tables exist
+	// Ensure tables exist (initial schema)
 	if err := db.ensureTables(ctx); err != nil {
 		return nil, fmt.Errorf("failed to ensure tables: %w", err)
+	}
+
+	// Run versioned migrations
+	runner := NewMigrationRunner(db)
+	if err := runner.Run(ctx); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
 	return db, nil
@@ -574,4 +580,31 @@ func (db *DB) userFavoritesTable() tableDefinition {
 			},
 		},
 	}
+}
+
+// WaitForGSIActive waits for a GSI to become ACTIVE.
+// This is exported for use in migrations when adding new GSIs.
+func (db *DB) WaitForGSIActive(ctx context.Context, tableName, indexName string) error {
+	for i := 0; i < 60; i++ { // Max 10 minutes wait (60 * 10s)
+		desc, err := db.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+			TableName: aws.String(tableName),
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, gsi := range desc.Table.GlobalSecondaryIndexes {
+			if *gsi.IndexName == indexName {
+				if gsi.IndexStatus == types.IndexStatusActive {
+					return nil
+				}
+				log.Printf("GSI %s status: %s, waiting...", indexName, gsi.IndexStatus)
+				break
+			}
+		}
+
+		time.Sleep(10 * time.Second)
+	}
+
+	return fmt.Errorf("timeout waiting for GSI %s to become active", indexName)
 }
