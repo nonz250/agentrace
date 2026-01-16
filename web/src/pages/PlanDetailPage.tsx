@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select } from '@/components/ui/Select'
+import { CopyButton } from '@/components/ui/CopyButton'
 import { ProjectSelect } from '@/components/ui/ProjectSelect'
 import { FavoriteButton } from '@/components/ui/FavoriteButton'
 import { useAuth } from '@/hooks/useAuth'
@@ -179,9 +180,9 @@ export function PlanDetailPage() {
     { label: projectDisplayName || '(no project)', href: `/projects/${projectId}` },
     { label: 'Plans', href: `/projects/${projectId}/plans` },
   ]
-  // Plan name: description truncated
-  const planName = plan.description.length > 30 ? plan.description.slice(0, 30) + '...' : plan.description
-  breadcrumbItems.push({ label: planName })
+  // Plan ID (shortened) with copy button
+  const shortId = plan.id.slice(0, 8) + '...'
+  breadcrumbItems.push({ label: shortId, copyText: plan.id })
 
   return (
     <div>
@@ -357,36 +358,42 @@ export function PlanDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-gray-800 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-0">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code({ className, children, ...props }) {
-                    const match = /language-(\w+)/.exec(className || '')
-                    const code = String(children).replace(/\n$/, '')
-                    return match ? (
-                      <SyntaxHighlighter
-                        language={match[1]}
-                        style={oneLight}
-                        customStyle={{
-                          fontSize: '0.875rem',
-                          borderRadius: '0.5rem',
-                          margin: '1rem 0',
-                          padding: '1rem',
-                        }}
-                      >
-                        {code}
-                      </SyntaxHighlighter>
-                    ) : (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    )
-                  },
-                }}
-              >
-                {plan.body}
-              </ReactMarkdown>
+            <div className="relative">
+              <CopyButton
+                text={plan.body}
+                className="absolute top-0 right-0"
+              />
+              <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-gray-800 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-0">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({ className, children, ...props }) {
+                      const match = /language-(\w+)/.exec(className || '')
+                      const code = String(children).replace(/\n$/, '')
+                      return match ? (
+                        <SyntaxHighlighter
+                          language={match[1]}
+                          style={oneLight}
+                          customStyle={{
+                            fontSize: '0.875rem',
+                            borderRadius: '0.5rem',
+                            margin: '1rem 0',
+                            padding: '1rem',
+                          }}
+                        >
+                          {code}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      )
+                    },
+                  }}
+                >
+                  {plan.body}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
         </div>

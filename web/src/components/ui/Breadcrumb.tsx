@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { ProjectIcon } from '@/components/projects/ProjectIcon'
+import { CopyButton } from '@/components/ui/CopyButton'
 import type { Project } from '@/types/project'
 
 export interface BreadcrumbItem {
   label: string
   href?: string  // undefined means current page (no link)
+  copyText?: string  // if provided, show a copy button next to the label
 }
 
 interface BreadcrumbProps {
@@ -30,6 +32,9 @@ export function Breadcrumb({ items, project }: BreadcrumbProps) {
             <span className="text-gray-900 font-medium truncate max-w-[200px]">
               {item.label}
             </span>
+          )}
+          {item.copyText && (
+            <CopyButton text={item.copyText} className="!p-0.5" />
           )}
         </span>
       ))}
