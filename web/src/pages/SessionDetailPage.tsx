@@ -115,9 +115,9 @@ export function SessionDetailPage() {
     { label: projectDisplayName || '(no project)', href: `/projects/${projectId}` },
     { label: 'Sessions', href: `/projects/${projectId}/sessions` },
   ]
-  // Session name: date
-  const sessionName = format(new Date(session.started_at), 'yyyy/MM/dd HH:mm')
-  breadcrumbItems.push({ label: sessionName })
+  // Session ID (shortened) with copy button
+  const shortId = session.id.slice(0, 8) + '...'
+  breadcrumbItems.push({ label: shortId, copyText: session.id })
 
   return (
     <div>
