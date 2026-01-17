@@ -34,10 +34,17 @@ type sessionItem struct {
 	EndedAt         *string `dynamodbav:"ended_at,omitempty"`
 	UpdatedAt       string  `dynamodbav:"updated_at"`
 	CreatedAt       string  `dynamodbav:"created_at"`
-	GSIPK           string  `dynamodbav:"_gsi_pk"` // Fixed value for global queries
+	GSIPK           string  `dynamodbav:"_gsi_pk"` // "SESSION" for main sessions, "SUBAGENT" for subagents
+	// Subagent fields
+	ParentSessionID *string `dynamodbav:"parent_session_id,omitempty"`
+	AgentID         *string `dynamodbav:"agent_id,omitempty"`
+	IsSidechain     bool    `dynamodbav:"is_sidechain"`
 }
 
-const sessionGSIPK = "SESSION"
+const (
+	sessionGSIPK   = "SESSION"
+	subagentGSIPK  = "SUBAGENT"
+)
 
 func (r *SessionRepository) Create(ctx context.Context, session *domain.Session) error {
 	if session.ID == "" {
@@ -62,6 +69,12 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		endedAt = &s
 	}
 
+	// Use different GSIPK for subagents to filter them out of main session lists
+	gsipk := sessionGSIPK
+	if session.IsSidechain {
+		gsipk = subagentGSIPK
+	}
+
 	item := sessionItem{
 		ID:              session.ID,
 		UserID:          session.UserID,
@@ -74,7 +87,10 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		EndedAt:         endedAt,
 		UpdatedAt:       session.UpdatedAt.Format(time.RFC3339Nano),
 		CreatedAt:       session.CreatedAt.Format(time.RFC3339Nano),
-		GSIPK:           sessionGSIPK,
+		GSIPK:           gsipk,
+		ParentSessionID: session.ParentSessionID,
+		AgentID:         session.AgentID,
+		IsSidechain:     session.IsSidechain,
 	}
 
 	av, err := attributevalue.MarshalMap(item)
@@ -232,19 +248,24 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 	keyCond := expression.Key("project_id").Equal(expression.Value(projectID))
 	builder := expression.NewBuilder().WithKeyCondition(keyCond)
 
+	// Exclude subagent sessions
+	filterExpr := expression.Name("is_sidechain").NotEqual(expression.Value(true))
+
 	if cursor != "" {
 		cursorInfo := repository.DecodeCursor(cursor)
 		if cursorInfo != nil {
-			filterExpr := expression.Or(
+			cursorFilter := expression.Or(
 				expression.Name(sortAttr).LessThan(expression.Value(cursorInfo.SortValue)),
 				expression.And(
 					expression.Name(sortAttr).Equal(expression.Value(cursorInfo.SortValue)),
 					expression.Name("id").LessThan(expression.Value(cursorInfo.ID)),
 				),
 			)
-			builder = builder.WithFilter(filterExpr)
+			filterExpr = expression.And(filterExpr, cursorFilter)
 		}
 	}
+
+	builder = builder.WithFilter(filterExpr)
 
 	expr, err := builder.Build()
 	if err != nil {
@@ -466,5 +487,40 @@ func (r *SessionRepository) itemToSession(item *sessionItem) *domain.Session {
 		EndedAt:         endedAt,
 		UpdatedAt:       updatedAt,
 		CreatedAt:       createdAt,
+		ParentSessionID: item.ParentSessionID,
+		AgentID:         item.AgentID,
+		IsSidechain:     item.IsSidechain,
 	}
+}
+
+func (r *SessionRepository) FindSubagentsByParentID(ctx context.Context, parentID string) ([]*domain.Session, error) {
+	keyCond := expression.Key("parent_session_id").Equal(expression.Value(parentID))
+	expr, err := expression.NewBuilder().WithKeyCondition(keyCond).Build()
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:                 aws.String(r.db.TableName("sessions")),
+		IndexName:                 aws.String("parent_session_id-created_at-index"),
+		KeyConditionExpression:    expr.KeyCondition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		ScanIndexForward:          aws.Bool(true), // ASC order by created_at
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var items []sessionItem
+	if err := attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
+		return nil, err
+	}
+
+	sessions := make([]*domain.Session, 0, len(items))
+	for _, item := range items {
+		sessions = append(sessions, r.itemToSession(&item))
+	}
+
+	return sessions, nil
 }

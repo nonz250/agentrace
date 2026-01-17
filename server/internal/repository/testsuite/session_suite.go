@@ -389,3 +389,192 @@ func (s *SessionRepositorySuite) TestUpdateUpdatedAt() {
 	s.Require().NoError(err)
 	s.WithinDuration(newTime, found.UpdatedAt, time.Second)
 }
+
+// Subagent (Task tool) related tests
+
+func (s *SessionRepositorySuite) TestCreate_WithSubagentFields() {
+	ctx := context.Background()
+
+	// Create parent session first
+	parentSession := &domain.Session{
+		ClaudeSessionID: "parent-session-for-subagent",
+	}
+	err := s.Repo.Create(ctx, parentSession)
+	s.Require().NoError(err)
+
+	// Create subagent session
+	agentID := "a5d7f46"
+	subagentSession := &domain.Session{
+		ClaudeSessionID: "subagent-session-1",
+		ParentSessionID: &parentSession.ID,
+		AgentID:         &agentID,
+		IsSidechain:     true,
+	}
+	err = s.Repo.Create(ctx, subagentSession)
+	s.Require().NoError(err)
+
+	// Verify fields are persisted
+	found, err := s.Repo.FindByID(ctx, subagentSession.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(found)
+	s.Require().NotNil(found.ParentSessionID)
+	s.Equal(parentSession.ID, *found.ParentSessionID)
+	s.Require().NotNil(found.AgentID)
+	s.Equal("a5d7f46", *found.AgentID)
+	s.True(found.IsSidechain)
+}
+
+func (s *SessionRepositorySuite) TestFindSubagentsByParentID() {
+	ctx := context.Background()
+
+	// Create parent session
+	parentSession := &domain.Session{
+		ClaudeSessionID: "parent-session-subagents",
+	}
+	err := s.Repo.Create(ctx, parentSession)
+	s.Require().NoError(err)
+
+	// Create multiple subagent sessions
+	for i := 0; i < 3; i++ {
+		agentID := "agent-" + string(rune('a'+i))
+		subagent := &domain.Session{
+			ClaudeSessionID: "subagent-" + string(rune('a'+i)),
+			ParentSessionID: &parentSession.ID,
+			AgentID:         &agentID,
+			IsSidechain:     true,
+		}
+		time.Sleep(1 * time.Millisecond)
+		err := s.Repo.Create(ctx, subagent)
+		s.Require().NoError(err)
+	}
+
+	// Find subagents
+	subagents, err := s.Repo.FindSubagentsByParentID(ctx, parentSession.ID)
+	s.Require().NoError(err)
+	s.Len(subagents, 3)
+
+	// Verify all are subagents of the parent
+	for _, sub := range subagents {
+		s.Require().NotNil(sub.ParentSessionID)
+		s.Equal(parentSession.ID, *sub.ParentSessionID)
+		s.True(sub.IsSidechain)
+	}
+}
+
+func (s *SessionRepositorySuite) TestFindSubagentsByParentID_Empty() {
+	ctx := context.Background()
+
+	// Create session with no subagents
+	session := &domain.Session{
+		ClaudeSessionID: "session-no-subagents",
+	}
+	err := s.Repo.Create(ctx, session)
+	s.Require().NoError(err)
+
+	// Find subagents - should be empty
+	subagents, err := s.Repo.FindSubagentsByParentID(ctx, session.ID)
+	s.Require().NoError(err)
+	s.Empty(subagents)
+}
+
+func (s *SessionRepositorySuite) TestFindSubagentsByParentID_NonExistentParent() {
+	ctx := context.Background()
+
+	// Find subagents for non-existent parent
+	subagents, err := s.Repo.FindSubagentsByParentID(ctx, "non-existent-parent-id")
+	s.Require().NoError(err)
+	s.Empty(subagents)
+}
+
+func (s *SessionRepositorySuite) TestFindAll_ExcludesSubagents() {
+	ctx := context.Background()
+
+	// Create regular sessions
+	for i := 0; i < 3; i++ {
+		session := &domain.Session{
+			ClaudeSessionID: "regular-session-exclude-" + string(rune('a'+i)),
+		}
+		time.Sleep(1 * time.Millisecond)
+		err := s.Repo.Create(ctx, session)
+		s.Require().NoError(err)
+	}
+
+	// Create parent session
+	parentSession := &domain.Session{
+		ClaudeSessionID: "parent-session-exclude",
+	}
+	err := s.Repo.Create(ctx, parentSession)
+	s.Require().NoError(err)
+
+	// Create subagent sessions (should be excluded from FindAll)
+	for i := 0; i < 2; i++ {
+		agentID := "exclude-agent-" + string(rune('a'+i))
+		subagent := &domain.Session{
+			ClaudeSessionID: "subagent-exclude-" + string(rune('a'+i)),
+			ParentSessionID: &parentSession.ID,
+			AgentID:         &agentID,
+			IsSidechain:     true,
+		}
+		err := s.Repo.Create(ctx, subagent)
+		s.Require().NoError(err)
+	}
+
+	// FindAll should return only regular sessions (not subagents)
+	sessions, _, err := s.Repo.FindAll(ctx, 100, "", "")
+	s.Require().NoError(err)
+
+	// Verify no subagents in the result
+	for _, sess := range sessions {
+		s.False(sess.IsSidechain, "FindAll should not return subagent sessions")
+	}
+}
+
+func (s *SessionRepositorySuite) TestFindByProjectID_ExcludesSubagents() {
+	ctx := context.Background()
+
+	projectID := "project-exclude-subagents"
+	s.createTestProject(projectID)
+
+	// Create regular sessions for the project
+	for i := 0; i < 2; i++ {
+		session := &domain.Session{
+			ClaudeSessionID: "project-regular-" + string(rune('a'+i)),
+			ProjectID:       projectID,
+		}
+		time.Sleep(1 * time.Millisecond)
+		err := s.Repo.Create(ctx, session)
+		s.Require().NoError(err)
+	}
+
+	// Create parent session
+	parentSession := &domain.Session{
+		ClaudeSessionID: "project-parent-exclude",
+		ProjectID:       projectID,
+	}
+	err := s.Repo.Create(ctx, parentSession)
+	s.Require().NoError(err)
+
+	// Create subagent session for the same project
+	agentID := "project-agent-1"
+	subagent := &domain.Session{
+		ClaudeSessionID: "project-subagent-exclude",
+		ProjectID:       projectID,
+		ParentSessionID: &parentSession.ID,
+		AgentID:         &agentID,
+		IsSidechain:     true,
+	}
+	err = s.Repo.Create(ctx, subagent)
+	s.Require().NoError(err)
+
+	// FindByProjectID should exclude subagents
+	sessions, _, err := s.Repo.FindByProjectID(ctx, projectID, 100, "", "")
+	s.Require().NoError(err)
+
+	// Verify no subagents in the result
+	for _, sess := range sessions {
+		s.False(sess.IsSidechain, "FindByProjectID should not return subagent sessions")
+	}
+
+	// Should have 3 regular sessions (2 regular + 1 parent)
+	s.Len(sessions, 3)
+}

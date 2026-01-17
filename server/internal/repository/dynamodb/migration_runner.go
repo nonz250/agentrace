@@ -58,10 +58,11 @@ func (r *MigrationRunner) Run(ctx context.Context) error {
 	// Run pending migrations
 	for _, m := range r.migrations {
 		if appliedVersions[m.Version] {
+			log.Printf("[migration] Skipping dynamodb migration v%s (already applied)", m.Version)
 			continue
 		}
 
-		log.Printf("Running DynamoDB migration %s: %s", m.Version, m.Description)
+		log.Printf("[migration] Running dynamodb migration v%s: %s", m.Version, m.Description)
 
 		if err := m.Up(ctx, r.db); err != nil {
 			return fmt.Errorf("migration %s failed: %w", m.Version, err)
@@ -71,7 +72,7 @@ func (r *MigrationRunner) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to record version %s: %w", m.Version, err)
 		}
 
-		log.Printf("Completed DynamoDB migration %s", m.Version)
+		log.Printf("[migration] Completed dynamodb migration v%s", m.Version)
 	}
 
 	return nil
@@ -112,7 +113,7 @@ func (r *MigrationRunner) ensureMigrationsTable(ctx context.Context) error {
 		return fmt.Errorf("failed waiting for schema_migrations table: %w", err)
 	}
 
-	log.Printf("Created DynamoDB table: %s", tableName)
+	log.Printf("[migration] Created dynamodb table: %s", tableName)
 	return nil
 }
 
@@ -162,12 +163,89 @@ func (r *MigrationRunner) recordVersion(ctx context.Context, version string) err
 // Add new migrations here as they are created.
 func registeredMigrations() []Migration {
 	return []Migration{
-		// Migrations will be added here as they are created
-		// Example:
-		// {
-		//     Version:     "0.0.1",
-		//     Description: "Add parent_session_id GSI for subagent support",
-		//     Up:          migration_0_0_1_AddSubagentSupport,
-		// },
+		{
+			Version:     "0.0.1",
+			Description: "v0.0.1 schema changes",
+			Up:          migration_0_0_1,
+		},
 	}
+}
+
+// migration_0_0_1 applies v0.0.1 schema changes
+func migration_0_0_1(ctx context.Context, db *DB) error {
+	// サブエージェント関連: parent_session_id GSI を追加
+	if err := addParentSessionIDGSI(ctx, db); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// addParentSessionIDGSI adds a GSI for querying subagents by parent session ID
+func addParentSessionIDGSI(ctx context.Context, db *DB) error {
+	tableName := db.TableName("sessions")
+
+	// 1. Get existing attribute definitions
+	desc, err := db.Client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+		TableName: aws.String(tableName),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to describe table: %w", err)
+	}
+
+	// 2. Check if GSI already exists
+	for _, gsi := range desc.Table.GlobalSecondaryIndexes {
+		if *gsi.IndexName == "parent_session_id-created_at-index" {
+			log.Printf("[migration] Skipping GSI parent_session_id-created_at-index (already exists)")
+			return nil
+		}
+	}
+
+	// 3. Build attribute definitions (existing + new)
+	attrDefs := desc.Table.AttributeDefinitions
+
+	// Check if parent_session_id is already defined
+	hasParentSessionID := false
+	for _, attr := range attrDefs {
+		if *attr.AttributeName == "parent_session_id" {
+			hasParentSessionID = true
+			break
+		}
+	}
+
+	if !hasParentSessionID {
+		attrDefs = append(attrDefs, types.AttributeDefinition{
+			AttributeName: aws.String("parent_session_id"),
+			AttributeType: types.ScalarAttributeTypeS,
+		})
+	}
+
+	// 4. UpdateTable to add GSI
+	_, err = db.Client.UpdateTable(ctx, &dynamodb.UpdateTableInput{
+		TableName:            aws.String(tableName),
+		AttributeDefinitions: attrDefs,
+		GlobalSecondaryIndexUpdates: []types.GlobalSecondaryIndexUpdate{
+			{
+				Create: &types.CreateGlobalSecondaryIndexAction{
+					IndexName: aws.String("parent_session_id-created_at-index"),
+					KeySchema: []types.KeySchemaElement{
+						{AttributeName: aws.String("parent_session_id"), KeyType: types.KeyTypeHash},
+						{AttributeName: aws.String("created_at"), KeyType: types.KeyTypeRange},
+					},
+					Projection: &types.Projection{ProjectionType: types.ProjectionTypeAll},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update table: %w", err)
+	}
+
+	// 5. Wait for GSI to become ACTIVE
+	if err := db.WaitForGSIActive(ctx, tableName, "parent_session_id-created_at-index"); err != nil {
+		return fmt.Errorf("failed waiting for GSI: %w", err)
+	}
+
+	log.Printf("[migration] Added GSI parent_session_id-created_at-index")
+	return nil
 }

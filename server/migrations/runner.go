@@ -3,6 +3,7 @@ package migrations
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"sort"
 
 	"golang.org/x/mod/semver"
@@ -131,8 +132,11 @@ func (r *Runner) runVersionedMigrations() error {
 
 	for _, m := range r.migrations {
 		if appliedVersions[m.Version] {
+			log.Printf("[migration] Skipping %s migration v%s (already applied)", r.dialect, m.Version)
 			continue
 		}
+
+		log.Printf("[migration] Running %s migration v%s", r.dialect, m.Version)
 
 		if _, err := r.db.Exec(m.SQL); err != nil {
 			return fmt.Errorf("failed to run migration %s: %w", m.Version, err)
@@ -141,6 +145,8 @@ func (r *Runner) runVersionedMigrations() error {
 		if err := r.recordVersion(m.Version); err != nil {
 			return fmt.Errorf("failed to record version %s: %w", m.Version, err)
 		}
+
+		log.Printf("[migration] Completed %s migration v%s", r.dialect, m.Version)
 	}
 
 	return nil

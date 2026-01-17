@@ -14,4 +14,8 @@ type Session struct {
 	EndedAt         *time.Time
 	UpdatedAt       time.Time // last activity time (updated when events are added)
 	CreatedAt       time.Time
+	// Subagent (Task tool) related fields
+	ParentSessionID *string // nullable - parent session ID for subagents
+	AgentID         *string // nullable - subagent ID (e.g., "a5d7f46")
+	IsSidechain     bool    // true if this session is a subagent
 }

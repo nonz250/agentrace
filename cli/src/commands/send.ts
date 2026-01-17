@@ -95,6 +95,30 @@ async function sendTranscript(params: SendTranscriptParams): Promise<void> {
     process.exit(0);
   }
 
+  // Detect subagent (Task tool) sessions from first transcript line
+  const firstLine = transcriptLines[0] as Record<string, unknown> | undefined;
+  const isSidechain = firstLine?.isSidechain === true;
+  const agentId = typeof firstLine?.agentId === "string" ? firstLine.agentId : undefined;
+  // For subagents, sessionId in transcript is the parent session ID
+  const parentSessionId = isSidechain && typeof firstLine?.sessionId === "string"
+    ? firstLine.sessionId
+    : undefined;
+
+  // Generate title for subagents from first user message
+  let subagentTitle: string | undefined;
+  if (isSidechain) {
+    const firstUserMsg = transcriptLines.find(
+      (line): line is Record<string, unknown> =>
+        typeof line === "object" &&
+        line !== null &&
+        (line as Record<string, unknown>).type === "user"
+    );
+    if (firstUserMsg?.message && typeof (firstUserMsg.message as Record<string, unknown>)?.content === "string") {
+      const content = (firstUserMsg.message as Record<string, unknown>).content as string;
+      subagentTitle = content.slice(0, 100) + (content.length > 100 ? "..." : "");
+    }
+  }
+
   // Extract git info only on first send (when cursor doesn't exist yet)
   let gitRemoteUrl: string | undefined;
   let gitBranch: string | undefined;
@@ -110,6 +134,11 @@ async function sendTranscript(params: SendTranscriptParams): Promise<void> {
     cwd: cwd,
     git_remote_url: gitRemoteUrl,
     git_branch: gitBranch,
+    // Subagent fields
+    parent_session_id: parentSessionId,
+    agent_id: agentId,
+    is_sidechain: isSidechain || undefined,
+    title: subagentTitle,
   });
 
   if (result.ok) {

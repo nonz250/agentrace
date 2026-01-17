@@ -75,6 +75,10 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor strin
 
 	sessions := make([]*domain.Session, 0, len(r.sessions))
 	for _, s := range r.sessions {
+		// Exclude subagents from main session list
+		if s.IsSidechain {
+			continue
+		}
 		sessions = append(sessions, s)
 	}
 
@@ -130,6 +134,10 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 
 	sessions := make([]*domain.Session, 0)
 	for _, s := range r.sessions {
+		// Exclude subagents from project session list
+		if s.IsSidechain {
+			continue
+		}
 		if s.ProjectID == projectID {
 			sessions = append(sessions, s)
 		}
@@ -281,4 +289,23 @@ func (r *SessionRepository) UpdateUpdatedAt(ctx context.Context, id string, upda
 	}
 	session.UpdatedAt = updatedAt
 	return nil
+}
+
+func (r *SessionRepository) FindSubagentsByParentID(ctx context.Context, parentID string) ([]*domain.Session, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	sessions := make([]*domain.Session, 0)
+	for _, s := range r.sessions {
+		if s.ParentSessionID != nil && *s.ParentSessionID == parentID {
+			sessions = append(sessions, s)
+		}
+	}
+
+	// Sort by created_at ascending (oldest first)
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].CreatedAt.Before(sessions[j].CreatedAt)
+	})
+
+	return sessions, nil
 }

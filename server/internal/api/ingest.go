@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -25,6 +26,11 @@ type IngestRequest struct {
 	Cwd             string                   `json:"cwd"`
 	GitRemoteURL    string                   `json:"git_remote_url"`
 	GitBranch       string                   `json:"git_branch"`
+	// Subagent (Task tool) fields
+	ParentSessionID string `json:"parent_session_id,omitempty"` // Parent session's ClaudeSessionID
+	AgentID         string `json:"agent_id,omitempty"`          // Subagent ID (e.g., "a5d7f46")
+	IsSidechain     bool   `json:"is_sidechain,omitempty"`      // true if this is a subagent session
+	Title           string `json:"title,omitempty"`             // Title for subagent (extracted from first user message)
 }
 
 type IngestResponse struct {
@@ -47,8 +53,16 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		userID = &uid
 	}
 
-	// Find or create session
-	session, err := h.repos.Session.FindOrCreateByClaudeSessionID(ctx, req.SessionID, userID)
+	var session *domain.Session
+	var err error
+
+	if req.IsSidechain {
+		// Subagent session: Find or create with parent session reference
+		session, err = h.findOrCreateSubagentSession(ctx, req, userID)
+	} else {
+		// Regular session
+		session, err = h.repos.Session.FindOrCreateByClaudeSessionID(ctx, req.SessionID, userID)
+	}
 	if err != nil {
 		http.Error(w, `{"error": "failed to create session"}`, http.StatusInternalServerError)
 		return
@@ -231,4 +245,67 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return string(runes[:maxLen])
+}
+
+// findOrCreateSubagentSession finds or creates a subagent session with parent session reference
+func (h *IngestHandler) findOrCreateSubagentSession(ctx context.Context, req IngestRequest, userID *string) (*domain.Session, error) {
+	// First, try to find existing subagent session by ClaudeSessionID
+	session, err := h.repos.Session.FindByClaudeSessionID(ctx, req.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	if session != nil {
+		// Update UserID if provided and not already set
+		if userID != nil && session.UserID == nil {
+			if err := h.repos.Session.UpdateUserID(ctx, session.ID, *userID); err != nil {
+				return nil, err
+			}
+			session.UserID = userID
+		}
+		return session, nil
+	}
+
+	// Find parent session to get its internal ID and project info
+	var parentSessionID *string
+	var projectID = domain.DefaultProjectID
+	if req.ParentSessionID != "" {
+		parentSession, err := h.repos.Session.FindByClaudeSessionID(ctx, req.ParentSessionID)
+		if err != nil {
+			return nil, err
+		}
+		if parentSession != nil {
+			parentSessionID = &parentSession.ID
+			projectID = parentSession.ProjectID
+		}
+	}
+
+	// Create new subagent session
+	var agentID *string
+	if req.AgentID != "" {
+		agentID = &req.AgentID
+	}
+	var title *string
+	if req.Title != "" {
+		title = &req.Title
+	}
+
+	now := time.Now()
+	newSession := &domain.Session{
+		UserID:          userID,
+		ProjectID:       projectID,
+		ClaudeSessionID: req.SessionID,
+		Title:           title,
+		StartedAt:       now,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		ParentSessionID: parentSessionID,
+		AgentID:         agentID,
+		IsSidechain:     true,
+	}
+
+	if err := h.repos.Session.Create(ctx, newSession); err != nil {
+		return nil, err
+	}
+
+	return newSession, nil
 }

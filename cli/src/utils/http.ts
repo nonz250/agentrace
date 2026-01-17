@@ -6,6 +6,11 @@ export interface IngestPayload {
   cwd?: string;
   git_remote_url?: string;
   git_branch?: string;
+  // Subagent (Task tool) fields
+  parent_session_id?: string;
+  agent_id?: string;
+  is_sidechain?: boolean;
+  title?: string;
 }
 
 export interface IngestResponse {

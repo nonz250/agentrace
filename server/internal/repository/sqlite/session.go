@@ -41,19 +41,25 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		endedAt = &s
 	}
 
+	var isSidechain int
+	if session.IsSidechain {
+		isSidechain = 1
+	}
+
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO sessions (id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO sessions (id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.UserID, session.ProjectID, session.ClaudeSessionID, session.ProjectPath,
 		session.GitBranch, session.Title,
 		session.StartedAt.Format(time.RFC3339), endedAt, session.UpdatedAt.Format(time.RFC3339), session.CreatedAt.Format(time.RFC3339),
+		session.ParentSessionID, session.AgentID, isSidechain,
 	)
 	return err
 }
 
 func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Session, error) {
 	return r.scanSession(r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
+		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
 		 FROM sessions WHERE id = ?`,
 		id,
 	))
@@ -61,7 +67,7 @@ func (r *SessionRepository) FindByID(ctx context.Context, id string) (*domain.Se
 
 func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error) {
 	return r.scanSession(r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
+		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
 		 FROM sessions WHERE claude_session_id = ?`,
 		claudeSessionID,
 	))
@@ -74,8 +80,8 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor strin
 		orderColumn = "created_at"
 	}
 
-	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
-		 FROM sessions`
+	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
+		 FROM sessions WHERE is_sidechain = 0`
 
 	var args []any
 
@@ -85,7 +91,7 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor strin
 		if cursorInfo != nil {
 			cursorTime, err := cursorInfo.ParseSortTime()
 			if err == nil {
-				query += ` WHERE (` + orderColumn + ` < ? OR (` + orderColumn + ` = ? AND id < ?))`
+				query += ` AND (` + orderColumn + ` < ? OR (` + orderColumn + ` = ? AND id < ?))`
 				cursorTimeStr := cursorTime.Format(time.RFC3339Nano)
 				args = append(args, cursorTimeStr, cursorTimeStr, cursorInfo.ID)
 			}
@@ -142,8 +148,8 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 		orderColumn = "created_at"
 	}
 
-	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
-		 FROM sessions WHERE project_id = ?`
+	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
+		 FROM sessions WHERE project_id = ? AND is_sidechain = 0`
 
 	args := []any{projectID}
 
@@ -206,7 +212,7 @@ func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID strin
 func (r *SessionRepository) FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error) {
 	// First try to find existing session
 	session, err := r.scanSession(r.db.QueryRowContext(ctx,
-		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at
+		`SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
 		 FROM sessions WHERE claude_session_id = ?`,
 		claudeSessionID,
 	))
@@ -298,8 +304,10 @@ func (r *SessionRepository) UpdateUpdatedAt(ctx context.Context, id string, upda
 func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	var session domain.Session
 	var userID, projectID, projectPath, gitBranch, title, startedAt, endedAt, updatedAt, createdAt sql.NullString
+	var parentSessionID, agentID sql.NullString
+	var isSidechain sql.NullInt64
 
-	err := row.Scan(&session.ID, &userID, &projectID, &session.ClaudeSessionID, &projectPath, &gitBranch, &title, &startedAt, &endedAt, &updatedAt, &createdAt)
+	err := row.Scan(&session.ID, &userID, &projectID, &session.ClaudeSessionID, &projectPath, &gitBranch, &title, &startedAt, &endedAt, &updatedAt, &createdAt, &parentSessionID, &agentID, &isSidechain)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -337,6 +345,15 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 	if createdAt.Valid {
 		session.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
 	}
+	if parentSessionID.Valid {
+		session.ParentSessionID = &parentSessionID.String
+	}
+	if agentID.Valid {
+		session.AgentID = &agentID.String
+	}
+	if isSidechain.Valid {
+		session.IsSidechain = isSidechain.Int64 == 1
+	}
 
 	return &session, nil
 }
@@ -344,8 +361,10 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 func (r *SessionRepository) scanSessionFromRows(rows *sql.Rows) (*domain.Session, error) {
 	var session domain.Session
 	var userID, projectID, projectPath, gitBranch, title, startedAt, endedAt, updatedAt, createdAt sql.NullString
+	var parentSessionID, agentID sql.NullString
+	var isSidechain sql.NullInt64
 
-	err := rows.Scan(&session.ID, &userID, &projectID, &session.ClaudeSessionID, &projectPath, &gitBranch, &title, &startedAt, &endedAt, &updatedAt, &createdAt)
+	err := rows.Scan(&session.ID, &userID, &projectID, &session.ClaudeSessionID, &projectPath, &gitBranch, &title, &startedAt, &endedAt, &updatedAt, &createdAt, &parentSessionID, &agentID, &isSidechain)
 	if err != nil {
 		return nil, err
 	}
@@ -380,6 +399,42 @@ func (r *SessionRepository) scanSessionFromRows(rows *sql.Rows) (*domain.Session
 	if createdAt.Valid {
 		session.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
 	}
+	if parentSessionID.Valid {
+		session.ParentSessionID = &parentSessionID.String
+	}
+	if agentID.Valid {
+		session.AgentID = &agentID.String
+	}
+	if isSidechain.Valid {
+		session.IsSidechain = isSidechain.Int64 == 1
+	}
 
 	return &session, nil
+}
+
+func (r *SessionRepository) FindSubagentsByParentID(ctx context.Context, parentID string) ([]*domain.Session, error) {
+	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
+		 FROM sessions WHERE parent_session_id = ?
+		 ORDER BY created_at ASC`
+
+	rows, err := r.db.QueryContext(ctx, query, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []*domain.Session
+	for rows.Next() {
+		session, err := r.scanSessionFromRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return sessions, nil
 }
