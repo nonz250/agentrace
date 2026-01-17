@@ -42,7 +42,7 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 	_, err = r.db.ExecContext(ctx,
 		`INSERT INTO events (id, session_id, uuid, event_type, payload, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		event.ID, event.SessionID, uuidValue, event.EventType, string(payloadJSON), event.CreatedAt.Format(time.RFC3339),
+		event.ID, event.SessionID, uuidValue, event.EventType, string(payloadJSON), event.CreatedAt.Format(time.RFC3339Nano),
 	)
 	if err != nil {
 		// Check for UNIQUE constraint violation (duplicate uuid)
@@ -100,7 +100,7 @@ func (r *EventRepository) scanEvent(rows *sql.Rows) (*domain.Event, error) {
 		event.Payload = make(map[string]interface{})
 	}
 
-	event.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	event.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 
 	return &event, nil
 }

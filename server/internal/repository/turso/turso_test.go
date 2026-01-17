@@ -8,6 +8,9 @@ import (
 
 	"github.com/satetsu888/agentrace/server/internal/repository/testsuite"
 	"github.com/stretchr/testify/suite"
+
+	// Import modernc.org/sqlite for local file support with libsql driver
+	_ "modernc.org/sqlite"
 )
 
 // testDB creates a Turso database connection for testing.

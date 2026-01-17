@@ -1,0 +1,122 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-memory-sqlite:
+    name: Test (Memory & SQLite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server/go.sum
+
+      - name: Run tests (Memory & SQLite)
+        run: go test -v -race ./...
+
+  test-postgres:
+    name: Test (PostgreSQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: agentrace_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server/go.sum
+
+      - name: Run PostgreSQL tests
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/agentrace_test?sslmode=disable
+        run: go test -v -race -tags=integration ./internal/repository/postgres/...
+
+  test-dynamodb:
+    name: Test (DynamoDB)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8000:8000
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server/go.sum
+
+      - name: Wait for DynamoDB Local
+        run: |
+          for i in {1..30}; do
+            if curl -s http://localhost:8000 > /dev/null 2>&1; then
+              echo "DynamoDB Local is ready"
+              break
+            fi
+            echo "Waiting for DynamoDB Local..."
+            sleep 1
+          done
+
+      - name: Run DynamoDB tests
+        env:
+          DATABASE_URL: dynamodb://localhost:8000/test_
+        run: go test -v -race -tags=integration ./internal/repository/dynamodb/...
+
+  test-turso:
+    name: Test (Turso/libSQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: server/go.sum
+
+      - name: Run Turso tests (using local file)
+        env:
+          TURSO_URL: file:./test_turso.db
+        run: go test -v -race -tags=integration ./internal/repository/turso/...
