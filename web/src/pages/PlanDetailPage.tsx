@@ -108,16 +108,19 @@ export function PlanDetailPage() {
     }
   }
 
-  const handleCancelStatusEdit = () => {
-    setIsEditingStatus(false)
-  }
-
-  const handleSaveStatusEdit = () => {
-    if (plan && editStatus !== plan.status) {
-      statusMutation.mutate(editStatus, {
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value as PlanDocumentStatus
+    if (plan && newStatus !== plan.status) {
+      statusMutation.mutate(newStatus, {
         onSuccess: () => setIsEditingStatus(false),
       })
     } else {
+      setIsEditingStatus(false)
+    }
+  }
+
+  const handleStatusBlur = () => {
+    if (!statusMutation.isPending) {
       setIsEditingStatus(false)
     }
   }
@@ -201,34 +204,26 @@ export function PlanDetailPage() {
             )}
             <h1 className="text-lg font-medium text-gray-900">{plan.description}</h1>
             {isEditingStatus ? (
-              <span className="flex items-center gap-1">
-                <Select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value as PlanDocumentStatus)}
-                  disabled={statusMutation.isPending}
-                  className="!py-1 !px-2 text-xs min-w-[130px]"
-                >
-                  {Object.entries(statusConfig).map(([status, config]) => (
-                    <option key={status} value={status}>
-                      {config.label}
-                    </option>
-                  ))}
-                </Select>
-                <Button variant="ghost" size="sm" onClick={handleCancelStatusEdit} disabled={statusMutation.isPending} className="!p-1">
-                  <X className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleSaveStatusEdit} disabled={statusMutation.isPending} className="!p-1">
-                  <Save className="h-3 w-3" />
-                </Button>
-              </span>
+              <Select
+                value={editStatus}
+                onChange={handleStatusChange}
+                onBlur={handleStatusBlur}
+                disabled={statusMutation.isPending}
+                className="!py-1 !px-2 text-xs min-w-[130px]"
+                autoFocus
+              >
+                {Object.entries(statusConfig).map(([status, config]) => (
+                  <option key={status} value={status}>
+                    {config.label}
+                  </option>
+                ))}
+              </Select>
             ) : (
-              <span className="flex items-center gap-1 group">
+              <span
+                className={user ? "cursor-pointer hover:opacity-80" : ""}
+                onClick={user ? handleStartStatusEdit : undefined}
+              >
                 <PlanStatusBadge status={plan.status} />
-                {user && (
-                  <Button variant="ghost" size="sm" onClick={handleStartStatusEdit} className="!p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                )}
               </span>
             )}
           </div>
