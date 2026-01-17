@@ -47,3 +47,9 @@ export async function updateSession(id: string, params: UpdateSessionParams): Pr
     body: JSON.stringify(params),
   })
 }
+
+export async function deleteSession(id: string): Promise<void> {
+  await fetchAPI<void>(`/api/sessions/${id}`, {
+    method: 'DELETE',
+  })
+}

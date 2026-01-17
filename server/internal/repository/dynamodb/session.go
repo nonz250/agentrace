@@ -524,3 +524,13 @@ func (r *SessionRepository) FindSubagentsByParentID(ctx context.Context, parentI
 
 	return sessions, nil
 }
+
+func (r *SessionRepository) Delete(ctx context.Context, id string) error {
+	_, err := r.db.Client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(r.db.TableName("sessions")),
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: id},
+		},
+	})
+	return err
+}

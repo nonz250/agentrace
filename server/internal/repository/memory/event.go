@@ -95,3 +95,22 @@ func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string
 
 	return count, nil
 }
+
+func (r *EventRepository) DeleteBySessionID(ctx context.Context, sessionID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// Collect IDs of events to delete and their uuid index keys
+	for id, e := range r.events {
+		if e.SessionID == sessionID {
+			// Remove from uuid index if present
+			if e.UUID != "" {
+				indexKey := e.SessionID + ":" + e.UUID
+				delete(r.uuidIndex, indexKey)
+			}
+			delete(r.events, id)
+		}
+	}
+
+	return nil
+}

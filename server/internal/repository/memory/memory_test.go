@@ -23,7 +23,8 @@ func TestSessionRepository(t *testing.T) {
 
 func TestEventRepository(t *testing.T) {
 	s := &testsuite.EventRepositorySuite{
-		Repo: NewEventRepository(),
+		Repo:        NewEventRepository(),
+		SessionRepo: NewSessionRepository(),
 	}
 	suite.Run(t, s)
 }

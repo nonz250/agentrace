@@ -1,13 +1,14 @@
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, Folder, GitBranch, MessageSquare, User, Pencil, X, Save, FolderEdit } from 'lucide-react'
+import { Clock, Folder, GitBranch, MessageSquare, User, Pencil, X, Save, FolderEdit, MoreVertical, Trash2 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { TimelineContainer } from '@/components/timeline/TimelineContainer'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { ProjectSelect } from '@/components/ui/ProjectSelect'
 import { FavoriteButton } from '@/components/ui/FavoriteButton'
 import { useAuth } from '@/hooks/useAuth'
@@ -22,12 +23,27 @@ function getDirectoryName(path: string): string {
 
 export function SessionDetailPage() {
   const { projectId, id } = useParams<{ projectId: string; id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [isEditingProject, setIsEditingProject] = useState(false)
   const [editProjectId, setEditProjectId] = useState('')
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const { data: session, isLoading, error } = useQuery({
     queryKey: ['session', id],
@@ -50,6 +66,14 @@ export function SessionDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['session', id] })
       queryClient.invalidateQueries({ queryKey: ['sessions', 'list'] })
       setIsEditingProject(false)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => sessionsApi.deleteSession(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions', 'list'] })
+      navigate(`/projects/${projectId}/sessions`)
     },
   })
 
@@ -80,6 +104,18 @@ export function SessionDetailPage() {
   const handleSaveProjectEdit = () => {
     updateProjectMutation.mutate(editProjectId)
   }
+
+  const handleDeleteClick = () => {
+    setIsMenuOpen(false)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    deleteMutation.mutate()
+  }
+
+  // Check if current user can delete this session
+  const canDelete = user && session?.user_id === user.id
 
   if (isLoading) {
     return (
@@ -162,6 +198,28 @@ export function SessionDetailPage() {
                   <Pencil className="h-4 w-4" />
                 </Button>
               )}
+              {canDelete && (
+                <div className="relative ml-auto" ref={menuRef}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                  {isMenuOpen && (
+                    <div className="absolute right-0 mt-1 w-40 rounded-lg border border-gray-200 bg-white shadow-lg z-10">
+                      <button
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        onClick={handleDeleteClick}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -233,6 +291,40 @@ export function SessionDetailPage() {
       </div>
 
       <TimelineContainer events={session.events || []} projectPath={session.project_path} />
+
+      {/* Delete confirmation dialog */}
+      <Modal
+        open={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        title="Delete Session"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to delete this session? This action cannot be undone.
+          </p>
+          {deleteMutation.isError && (
+            <p className="text-sm text-red-600">
+              Failed to delete session. Please try again.
+            </p>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              loading={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

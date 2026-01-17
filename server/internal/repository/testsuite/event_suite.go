@@ -269,3 +269,51 @@ func (s *EventRepositorySuite) TestCountBySessionID_Empty() {
 	s.Require().NoError(err)
 	s.Equal(0, count)
 }
+
+func (s *EventRepositorySuite) TestDeleteBySessionID() {
+	ctx := context.Background()
+
+	sessionID := s.createTestSession("event-delete")
+	if sessionID == "" {
+		s.T().Skip("SessionRepo not available, skipping test")
+	}
+
+	// Create multiple events
+	for i := 0; i < 5; i++ {
+		event := &domain.Event{
+			SessionID: sessionID,
+			UUID:      uuid.New().String(),
+			EventType: "message",
+			Payload:   map[string]interface{}{"index": i},
+		}
+		err := s.Repo.Create(ctx, event)
+		s.Require().NoError(err)
+	}
+
+	// Verify events exist
+	count, err := s.Repo.CountBySessionID(ctx, sessionID)
+	s.Require().NoError(err)
+	s.Equal(5, count)
+
+	// Delete all events for the session
+	err = s.Repo.DeleteBySessionID(ctx, sessionID)
+	s.Require().NoError(err)
+
+	// Verify events no longer exist
+	count, err = s.Repo.CountBySessionID(ctx, sessionID)
+	s.Require().NoError(err)
+	s.Equal(0, count)
+}
+
+func (s *EventRepositorySuite) TestDeleteBySessionID_NoEvents() {
+	ctx := context.Background()
+
+	sessionID := s.createTestSession("event-delete-empty")
+	if sessionID == "" {
+		s.T().Skip("SessionRepo not available, skipping test")
+	}
+
+	// Delete events for session with no events should not error
+	err := s.Repo.DeleteBySessionID(ctx, sessionID)
+	s.NoError(err)
+}

@@ -309,3 +309,11 @@ func (r *SessionRepository) FindSubagentsByParentID(ctx context.Context, parentI
 
 	return sessions, nil
 }
+
+func (r *SessionRepository) Delete(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.sessions, id)
+	return nil
+}

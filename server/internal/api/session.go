@@ -286,6 +286,66 @@ type UpdateSessionRequest struct {
 	ProjectID *string `json:"project_id"`
 }
 
+func (h *SessionHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userID := GetUserIDFromContext(ctx)
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	// Get the session
+	session, err := h.repos.Session.FindByID(ctx, id)
+	if err != nil {
+		http.Error(w, `{"error": "failed to fetch session"}`, http.StatusInternalServerError)
+		return
+	}
+	if session == nil {
+		http.Error(w, `{"error": "session not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Authorization check: only session owner can delete
+	if session.UserID == nil {
+		// Session has no owner (created without auth) - cannot be deleted
+		http.Error(w, `{"error": "session has no owner and cannot be deleted"}`, http.StatusForbidden)
+		return
+	}
+	if *session.UserID != userID {
+		http.Error(w, `{"error": "you can only delete your own sessions"}`, http.StatusForbidden)
+		return
+	}
+
+	// Delete session and related data (including subagents)
+	if err := h.deleteSessionRecursive(ctx, id); err != nil {
+		http.Error(w, `{"error": "failed to delete session"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// deleteSessionRecursive deletes a session, its events, and all subagent sessions recursively
+func (h *SessionHandler) deleteSessionRecursive(ctx context.Context, sessionID string) error {
+	// Find and delete subagent sessions first
+	subagents, err := h.repos.Session.FindSubagentsByParentID(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	for _, subagent := range subagents {
+		if err := h.deleteSessionRecursive(ctx, subagent.ID); err != nil {
+			return err
+		}
+	}
+
+	// Delete events for this session
+	if err := h.repos.Event.DeleteBySessionID(ctx, sessionID); err != nil {
+		return err
+	}
+
+	// Delete the session itself
+	return h.repos.Session.Delete(ctx, sessionID)
+}
+
 func (h *SessionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID := GetUserIDFromContext(ctx)

@@ -183,3 +183,39 @@ func (r *EventRepository) itemToEvent(item *eventItem) *domain.Event {
 		CreatedAt: createdAt,
 	}
 }
+
+func (r *EventRepository) DeleteBySessionID(ctx context.Context, sessionID string) error {
+	// Query all events for this session to get their sort keys
+	keyCond := expression.Key("session_id").Equal(expression.Value(sessionID))
+	expr, err := expression.NewBuilder().WithKeyCondition(keyCond).Build()
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:                 aws.String(r.db.TableName("events")),
+		KeyConditionExpression:    expr.KeyCondition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		ProjectionExpression:      aws.String("session_id, sort_key"),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Delete each event
+	for _, item := range result.Items {
+		_, err := r.db.Client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+			TableName: aws.String(r.db.TableName("events")),
+			Key: map[string]types.AttributeValue{
+				"session_id": item["session_id"],
+				"sort_key":   item["sort_key"],
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

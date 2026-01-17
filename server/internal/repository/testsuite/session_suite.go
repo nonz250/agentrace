@@ -666,3 +666,48 @@ func (s *SessionRepositorySuite) TestFindByProjectID_ExcludesSubagents() {
 	// Should have 3 regular sessions (2 regular + 1 parent)
 	s.Len(sessions, 3)
 }
+
+func (s *SessionRepositorySuite) TestDelete() {
+	ctx := context.Background()
+
+	session := &domain.Session{
+		ClaudeSessionID: "session-to-delete",
+	}
+	err := s.Repo.Create(ctx, session)
+	s.Require().NoError(err)
+
+	// Verify session exists
+	found, err := s.Repo.FindByID(ctx, session.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(found)
+
+	// Delete the session
+	err = s.Repo.Delete(ctx, session.ID)
+	s.Require().NoError(err)
+
+	// Verify session no longer exists
+	found, err = s.Repo.FindByID(ctx, session.ID)
+	s.Require().NoError(err)
+	s.Nil(found)
+}
+
+func (s *SessionRepositorySuite) TestDelete_NotFound() {
+	ctx := context.Background()
+
+	// Create a session to get a valid ID format, then modify it
+	session := &domain.Session{
+		ClaudeSessionID: "session-for-delete-notfound",
+	}
+	err := s.Repo.Create(ctx, session)
+	s.Require().NoError(err)
+
+	// Create non-existent ID
+	nonExistentID := session.ID[:len(session.ID)-1] + "0"
+	if session.ID[len(session.ID)-1] == '0' {
+		nonExistentID = session.ID[:len(session.ID)-1] + "1"
+	}
+
+	// Delete non-existent session should not error
+	err = s.Repo.Delete(ctx, nonExistentID)
+	s.NoError(err)
+}

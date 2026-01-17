@@ -144,3 +144,8 @@ func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string
 	}
 	return count, nil
 }
+
+func (r *EventRepository) DeleteBySessionID(ctx context.Context, sessionID string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM events WHERE session_id = ?`, sessionID)
+	return err
+}

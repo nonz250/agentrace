@@ -36,6 +36,7 @@ type SessionRepository interface {
 	UpdateGitBranch(ctx context.Context, id string, gitBranch string) error
 	UpdateTitle(ctx context.Context, id string, title string) error
 	UpdateUpdatedAt(ctx context.Context, id string, updatedAt time.Time) error
+	Delete(ctx context.Context, id string) error
 }
 
 // EventRepository はイベントの永続化を担当する
@@ -43,6 +44,7 @@ type EventRepository interface {
 	Create(ctx context.Context, event *domain.Event) error
 	FindBySessionID(ctx context.Context, sessionID string) ([]*domain.Event, error)
 	CountBySessionID(ctx context.Context, sessionID string) (int, error)
+	DeleteBySessionID(ctx context.Context, sessionID string) error
 }
 
 // UserRepository はユーザーの永続化を担当する

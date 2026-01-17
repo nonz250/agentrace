@@ -430,3 +430,8 @@ func (r *SessionRepository) FindSubagentsByParentID(ctx context.Context, parentI
 
 	return sessions, nil
 }
+
+func (r *SessionRepository) Delete(ctx context.Context, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM sessions WHERE id = $1`, id)
+	return err
+}
