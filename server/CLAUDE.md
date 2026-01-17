@@ -282,6 +282,17 @@ DEV_MODE=true DB_TYPE=sqlite DATABASE_URL=./db.sqlite3 WEB_URL=http://localhost:
 
 ## テスト
 
+### CI（GitHub Actions）
+
+mainブランチへのpush/PRで自動テストが実行される（`.github/workflows/test.yml`）。
+
+| ジョブ | バックエンド | 方式 |
+|--------|-------------|------|
+| `test-memory-sqlite` | Memory, SQLite | 標準テスト |
+| `test-postgres` | PostgreSQL | postgres:16 コンテナ |
+| `test-dynamodb` | DynamoDB | dynamodb-local コンテナ |
+| `test-turso` | Turso/libSQL | ローカルファイル（`file:./test_turso.db`） |
+
 ### Repository テスト
 
 共通テストスイート（`testsuite/`）を使用して、全実装で同じ振る舞いを保証。
@@ -294,8 +305,10 @@ go test ./internal/repository/sqlite/...
 # 統合テスト（要DB接続、ビルドタグ integration）
 DATABASE_URL="postgres://..." go test -tags=integration ./internal/repository/postgres/...
 DATABASE_URL="dynamodb://localhost:8000/test_" go test -tags=integration ./internal/repository/dynamodb/...
-TURSO_URL="libsql://..." go test -tags=integration ./internal/repository/turso/...
+TURSO_URL="file:./test_turso.db" go test -tags=integration ./internal/repository/turso/...
 ```
+
+※ Tursoテストは `file:` URL でローカルSQLiteファイルを使用可能（`modernc.org/sqlite` ドライバーを利用）
 
 ### テストスイート構成
 
