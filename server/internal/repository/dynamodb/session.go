@@ -157,37 +157,90 @@ func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSes
 	return r.itemToSession(&item), nil
 }
 
-func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) {
-	indexName := "gsi-updated_at-index"
-	if sortBy == "created_at" {
-		indexName = "gsi-created_at-index"
+func (r *SessionRepository) Find(ctx context.Context, query domain.SessionQuery) ([]*domain.Session, string, error) {
+	sortAttr := "updated_at"
+	if query.SortBy == "created_at" {
+		sortAttr = "created_at"
 	}
 
-	keyCond := expression.Key("_gsi_pk").Equal(expression.Value(sessionGSIPK))
+	// Choose the index based on whether project_id is specified
+	var indexName string
+	var keyCond expression.KeyConditionBuilder
+	if query.ProjectID != "" {
+		// Use project_id index when filtering by project
+		if query.SortBy == "created_at" {
+			indexName = "project_id-created_at-index"
+		} else {
+			indexName = "project_id-updated_at-index"
+		}
+		keyCond = expression.Key("project_id").Equal(expression.Value(query.ProjectID))
+	} else {
+		// Use GSI for all sessions when no project filter
+		if query.SortBy == "created_at" {
+			indexName = "gsi-created_at-index"
+		} else {
+			indexName = "gsi-updated_at-index"
+		}
+		keyCond = expression.Key("_gsi_pk").Equal(expression.Value(sessionGSIPK))
+	}
+
 	builder := expression.NewBuilder().WithKeyCondition(keyCond)
 
-	if cursor != "" {
-		cursorInfo := repository.DecodeCursor(cursor)
+	// Build filter expression
+	var filterConditions []expression.ConditionBuilder
+
+	// Exclude subagent sessions (when using project_id index, we need to filter them)
+	if query.ProjectID != "" {
+		filterConditions = append(filterConditions, expression.Name("is_sidechain").NotEqual(expression.Value(true)))
+	}
+
+	// Filter by user IDs using FilterExpression (Pattern A - no new GSIs)
+	if len(query.UserIDs) > 0 {
+		// Build IN condition for user_id
+		userIDConditions := make([]expression.ConditionBuilder, len(query.UserIDs))
+		for i, uid := range query.UserIDs {
+			userIDConditions[i] = expression.Name("user_id").Equal(expression.Value(uid))
+		}
+		// OR all user ID conditions together
+		userIDFilter := userIDConditions[0]
+		for i := 1; i < len(userIDConditions); i++ {
+			userIDFilter = expression.Or(userIDFilter, userIDConditions[i])
+		}
+		filterConditions = append(filterConditions, userIDFilter)
+	}
+
+	// Apply cursor filter
+	if query.Cursor != "" {
+		cursorInfo := repository.DecodeCursor(query.Cursor)
 		if cursorInfo != nil {
-			// Add filter for cursor
-			sortAttr := "updated_at"
-			if sortBy == "created_at" {
-				sortAttr = "created_at"
-			}
-			filterExpr := expression.Or(
+			cursorFilter := expression.Or(
 				expression.Name(sortAttr).LessThan(expression.Value(cursorInfo.SortValue)),
 				expression.And(
 					expression.Name(sortAttr).Equal(expression.Value(cursorInfo.SortValue)),
 					expression.Name("id").LessThan(expression.Value(cursorInfo.ID)),
 				),
 			)
-			builder = builder.WithFilter(filterExpr)
+			filterConditions = append(filterConditions, cursorFilter)
 		}
+	}
+
+	// Combine all filter conditions with AND
+	if len(filterConditions) > 0 {
+		combinedFilter := filterConditions[0]
+		for i := 1; i < len(filterConditions); i++ {
+			combinedFilter = expression.And(combinedFilter, filterConditions[i])
+		}
+		builder = builder.WithFilter(combinedFilter)
 	}
 
 	expr, err := builder.Build()
 	if err != nil {
 		return nil, "", err
+	}
+
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 100
 	}
 
 	input := &dynamodb.QueryInput{
@@ -201,9 +254,7 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor strin
 	if expr.Filter() != nil {
 		input.FilterExpression = expr.Filter()
 	}
-	if limit > 0 {
-		input.Limit = aws.Int32(int32(limit + 1))
-	}
+	input.Limit = aws.Int32(int32(limit + 1))
 
 	result, err := r.db.Client.Query(ctx, input)
 	if err != nil {
@@ -222,92 +273,11 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor strin
 
 	// Generate cursor
 	var nextCursor string
-	if limit > 0 && len(sessions) > limit {
+	if len(sessions) > limit {
 		sessions = sessions[:limit]
 		lastItem := sessions[limit-1]
 		var sortTime time.Time
-		if sortBy == "created_at" {
-			sortTime = lastItem.CreatedAt
-		} else {
-			sortTime = lastItem.UpdatedAt
-		}
-		nextCursor = repository.EncodeCursor(sortTime, lastItem.ID)
-	}
-
-	return sessions, nextCursor, nil
-}
-
-func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) {
-	indexName := "project_id-updated_at-index"
-	sortAttr := "updated_at"
-	if sortBy == "created_at" {
-		indexName = "project_id-created_at-index"
-		sortAttr = "created_at"
-	}
-
-	keyCond := expression.Key("project_id").Equal(expression.Value(projectID))
-	builder := expression.NewBuilder().WithKeyCondition(keyCond)
-
-	// Exclude subagent sessions
-	filterExpr := expression.Name("is_sidechain").NotEqual(expression.Value(true))
-
-	if cursor != "" {
-		cursorInfo := repository.DecodeCursor(cursor)
-		if cursorInfo != nil {
-			cursorFilter := expression.Or(
-				expression.Name(sortAttr).LessThan(expression.Value(cursorInfo.SortValue)),
-				expression.And(
-					expression.Name(sortAttr).Equal(expression.Value(cursorInfo.SortValue)),
-					expression.Name("id").LessThan(expression.Value(cursorInfo.ID)),
-				),
-			)
-			filterExpr = expression.And(filterExpr, cursorFilter)
-		}
-	}
-
-	builder = builder.WithFilter(filterExpr)
-
-	expr, err := builder.Build()
-	if err != nil {
-		return nil, "", err
-	}
-
-	input := &dynamodb.QueryInput{
-		TableName:                 aws.String(r.db.TableName("sessions")),
-		IndexName:                 aws.String(indexName),
-		KeyConditionExpression:    expr.KeyCondition(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		ScanIndexForward:          aws.Bool(false),
-	}
-	if expr.Filter() != nil {
-		input.FilterExpression = expr.Filter()
-	}
-	if limit > 0 {
-		input.Limit = aws.Int32(int32(limit + 1))
-	}
-
-	result, err := r.db.Client.Query(ctx, input)
-	if err != nil {
-		return nil, "", err
-	}
-
-	var items []sessionItem
-	if err := attributevalue.UnmarshalListOfMaps(result.Items, &items); err != nil {
-		return nil, "", err
-	}
-
-	sessions := make([]*domain.Session, 0, len(items))
-	for _, item := range items {
-		sessions = append(sessions, r.itemToSession(&item))
-	}
-
-	var nextCursor string
-	if limit > 0 && len(sessions) > limit {
-		sessions = sessions[:limit]
-		lastItem := sessions[limit-1]
-		var sortTime time.Time
-		if sortBy == "created_at" {
+		if query.SortBy == "created_at" {
 			sortTime = lastItem.CreatedAt
 		} else {
 			sortTime = lastItem.UpdatedAt

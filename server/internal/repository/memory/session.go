@@ -69,22 +69,38 @@ func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSes
 	return nil, nil
 }
 
-func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) {
+func (r *SessionRepository) Find(ctx context.Context, query domain.SessionQuery) ([]*domain.Session, string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	// Build user ID set for filtering
+	userIDSet := make(map[string]bool)
+	for _, uid := range query.UserIDs {
+		userIDSet[uid] = true
+	}
+
 	sessions := make([]*domain.Session, 0, len(r.sessions))
 	for _, s := range r.sessions {
-		// Exclude subagents from main session list
+		// Exclude subagents from session list
 		if s.IsSidechain {
 			continue
+		}
+		// Filter by project ID
+		if query.ProjectID != "" && s.ProjectID != query.ProjectID {
+			continue
+		}
+		// Filter by user IDs
+		if len(userIDSet) > 0 {
+			if s.UserID == nil || !userIDSet[*s.UserID] {
+				continue
+			}
 		}
 		sessions = append(sessions, s)
 	}
 
 	// Sort by specified field descending (newest first)
 	getSortTime := func(s *domain.Session) time.Time {
-		if sortBy == "created_at" {
+		if query.SortBy == "created_at" {
 			return s.CreatedAt
 		}
 		return s.UpdatedAt
@@ -99,8 +115,8 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor strin
 	})
 
 	// Apply cursor filter
-	if cursor != "" {
-		cursorInfo := repository.DecodeCursor(cursor)
+	if query.Cursor != "" {
+		cursorInfo := repository.DecodeCursor(query.Cursor)
 		if cursorInfo != nil {
 			cursorTime, err := cursorInfo.ParseSortTime()
 			if err == nil {
@@ -118,69 +134,12 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor strin
 	}
 
 	// Apply limit and generate next cursor
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 100
+	}
 	var nextCursor string
-	if limit > 0 && limit < len(sessions) {
-		lastItem := sessions[limit-1]
-		nextCursor = repository.EncodeCursor(getSortTime(lastItem), lastItem.ID)
-		sessions = sessions[:limit]
-	}
-
-	return sessions, nextCursor, nil
-}
-
-func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	sessions := make([]*domain.Session, 0)
-	for _, s := range r.sessions {
-		// Exclude subagents from project session list
-		if s.IsSidechain {
-			continue
-		}
-		if s.ProjectID == projectID {
-			sessions = append(sessions, s)
-		}
-	}
-
-	// Sort by specified field descending (newest first)
-	getSortTime := func(s *domain.Session) time.Time {
-		if sortBy == "created_at" {
-			return s.CreatedAt
-		}
-		return s.UpdatedAt
-	}
-
-	sort.Slice(sessions, func(i, j int) bool {
-		ti, tj := getSortTime(sessions[i]), getSortTime(sessions[j])
-		if ti.Equal(tj) {
-			return sessions[i].ID > sessions[j].ID
-		}
-		return ti.After(tj)
-	})
-
-	// Apply cursor filter
-	if cursor != "" {
-		cursorInfo := repository.DecodeCursor(cursor)
-		if cursorInfo != nil {
-			cursorTime, err := cursorInfo.ParseSortTime()
-			if err == nil {
-				startIdx := 0
-				for i, s := range sessions {
-					sortTime := getSortTime(s)
-					if sortTime.Before(cursorTime) || (sortTime.Equal(cursorTime) && s.ID < cursorInfo.ID) {
-						startIdx = i
-						break
-					}
-				}
-				sessions = sessions[startIdx:]
-			}
-		}
-	}
-
-	// Apply limit and generate next cursor
-	var nextCursor string
-	if limit > 0 && limit < len(sessions) {
+	if limit < len(sessions) {
 		lastItem := sessions[limit-1]
 		nextCursor = repository.EncodeCursor(getSortTime(lastItem), lastItem.ID)
 		sessions = sessions[:limit]

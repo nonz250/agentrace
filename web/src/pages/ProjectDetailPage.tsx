@@ -12,6 +12,7 @@ import { MultiSelect } from '@/components/ui/MultiSelect'
 import { useAuth } from '@/hooks/useAuth'
 import { usePlanStatusFilter } from '@/hooks/usePlanStatusFilter'
 import { usePlanCollaboratorFilter } from '@/hooks/usePlanCollaboratorFilter'
+import { useSessionCreatorFilter } from '@/hooks/useSessionCreatorFilter'
 import { useSortPreference } from '@/hooks/useSortPreference'
 import { statusConfig } from '@/lib/plan-status'
 import * as projectsApi from '@/api/projects'
@@ -20,12 +21,18 @@ import * as plansApi from '@/api/plan-documents'
 import { getProjectDisplayName } from '@/lib/project-utils'
 import type { Collaborator, PlanDocumentStatus } from '@/types/plan-document'
 
+interface Creator {
+  id: string
+  display_name: string
+}
+
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const { selectedStatuses, setStatuses } = usePlanStatusFilter()
   const { selectedCollaboratorIds, setCollaboratorIds } = usePlanCollaboratorFilter()
+  const { selectedCreatorIds, setCreatorIds } = useSessionCreatorFilter()
   const { sort: plansSort, updateSort: updatePlansSort } = useSortPreference('plans')
   const { sort: sessionsSort, updateSort: updateSessionsSort } = useSortPreference('sessions')
 
@@ -35,6 +42,10 @@ export function ProjectDetailPage() {
 
   const handleCollaboratorChange = (collaboratorIds: string[]) => {
     setCollaboratorIds(collaboratorIds)
+  }
+
+  const handleCreatorChange = (creatorIds: string[]) => {
+    setCreatorIds(creatorIds)
   }
 
   const handlePlansSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -58,11 +69,48 @@ export function ProjectDetailPage() {
     enabled: !!projectId,
   })
 
-  const { data: sessionsData, isLoading: isSessionsLoading, error: sessionsError } = useQuery({
-    queryKey: ['sessions', 'project', projectId, sessionsSort],
-    queryFn: () => sessionsApi.getSessions({ projectId: projectId!, limit: 5, sort: sessionsSort }),
+  // Query to get all session creators (without creator filter)
+  const { data: allSessionsData } = useQuery({
+    queryKey: ['sessions', 'all-creators', projectId],
+    queryFn: () =>
+      sessionsApi.getSessions({
+        projectId: projectId!,
+        limit: 100, // Get enough sessions to collect creators
+      }),
     enabled: !!projectId,
   })
+
+  // Collect unique creators from all sessions
+  const allCreators = useMemo(() => {
+    const creatorMap = new Map<string, Creator>()
+    for (const session of allSessionsData?.sessions || []) {
+      if (session.user_id && session.user_name) {
+        if (!creatorMap.has(session.user_id)) {
+          creatorMap.set(session.user_id, {
+            id: session.user_id,
+            display_name: session.user_name,
+          })
+        }
+      }
+    }
+    return Array.from(creatorMap.values()).sort((a, b) =>
+      a.display_name.localeCompare(b.display_name)
+    )
+  }, [allSessionsData])
+
+  const { data: sessionsData, isLoading: isSessionsLoading, isFetching: isSessionsFetching, error: sessionsError } = useQuery({
+    queryKey: ['sessions', 'project', projectId, selectedCreatorIds, sessionsSort],
+    queryFn: () => sessionsApi.getSessions({
+      projectId: projectId!,
+      userIds: selectedCreatorIds.length > 0 ? selectedCreatorIds : undefined,
+      limit: 5,
+      sort: sessionsSort,
+    }),
+    enabled: !!projectId,
+    placeholderData: (previousData) => previousData,
+  })
+
+  const showInitialSessionsLoading = isSessionsLoading && !sessionsData
 
   // Query to get all collaborators (without collaborator filter)
   const { data: allPlansData } = useQuery({
@@ -219,6 +267,18 @@ export function ProjectDetailPage() {
           <h2 className="text-xl font-semibold text-gray-900">Recent Sessions</h2>
         </div>
         <div className="mb-4 flex flex-wrap items-center gap-4">
+          {allCreators.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Creator:</span>
+              <MultiSelect
+                options={allCreators.map((c) => ({ value: c.id, label: c.display_name }))}
+                selectedValues={selectedCreatorIds}
+                onChange={handleCreatorChange}
+                placeholder="All creators"
+              />
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">Sort:</span>
             <select
@@ -231,7 +291,7 @@ export function ProjectDetailPage() {
             </select>
           </div>
         </div>
-        {isSessionsLoading ? (
+        {showInitialSessionsLoading ? (
           <div className="flex justify-center py-12">
             <Spinner size="lg" />
           </div>
@@ -240,7 +300,9 @@ export function ProjectDetailPage() {
             Failed to load sessions: {sessionsError.message}
           </div>
         ) : (
-          <SessionList sessions={sessionsData?.sessions || []} />
+          <div className={isSessionsFetching ? 'opacity-50 transition-opacity' : ''}>
+            <SessionList sessions={sessionsData?.sessions || []} />
+          </div>
         )}
         <div className="mt-4 text-right">
           <Link

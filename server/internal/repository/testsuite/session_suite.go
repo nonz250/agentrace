@@ -190,13 +190,13 @@ func (s *SessionRepositorySuite) TestFindByClaudeSessionID_NotFound() {
 	s.Nil(found)
 }
 
-func (s *SessionRepositorySuite) TestFindAll() {
+func (s *SessionRepositorySuite) TestFind() {
 	ctx := context.Background()
 
 	// Create multiple sessions
 	for i := 0; i < 5; i++ {
 		session := &domain.Session{
-			ClaudeSessionID: "findall-session-" + string(rune('a'+i)),
+			ClaudeSessionID: "find-session-" + string(rune('a'+i)),
 		}
 		time.Sleep(1 * time.Millisecond)
 		err := s.Repo.Create(ctx, session)
@@ -204,13 +204,16 @@ func (s *SessionRepositorySuite) TestFindAll() {
 	}
 
 	// Find all with limit, default sort (updated_at), cursor-based pagination
-	sessions, nextCursor, err := s.Repo.FindAll(ctx, 3, "", "")
+	query := domain.SessionQuery{
+		Limit: 3,
+	}
+	sessions, nextCursor, err := s.Repo.Find(ctx, query)
 	s.Require().NoError(err)
 	s.Len(sessions, 3)
 	s.NotEmpty(nextCursor) // More items available
 }
 
-func (s *SessionRepositorySuite) TestFindAll_SortByCreatedAt() {
+func (s *SessionRepositorySuite) TestFind_SortByCreatedAt() {
 	ctx := context.Background()
 
 	// Create multiple sessions
@@ -224,7 +227,11 @@ func (s *SessionRepositorySuite) TestFindAll_SortByCreatedAt() {
 	}
 
 	// Find all sorted by created_at (cursor-based pagination)
-	sessions, _, err := s.Repo.FindAll(ctx, 5, "", "created_at")
+	query := domain.SessionQuery{
+		Limit:  5,
+		SortBy: "created_at",
+	}
+	sessions, _, err := s.Repo.Find(ctx, query)
 	s.Require().NoError(err)
 	s.GreaterOrEqual(len(sessions), 5)
 
@@ -234,7 +241,7 @@ func (s *SessionRepositorySuite) TestFindAll_SortByCreatedAt() {
 	}
 }
 
-func (s *SessionRepositorySuite) TestFindByProjectID() {
+func (s *SessionRepositorySuite) TestFind_ByProjectID() {
 	ctx := context.Background()
 
 	projectID := s.createTestProject("test-project")
@@ -263,13 +270,135 @@ func (s *SessionRepositorySuite) TestFindByProjectID() {
 	s.Require().NoError(err)
 
 	// Find by project ID (cursor-based pagination)
-	sessions, _, err := s.Repo.FindByProjectID(ctx, projectID, 10, "", "")
+	query := domain.SessionQuery{
+		ProjectID: projectID,
+		Limit:     10,
+	}
+	sessions, _, err := s.Repo.Find(ctx, query)
 	s.Require().NoError(err)
 	s.Len(sessions, 3)
 
 	for _, sess := range sessions {
 		s.Equal(projectID, sess.ProjectID)
 	}
+}
+
+func (s *SessionRepositorySuite) TestFind_ByUserIDs() {
+	ctx := context.Background()
+
+	// Create test users
+	user1ID := s.createTestUser("user1-for-find")
+	user2ID := s.createTestUser("user2-for-find")
+	user3ID := s.createTestUser("user3-for-find")
+	if user1ID == "" || user2ID == "" || user3ID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
+
+	// Create sessions for different users
+	for i := 0; i < 2; i++ {
+		session := &domain.Session{
+			ClaudeSessionID: "user1-session-" + string(rune('a'+i)),
+			UserID:          &user1ID,
+		}
+		time.Sleep(1 * time.Millisecond)
+		err := s.Repo.Create(ctx, session)
+		s.Require().NoError(err)
+	}
+
+	for i := 0; i < 3; i++ {
+		session := &domain.Session{
+			ClaudeSessionID: "user2-session-" + string(rune('a'+i)),
+			UserID:          &user2ID,
+		}
+		time.Sleep(1 * time.Millisecond)
+		err := s.Repo.Create(ctx, session)
+		s.Require().NoError(err)
+	}
+
+	session := &domain.Session{
+		ClaudeSessionID: "user3-session",
+		UserID:          &user3ID,
+	}
+	err := s.Repo.Create(ctx, session)
+	s.Require().NoError(err)
+
+	// Find sessions by single user ID
+	query := domain.SessionQuery{
+		UserIDs: []string{user1ID},
+		Limit:   10,
+	}
+	sessions, _, err := s.Repo.Find(ctx, query)
+	s.Require().NoError(err)
+	s.Len(sessions, 2)
+	for _, sess := range sessions {
+		s.Require().NotNil(sess.UserID)
+		s.Equal(user1ID, *sess.UserID)
+	}
+
+	// Find sessions by multiple user IDs
+	query = domain.SessionQuery{
+		UserIDs: []string{user1ID, user2ID},
+		Limit:   10,
+	}
+	sessions, _, err = s.Repo.Find(ctx, query)
+	s.Require().NoError(err)
+	s.Len(sessions, 5) // 2 from user1 + 3 from user2
+	for _, sess := range sessions {
+		s.Require().NotNil(sess.UserID)
+		s.True(*sess.UserID == user1ID || *sess.UserID == user2ID)
+	}
+}
+
+func (s *SessionRepositorySuite) TestFind_ByProjectIDAndUserIDs() {
+	ctx := context.Background()
+
+	projectID := s.createTestProject("project-combined-filter")
+	otherProjectID := s.createTestProject("other-project-combined")
+	userID := s.createTestUser("user-combined-filter")
+	otherUserID := s.createTestUser("other-user-combined")
+	if projectID == "" || otherProjectID == "" || userID == "" || otherUserID == "" {
+		s.T().Skip("ProjectRepo or UserRepo not available, skipping test")
+	}
+
+	// Create session: matching project and user
+	session1 := &domain.Session{
+		ClaudeSessionID: "match-both",
+		ProjectID:       projectID,
+		UserID:          &userID,
+	}
+	time.Sleep(1 * time.Millisecond)
+	err := s.Repo.Create(ctx, session1)
+	s.Require().NoError(err)
+
+	// Create session: matching project, different user
+	session2 := &domain.Session{
+		ClaudeSessionID: "match-project-only",
+		ProjectID:       projectID,
+		UserID:          &otherUserID,
+	}
+	time.Sleep(1 * time.Millisecond)
+	err = s.Repo.Create(ctx, session2)
+	s.Require().NoError(err)
+
+	// Create session: matching user, different project
+	session3 := &domain.Session{
+		ClaudeSessionID: "match-user-only",
+		ProjectID:       otherProjectID,
+		UserID:          &userID,
+	}
+	err = s.Repo.Create(ctx, session3)
+	s.Require().NoError(err)
+
+	// Find sessions by both project ID and user ID
+	query := domain.SessionQuery{
+		ProjectID: projectID,
+		UserIDs:   []string{userID},
+		Limit:     10,
+	}
+	sessions, _, err := s.Repo.Find(ctx, query)
+	s.Require().NoError(err)
+	s.Len(sessions, 1)
+	s.Equal(session1.ID, sessions[0].ID)
 }
 
 func (s *SessionRepositorySuite) TestFindOrCreateByClaudeSessionID_Create() {
@@ -564,7 +693,7 @@ func (s *SessionRepositorySuite) TestFindSubagentsByParentID_NonExistentParent()
 	s.Empty(subagents)
 }
 
-func (s *SessionRepositorySuite) TestFindAll_ExcludesSubagents() {
+func (s *SessionRepositorySuite) TestFind_ExcludesSubagents() {
 	ctx := context.Background()
 
 	// Create regular sessions
@@ -584,7 +713,7 @@ func (s *SessionRepositorySuite) TestFindAll_ExcludesSubagents() {
 	err := s.Repo.Create(ctx, parentSession)
 	s.Require().NoError(err)
 
-	// Create subagent sessions (should be excluded from FindAll)
+	// Create subagent sessions (should be excluded from Find)
 	for i := 0; i < 2; i++ {
 		agentID := "exclude-agent-" + string(rune('a'+i))
 		subagent := &domain.Session{
@@ -597,17 +726,20 @@ func (s *SessionRepositorySuite) TestFindAll_ExcludesSubagents() {
 		s.Require().NoError(err)
 	}
 
-	// FindAll should return only regular sessions (not subagents)
-	sessions, _, err := s.Repo.FindAll(ctx, 100, "", "")
+	// Find should return only regular sessions (not subagents)
+	query := domain.SessionQuery{
+		Limit: 100,
+	}
+	sessions, _, err := s.Repo.Find(ctx, query)
 	s.Require().NoError(err)
 
 	// Verify no subagents in the result
 	for _, sess := range sessions {
-		s.False(sess.IsSidechain, "FindAll should not return subagent sessions")
+		s.False(sess.IsSidechain, "Find should not return subagent sessions")
 	}
 }
 
-func (s *SessionRepositorySuite) TestFindByProjectID_ExcludesSubagents() {
+func (s *SessionRepositorySuite) TestFind_ByProjectID_ExcludesSubagents() {
 	ctx := context.Background()
 
 	// Skip if ProjectRepo is not available (can't create unique project)
@@ -654,13 +786,17 @@ func (s *SessionRepositorySuite) TestFindByProjectID_ExcludesSubagents() {
 	err = s.Repo.Create(ctx, subagent)
 	s.Require().NoError(err)
 
-	// FindByProjectID should exclude subagents
-	sessions, _, err := s.Repo.FindByProjectID(ctx, projectID, 100, "", "")
+	// Find by project ID should exclude subagents
+	query := domain.SessionQuery{
+		ProjectID: projectID,
+		Limit:     100,
+	}
+	sessions, _, err := s.Repo.Find(ctx, query)
 	s.Require().NoError(err)
 
 	// Verify no subagents in the result
 	for _, sess := range sessions {
-		s.False(sess.IsSidechain, "FindByProjectID should not return subagent sessions")
+		s.False(sess.IsSidechain, "Find by project ID should not return subagent sessions")
 	}
 
 	// Should have 3 regular sessions (2 regular + 1 parent)

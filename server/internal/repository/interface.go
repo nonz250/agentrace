@@ -26,9 +26,8 @@ type SessionRepository interface {
 	Create(ctx context.Context, session *domain.Session) error
 	FindByID(ctx context.Context, id string) (*domain.Session, error)
 	FindByClaudeSessionID(ctx context.Context, claudeSessionID string) (*domain.Session, error)
-	FindAll(ctx context.Context, limit int, cursor string, sortBy string) ([]*domain.Session, string, error)                           // Returns (sessions, nextCursor, error), excludes subagents
-	FindByProjectID(ctx context.Context, projectID string, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) // Returns (sessions, nextCursor, error), excludes subagents
-	FindSubagentsByParentID(ctx context.Context, parentID string) ([]*domain.Session, error)                                           // Returns subagent sessions for a parent session
+	Find(ctx context.Context, query domain.SessionQuery) ([]*domain.Session, string, error)  // Returns (sessions, nextCursor, error), excludes subagents
+	FindSubagentsByParentID(ctx context.Context, parentID string) ([]*domain.Session, error) // Returns subagent sessions for a parent session
 	FindOrCreateByClaudeSessionID(ctx context.Context, claudeSessionID string, userID *string) (*domain.Session, error)
 	UpdateUserID(ctx context.Context, id string, userID string) error
 	UpdateProjectPath(ctx context.Context, id string, projectPath string) error

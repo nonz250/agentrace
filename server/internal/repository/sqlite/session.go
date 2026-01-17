@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,39 +74,57 @@ func (r *SessionRepository) FindByClaudeSessionID(ctx context.Context, claudeSes
 	))
 }
 
-func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) {
+func (r *SessionRepository) Find(ctx context.Context, query domain.SessionQuery) ([]*domain.Session, string, error) {
 	// Validate sortBy to prevent SQL injection
 	orderColumn := "updated_at"
-	if sortBy == "created_at" {
+	if query.SortBy == "created_at" {
 		orderColumn = "created_at"
 	}
 
-	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
+	baseQuery := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
 		 FROM sessions WHERE is_sidechain = 0`
 
 	var args []any
 
+	// Filter by project ID
+	if query.ProjectID != "" {
+		baseQuery += ` AND project_id = ?`
+		args = append(args, query.ProjectID)
+	}
+
+	// Filter by user IDs
+	if len(query.UserIDs) > 0 {
+		placeholders := make([]string, len(query.UserIDs))
+		for i, uid := range query.UserIDs {
+			placeholders[i] = "?"
+			args = append(args, uid)
+		}
+		baseQuery += ` AND user_id IN (` + strings.Join(placeholders, ",") + `)`
+	}
+
 	// Apply cursor filter
-	if cursor != "" {
-		cursorInfo := repository.DecodeCursor(cursor)
+	if query.Cursor != "" {
+		cursorInfo := repository.DecodeCursor(query.Cursor)
 		if cursorInfo != nil {
 			cursorTime, err := cursorInfo.ParseSortTime()
 			if err == nil {
-				query += ` AND (` + orderColumn + ` < ? OR (` + orderColumn + ` = ? AND id < ?))`
+				baseQuery += ` AND (` + orderColumn + ` < ? OR (` + orderColumn + ` = ? AND id < ?))`
 				cursorTimeStr := cursorTime.Format(time.RFC3339Nano)
 				args = append(args, cursorTimeStr, cursorTimeStr, cursorInfo.ID)
 			}
 		}
 	}
 
-	query += ` ORDER BY ` + orderColumn + ` DESC, id DESC`
+	baseQuery += ` ORDER BY ` + orderColumn + ` DESC, id DESC`
 
-	if limit > 0 {
-		query += ` LIMIT ?`
-		args = append(args, limit+1)
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 100
 	}
+	baseQuery += ` LIMIT ?`
+	args = append(args, limit+1)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, "", err
 	}
@@ -126,79 +145,11 @@ func (r *SessionRepository) FindAll(ctx context.Context, limit int, cursor strin
 
 	// Generate next cursor if there are more results
 	var nextCursor string
-	if limit > 0 && len(sessions) > limit {
+	if len(sessions) > limit {
 		sessions = sessions[:limit]
 		lastItem := sessions[limit-1]
 		var sortTime time.Time
-		if sortBy == "created_at" {
-			sortTime = lastItem.CreatedAt
-		} else {
-			sortTime = lastItem.UpdatedAt
-		}
-		nextCursor = repository.EncodeCursor(sortTime, lastItem.ID)
-	}
-
-	return sessions, nextCursor, nil
-}
-
-func (r *SessionRepository) FindByProjectID(ctx context.Context, projectID string, limit int, cursor string, sortBy string) ([]*domain.Session, string, error) {
-	// Validate sortBy to prevent SQL injection
-	orderColumn := "updated_at"
-	if sortBy == "created_at" {
-		orderColumn = "created_at"
-	}
-
-	query := `SELECT id, user_id, project_id, claude_session_id, project_path, git_branch, title, started_at, ended_at, updated_at, created_at, parent_session_id, agent_id, is_sidechain
-		 FROM sessions WHERE project_id = ? AND is_sidechain = 0`
-
-	args := []any{projectID}
-
-	// Apply cursor filter
-	if cursor != "" {
-		cursorInfo := repository.DecodeCursor(cursor)
-		if cursorInfo != nil {
-			cursorTime, err := cursorInfo.ParseSortTime()
-			if err == nil {
-				query += ` AND (` + orderColumn + ` < ? OR (` + orderColumn + ` = ? AND id < ?))`
-				cursorTimeStr := cursorTime.Format(time.RFC3339Nano)
-				args = append(args, cursorTimeStr, cursorTimeStr, cursorInfo.ID)
-			}
-		}
-	}
-
-	query += ` ORDER BY ` + orderColumn + ` DESC, id DESC`
-
-	if limit > 0 {
-		query += ` LIMIT ?`
-		args = append(args, limit+1)
-	}
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, "", err
-	}
-	defer rows.Close()
-
-	var sessions []*domain.Session
-	for rows.Next() {
-		session, err := r.scanSessionFromRows(rows)
-		if err != nil {
-			return nil, "", err
-		}
-		sessions = append(sessions, session)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, "", err
-	}
-
-	// Generate next cursor if there are more results
-	var nextCursor string
-	if limit > 0 && len(sessions) > limit {
-		sessions = sessions[:limit]
-		lastItem := sessions[limit-1]
-		var sortTime time.Time
-		if sortBy == "created_at" {
+		if query.SortBy == "created_at" {
 			sortTime = lastItem.CreatedAt
 		} else {
 			sortTime = lastItem.UpdatedAt

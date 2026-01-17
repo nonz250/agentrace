@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/satetsu888/agentrace/server/internal/domain"
@@ -151,14 +152,26 @@ func (h *SessionHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var sessions []*domain.Session
-	var nextCursor string
-	var err error
-	if projectID != "" {
-		sessions, nextCursor, err = h.repos.Session.FindByProjectID(ctx, projectID, limit, cursor, sortBy)
-	} else {
-		sessions, nextCursor, err = h.repos.Session.FindAll(ctx, limit, cursor, sortBy)
+	// Parse user_ids filter (comma-separated)
+	var userIDs []string
+	if userIDsStr := r.URL.Query().Get("user_ids"); userIDsStr != "" {
+		for _, uid := range strings.Split(userIDsStr, ",") {
+			if trimmed := strings.TrimSpace(uid); trimmed != "" {
+				userIDs = append(userIDs, trimmed)
+			}
+		}
 	}
+
+	// Build query
+	query := domain.SessionQuery{
+		ProjectID: projectID,
+		UserIDs:   userIDs,
+		Limit:     limit,
+		Cursor:    cursor,
+		SortBy:    sortBy,
+	}
+
+	sessions, nextCursor, err := h.repos.Session.Find(ctx, query)
 	if err != nil {
 		http.Error(w, `{"error": "failed to fetch sessions"}`, http.StatusInternalServerError)
 		return
