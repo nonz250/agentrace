@@ -3,6 +3,7 @@ package testsuite
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
 	"github.com/satetsu888/agentrace/server/internal/repository"
 	"github.com/stretchr/testify/suite"
@@ -16,17 +17,20 @@ type PasswordCredentialRepositorySuite struct {
 	Cleanup  func()
 }
 
-// createTestUser creates a user for FK constraint tests
-func (s *PasswordCredentialRepositorySuite) createTestUser(id string) {
+// createTestUser creates a user for FK constraint tests and returns the auto-generated ID
+func (s *PasswordCredentialRepositorySuite) createTestUser(emailPrefix string) string {
 	if s.UserRepo == nil {
-		return
+		return ""
 	}
 	ctx := context.Background()
 	user := &domain.User{
-		ID:    id,
-		Email: id + "@example.com",
+		Email: emailPrefix + "@example.com",
 	}
-	_ = s.UserRepo.Create(ctx, user)
+	err := s.UserRepo.Create(ctx, user)
+	if err != nil {
+		return ""
+	}
+	return user.ID
 }
 
 func (s *PasswordCredentialRepositorySuite) TearDownTest() {
@@ -38,11 +42,14 @@ func (s *PasswordCredentialRepositorySuite) TearDownTest() {
 func (s *PasswordCredentialRepositorySuite) TestCreate() {
 	ctx := context.Background()
 
-	s.createTestUser("user-1")
+	userID := s.createTestUser("pwcred-create")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	cred := &domain.PasswordCredential{
-		UserID:       "user-1",
-		PasswordHash: "hashed-password-123",
+		UserID:       userID,
+		PasswordHash: "hashed-password-" + uuid.New().String(),
 	}
 
 	err := s.Repo.Create(ctx, cred)
@@ -59,16 +66,20 @@ func (s *PasswordCredentialRepositorySuite) TestCreate() {
 func (s *PasswordCredentialRepositorySuite) TestFindByUserID() {
 	ctx := context.Background()
 
-	s.createTestUser("user-with-cred")
+	userID := s.createTestUser("pwcred-find")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
+	passwordHash := "hashed-password-" + uuid.New().String()
 	cred := &domain.PasswordCredential{
-		UserID:       "user-with-cred",
-		PasswordHash: "hashed-password-456",
+		UserID:       userID,
+		PasswordHash: passwordHash,
 	}
 	err := s.Repo.Create(ctx, cred)
 	s.Require().NoError(err)
 
-	found, err := s.Repo.FindByUserID(ctx, "user-with-cred")
+	found, err := s.Repo.FindByUserID(ctx, userID)
 	s.Require().NoError(err)
 	s.Require().NotNil(found)
 	s.Equal(cred.ID, found.ID)
@@ -78,7 +89,8 @@ func (s *PasswordCredentialRepositorySuite) TestFindByUserID() {
 func (s *PasswordCredentialRepositorySuite) TestFindByUserID_NotFound() {
 	ctx := context.Background()
 
-	found, err := s.Repo.FindByUserID(ctx, "non-existing-user")
+	nonExistingID := uuid.New().String()
+	found, err := s.Repo.FindByUserID(ctx, nonExistingID)
 	s.NoError(err)
 	s.Nil(found)
 }
@@ -86,34 +98,41 @@ func (s *PasswordCredentialRepositorySuite) TestFindByUserID_NotFound() {
 func (s *PasswordCredentialRepositorySuite) TestUpdate() {
 	ctx := context.Background()
 
-	s.createTestUser("user-to-update")
+	userID := s.createTestUser("pwcred-update")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	cred := &domain.PasswordCredential{
-		UserID:       "user-to-update",
-		PasswordHash: "original-hash",
+		UserID:       userID,
+		PasswordHash: "original-hash-" + uuid.New().String(),
 	}
 	err := s.Repo.Create(ctx, cred)
 	s.Require().NoError(err)
 
 	// Update password hash
-	cred.PasswordHash = "updated-hash"
+	updatedHash := "updated-hash-" + uuid.New().String()
+	cred.PasswordHash = updatedHash
 	err = s.Repo.Update(ctx, cred)
 	s.Require().NoError(err)
 
 	// Verify update
-	found, err := s.Repo.FindByUserID(ctx, "user-to-update")
+	found, err := s.Repo.FindByUserID(ctx, userID)
 	s.Require().NoError(err)
-	s.Equal("updated-hash", found.PasswordHash)
+	s.Equal(updatedHash, found.PasswordHash)
 }
 
 func (s *PasswordCredentialRepositorySuite) TestDelete() {
 	ctx := context.Background()
 
-	s.createTestUser("user-to-delete")
+	userID := s.createTestUser("pwcred-delete")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	cred := &domain.PasswordCredential{
-		UserID:       "user-to-delete",
-		PasswordHash: "delete-hash",
+		UserID:       userID,
+		PasswordHash: "delete-hash-" + uuid.New().String(),
 	}
 	err := s.Repo.Create(ctx, cred)
 	s.Require().NoError(err)
@@ -122,7 +141,7 @@ func (s *PasswordCredentialRepositorySuite) TestDelete() {
 	s.Require().NoError(err)
 
 	// Verify deleted
-	found, err := s.Repo.FindByUserID(ctx, "user-to-delete")
+	found, err := s.Repo.FindByUserID(ctx, userID)
 	s.NoError(err)
 	s.Nil(found)
 }

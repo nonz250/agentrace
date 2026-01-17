@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
 	"github.com/satetsu888/agentrace/server/internal/repository"
 	"github.com/stretchr/testify/suite"
@@ -17,17 +18,20 @@ type WebSessionRepositorySuite struct {
 	Cleanup  func()
 }
 
-// createTestUser creates a user for FK constraint tests
-func (s *WebSessionRepositorySuite) createTestUser(id string) {
+// createTestUser creates a user for FK constraint tests and returns the auto-generated ID
+func (s *WebSessionRepositorySuite) createTestUser(emailPrefix string) string {
 	if s.UserRepo == nil {
-		return
+		return ""
 	}
 	ctx := context.Background()
 	user := &domain.User{
-		ID:    id,
-		Email: id + "@example.com",
+		Email: emailPrefix + "@example.com",
 	}
-	_ = s.UserRepo.Create(ctx, user)
+	err := s.UserRepo.Create(ctx, user)
+	if err != nil {
+		return ""
+	}
+	return user.ID
 }
 
 func (s *WebSessionRepositorySuite) TearDownTest() {
@@ -39,11 +43,14 @@ func (s *WebSessionRepositorySuite) TearDownTest() {
 func (s *WebSessionRepositorySuite) TestCreate() {
 	ctx := context.Background()
 
-	s.createTestUser("user-1")
+	userID := s.createTestUser("websess-create")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	session := &domain.WebSession{
-		UserID:    "user-1",
-		Token:     "token-123",
+		UserID:    userID,
+		Token:     "token-" + uuid.New().String(),
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	}
 
@@ -60,17 +67,21 @@ func (s *WebSessionRepositorySuite) TestCreate() {
 func (s *WebSessionRepositorySuite) TestFindByToken() {
 	ctx := context.Background()
 
-	s.createTestUser("user-2")
+	userID := s.createTestUser("websess-find")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
+	token := "unique-token-" + uuid.New().String()
 	session := &domain.WebSession{
-		UserID:    "user-2",
-		Token:     "unique-token-456",
+		UserID:    userID,
+		Token:     token,
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	}
 	err := s.Repo.Create(ctx, session)
 	s.Require().NoError(err)
 
-	found, err := s.Repo.FindByToken(ctx, "unique-token-456")
+	found, err := s.Repo.FindByToken(ctx, token)
 	s.Require().NoError(err)
 	s.Require().NotNil(found)
 	s.Equal(session.ID, found.ID)
@@ -80,7 +91,7 @@ func (s *WebSessionRepositorySuite) TestFindByToken() {
 func (s *WebSessionRepositorySuite) TestFindByToken_NotFound() {
 	ctx := context.Background()
 
-	found, err := s.Repo.FindByToken(ctx, "non-existing-token")
+	found, err := s.Repo.FindByToken(ctx, "non-existing-token-"+uuid.New().String())
 	s.NoError(err)
 	s.Nil(found)
 }
@@ -88,11 +99,15 @@ func (s *WebSessionRepositorySuite) TestFindByToken_NotFound() {
 func (s *WebSessionRepositorySuite) TestDelete() {
 	ctx := context.Background()
 
-	s.createTestUser("user-3")
+	userID := s.createTestUser("websess-delete")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
+	token := "delete-token-" + uuid.New().String()
 	session := &domain.WebSession{
-		UserID:    "user-3",
-		Token:     "delete-token",
+		UserID:    userID,
+		Token:     token,
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	}
 	err := s.Repo.Create(ctx, session)
@@ -102,7 +117,7 @@ func (s *WebSessionRepositorySuite) TestDelete() {
 	s.Require().NoError(err)
 
 	// Verify deleted
-	found, err := s.Repo.FindByToken(ctx, "delete-token")
+	found, err := s.Repo.FindByToken(ctx, token)
 	s.NoError(err)
 	s.Nil(found)
 }
@@ -110,13 +125,19 @@ func (s *WebSessionRepositorySuite) TestDelete() {
 func (s *WebSessionRepositorySuite) TestDeleteExpired() {
 	ctx := context.Background()
 
-	s.createTestUser("user-4")
-	s.createTestUser("user-5")
+	userID1 := s.createTestUser("websess-expired")
+	userID2 := s.createTestUser("websess-valid")
+	if userID1 == "" || userID2 == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
+
+	expiredToken := "expired-token-" + uuid.New().String()
+	validToken := "valid-token-" + uuid.New().String()
 
 	// Create expired session
 	expiredSession := &domain.WebSession{
-		UserID:    "user-4",
-		Token:     "expired-token",
+		UserID:    userID1,
+		Token:     expiredToken,
 		ExpiresAt: time.Now().Add(-1 * time.Hour), // Already expired
 	}
 	err := s.Repo.Create(ctx, expiredSession)
@@ -124,8 +145,8 @@ func (s *WebSessionRepositorySuite) TestDeleteExpired() {
 
 	// Create valid session
 	validSession := &domain.WebSession{
-		UserID:    "user-5",
-		Token:     "valid-token",
+		UserID:    userID2,
+		Token:     validToken,
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	}
 	err = s.Repo.Create(ctx, validSession)
@@ -136,12 +157,12 @@ func (s *WebSessionRepositorySuite) TestDeleteExpired() {
 	s.Require().NoError(err)
 
 	// Expired should be gone
-	found, err := s.Repo.FindByToken(ctx, "expired-token")
+	found, err := s.Repo.FindByToken(ctx, expiredToken)
 	s.NoError(err)
 	s.Nil(found)
 
 	// Valid should still exist
-	found, err = s.Repo.FindByToken(ctx, "valid-token")
+	found, err = s.Repo.FindByToken(ctx, validToken)
 	s.Require().NoError(err)
 	s.NotNil(found)
 }

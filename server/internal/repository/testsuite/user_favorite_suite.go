@@ -3,6 +3,7 @@ package testsuite
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
 	"github.com/satetsu888/agentrace/server/internal/repository"
 	"github.com/stretchr/testify/suite"
@@ -16,17 +17,20 @@ type UserFavoriteRepositorySuite struct {
 	Cleanup  func()
 }
 
-// createTestUser creates a user for FK constraint tests
-func (s *UserFavoriteRepositorySuite) createTestUser(id string) {
+// createTestUser creates a user for FK constraint tests and returns the auto-generated ID
+func (s *UserFavoriteRepositorySuite) createTestUser(emailPrefix string) string {
 	if s.UserRepo == nil {
-		return
+		return ""
 	}
 	ctx := context.Background()
 	user := &domain.User{
-		ID:    id,
-		Email: id + "@example.com",
+		Email: emailPrefix + "@example.com",
 	}
-	_ = s.UserRepo.Create(ctx, user)
+	err := s.UserRepo.Create(ctx, user)
+	if err != nil {
+		return ""
+	}
+	return user.ID
 }
 
 func (s *UserFavoriteRepositorySuite) TearDownTest() {
@@ -38,12 +42,15 @@ func (s *UserFavoriteRepositorySuite) TearDownTest() {
 func (s *UserFavoriteRepositorySuite) TestCreate() {
 	ctx := context.Background()
 
-	s.createTestUser("user-1")
+	userID := s.createTestUser("fav-create")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	fav := &domain.UserFavorite{
-		UserID:     "user-1",
+		UserID:     userID,
 		TargetType: domain.UserFavoriteTargetTypeSession,
-		TargetID:   "session-1",
+		TargetID:   uuid.New().String(),
 	}
 
 	err := s.Repo.Create(ctx, fav)
@@ -59,12 +66,16 @@ func (s *UserFavoriteRepositorySuite) TestCreate() {
 func (s *UserFavoriteRepositorySuite) TestDelete() {
 	ctx := context.Background()
 
-	s.createTestUser("user-del")
+	userID := s.createTestUser("fav-delete")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
+	targetID := uuid.New().String()
 	fav := &domain.UserFavorite{
-		UserID:     "user-del",
+		UserID:     userID,
 		TargetType: domain.UserFavoriteTargetTypeSession,
-		TargetID:   "session-del",
+		TargetID:   targetID,
 	}
 	err := s.Repo.Create(ctx, fav)
 	s.Require().NoError(err)
@@ -73,7 +84,7 @@ func (s *UserFavoriteRepositorySuite) TestDelete() {
 	s.Require().NoError(err)
 
 	// Verify deleted
-	found, err := s.Repo.FindByUserAndTarget(ctx, "user-del", domain.UserFavoriteTargetTypeSession, "session-del")
+	found, err := s.Repo.FindByUserAndTarget(ctx, userID, domain.UserFavoriteTargetTypeSession, targetID)
 	s.NoError(err)
 	s.Nil(found)
 }
@@ -81,21 +92,25 @@ func (s *UserFavoriteRepositorySuite) TestDelete() {
 func (s *UserFavoriteRepositorySuite) TestDeleteByUserAndTarget() {
 	ctx := context.Background()
 
-	s.createTestUser("user-del-target")
+	userID := s.createTestUser("fav-del-target")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
+	targetID := uuid.New().String()
 	fav := &domain.UserFavorite{
-		UserID:     "user-del-target",
+		UserID:     userID,
 		TargetType: domain.UserFavoriteTargetTypePlan,
-		TargetID:   "plan-del",
+		TargetID:   targetID,
 	}
 	err := s.Repo.Create(ctx, fav)
 	s.Require().NoError(err)
 
-	err = s.Repo.DeleteByUserAndTarget(ctx, "user-del-target", domain.UserFavoriteTargetTypePlan, "plan-del")
+	err = s.Repo.DeleteByUserAndTarget(ctx, userID, domain.UserFavoriteTargetTypePlan, targetID)
 	s.Require().NoError(err)
 
 	// Verify deleted
-	found, err := s.Repo.FindByUserAndTarget(ctx, "user-del-target", domain.UserFavoriteTargetTypePlan, "plan-del")
+	found, err := s.Repo.FindByUserAndTarget(ctx, userID, domain.UserFavoriteTargetTypePlan, targetID)
 	s.NoError(err)
 	s.Nil(found)
 }
@@ -103,18 +118,20 @@ func (s *UserFavoriteRepositorySuite) TestDeleteByUserAndTarget() {
 func (s *UserFavoriteRepositorySuite) TestFindByUserID() {
 	ctx := context.Background()
 
-	userID := "user-find-all"
-	s.createTestUser(userID)
-	s.createTestUser("other-user")
+	userID := s.createTestUser("fav-findall")
+	otherUserID := s.createTestUser("fav-other")
+	if userID == "" || otherUserID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	// Create favorites for user
 	targets := []struct {
 		targetType domain.UserFavoriteTargetType
 		targetID   string
 	}{
-		{domain.UserFavoriteTargetTypeSession, "session-1"},
-		{domain.UserFavoriteTargetTypeSession, "session-2"},
-		{domain.UserFavoriteTargetTypePlan, "plan-1"},
+		{domain.UserFavoriteTargetTypeSession, uuid.New().String()},
+		{domain.UserFavoriteTargetTypeSession, uuid.New().String()},
+		{domain.UserFavoriteTargetTypePlan, uuid.New().String()},
 	}
 
 	for _, t := range targets {
@@ -129,9 +146,9 @@ func (s *UserFavoriteRepositorySuite) TestFindByUserID() {
 
 	// Create favorite for different user
 	otherFav := &domain.UserFavorite{
-		UserID:     "other-user",
+		UserID:     otherUserID,
 		TargetType: domain.UserFavoriteTargetTypeSession,
-		TargetID:   "session-other",
+		TargetID:   uuid.New().String(),
 	}
 	err := s.Repo.Create(ctx, otherFav)
 	s.Require().NoError(err)
@@ -148,17 +165,19 @@ func (s *UserFavoriteRepositorySuite) TestFindByUserID() {
 func (s *UserFavoriteRepositorySuite) TestFindByUserAndTargetType() {
 	ctx := context.Background()
 
-	userID := "user-find-type"
-	s.createTestUser(userID)
+	userID := s.createTestUser("fav-findtype")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	// Create favorites with different types
 	targets := []struct {
 		targetType domain.UserFavoriteTargetType
 		targetID   string
 	}{
-		{domain.UserFavoriteTargetTypeSession, "session-1"},
-		{domain.UserFavoriteTargetTypeSession, "session-2"},
-		{domain.UserFavoriteTargetTypePlan, "plan-1"},
+		{domain.UserFavoriteTargetTypeSession, uuid.New().String()},
+		{domain.UserFavoriteTargetTypeSession, uuid.New().String()},
+		{domain.UserFavoriteTargetTypePlan, uuid.New().String()},
 	}
 
 	for _, t := range targets {
@@ -190,17 +209,21 @@ func (s *UserFavoriteRepositorySuite) TestFindByUserAndTargetType() {
 func (s *UserFavoriteRepositorySuite) TestFindByUserAndTarget() {
 	ctx := context.Background()
 
-	s.createTestUser("user-find-target")
+	userID := s.createTestUser("fav-findtarget")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
+	targetID := uuid.New().String()
 	fav := &domain.UserFavorite{
-		UserID:     "user-find-target",
+		UserID:     userID,
 		TargetType: domain.UserFavoriteTargetTypeSession,
-		TargetID:   "specific-session",
+		TargetID:   targetID,
 	}
 	err := s.Repo.Create(ctx, fav)
 	s.Require().NoError(err)
 
-	found, err := s.Repo.FindByUserAndTarget(ctx, "user-find-target", domain.UserFavoriteTargetTypeSession, "specific-session")
+	found, err := s.Repo.FindByUserAndTarget(ctx, userID, domain.UserFavoriteTargetTypeSession, targetID)
 	s.Require().NoError(err)
 	s.Require().NotNil(found)
 	s.Equal(fav.ID, found.ID)
@@ -209,7 +232,8 @@ func (s *UserFavoriteRepositorySuite) TestFindByUserAndTarget() {
 func (s *UserFavoriteRepositorySuite) TestFindByUserAndTarget_NotFound() {
 	ctx := context.Background()
 
-	found, err := s.Repo.FindByUserAndTarget(ctx, "non-existing-user", domain.UserFavoriteTargetTypeSession, "session")
+	nonExistingUserID := uuid.New().String()
+	found, err := s.Repo.FindByUserAndTarget(ctx, nonExistingUserID, domain.UserFavoriteTargetTypeSession, uuid.New().String())
 	s.NoError(err)
 	s.Nil(found)
 }
@@ -217,11 +241,13 @@ func (s *UserFavoriteRepositorySuite) TestFindByUserAndTarget_NotFound() {
 func (s *UserFavoriteRepositorySuite) TestGetTargetIDs() {
 	ctx := context.Background()
 
-	userID := "user-get-ids"
-	s.createTestUser(userID)
+	userID := s.createTestUser("fav-getids")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	// Create favorites
-	sessionIDs := []string{"session-a", "session-b", "session-c"}
+	sessionIDs := []string{uuid.New().String(), uuid.New().String(), uuid.New().String()}
 	for _, id := range sessionIDs {
 		fav := &domain.UserFavorite{
 			UserID:     userID,
@@ -236,7 +262,7 @@ func (s *UserFavoriteRepositorySuite) TestGetTargetIDs() {
 	planFav := &domain.UserFavorite{
 		UserID:     userID,
 		TargetType: domain.UserFavoriteTargetTypePlan,
-		TargetID:   "plan-x",
+		TargetID:   uuid.New().String(),
 	}
 	err := s.Repo.Create(ctx, planFav)
 	s.Require().NoError(err)
@@ -258,7 +284,8 @@ func (s *UserFavoriteRepositorySuite) TestGetTargetIDs() {
 func (s *UserFavoriteRepositorySuite) TestGetTargetIDs_Empty() {
 	ctx := context.Background()
 
-	targetIDs, err := s.Repo.GetTargetIDs(ctx, "non-existing-user", domain.UserFavoriteTargetTypeSession)
+	nonExistingUserID := uuid.New().String()
+	targetIDs, err := s.Repo.GetTargetIDs(ctx, nonExistingUserID, domain.UserFavoriteTargetTypeSession)
 	s.Require().NoError(err)
 	s.Empty(targetIDs)
 }

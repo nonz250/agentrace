@@ -3,6 +3,7 @@ package testsuite
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
 	"github.com/satetsu888/agentrace/server/internal/repository"
 	"github.com/stretchr/testify/suite"
@@ -42,8 +43,9 @@ func (s *UserRepositorySuite) TestCreate() {
 func (s *UserRepositorySuite) TestCreate_WithID() {
 	ctx := context.Background()
 
+	customID := uuid.New().String()
 	user := &domain.User{
-		ID:          "custom-user-id",
+		ID:          customID,
 		Email:       "custom@example.com",
 		DisplayName: "Custom User",
 	}
@@ -52,7 +54,7 @@ func (s *UserRepositorySuite) TestCreate_WithID() {
 	s.Require().NoError(err)
 
 	// ID should remain as specified
-	s.Equal("custom-user-id", user.ID)
+	s.Equal(customID, user.ID)
 }
 
 func (s *UserRepositorySuite) TestFindByID() {
@@ -76,7 +78,8 @@ func (s *UserRepositorySuite) TestFindByID() {
 func (s *UserRepositorySuite) TestFindByID_NotFound() {
 	ctx := context.Background()
 
-	found, err := s.Repo.FindByID(ctx, "non-existing-id")
+	nonExistingID := uuid.New().String()
+	found, err := s.Repo.FindByID(ctx, nonExistingID)
 	s.NoError(err)
 	s.Nil(found)
 }

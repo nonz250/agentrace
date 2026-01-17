@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
 	"github.com/satetsu888/agentrace/server/internal/repository"
 	"github.com/stretchr/testify/suite"
@@ -52,8 +53,9 @@ func (s *ProjectRepositorySuite) TestCreate() {
 func (s *ProjectRepositorySuite) TestCreate_WithID() {
 	ctx := context.Background()
 
+	customID := uuid.New().String()
 	project := &domain.Project{
-		ID:                     "custom-id-123",
+		ID:                     customID,
 		CanonicalGitRepository: "https://github.com/example/repo2",
 	}
 
@@ -61,13 +63,13 @@ func (s *ProjectRepositorySuite) TestCreate_WithID() {
 	s.Require().NoError(err)
 
 	// ID should remain as specified
-	s.Equal("custom-id-123", project.ID)
+	s.Equal(customID, project.ID)
 
 	// Verify by finding
 	found, err := s.Repo.FindByID(ctx, project.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(found)
-	s.Equal("custom-id-123", found.ID)
+	s.Equal(customID, found.ID)
 }
 
 func (s *ProjectRepositorySuite) TestFindByID() {
@@ -90,8 +92,9 @@ func (s *ProjectRepositorySuite) TestFindByID() {
 func (s *ProjectRepositorySuite) TestFindByID_NotFound() {
 	ctx := context.Background()
 
-	// Find non-existing
-	found, err := s.Repo.FindByID(ctx, "non-existing-id")
+	// Find non-existing (use valid UUID format)
+	nonExistingID := uuid.New().String()
+	found, err := s.Repo.FindByID(ctx, nonExistingID)
 	s.NoError(err)
 	s.Nil(found)
 }

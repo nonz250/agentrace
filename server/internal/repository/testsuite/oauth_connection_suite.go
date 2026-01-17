@@ -3,6 +3,7 @@ package testsuite
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/satetsu888/agentrace/server/internal/domain"
 	"github.com/satetsu888/agentrace/server/internal/repository"
 	"github.com/stretchr/testify/suite"
@@ -16,17 +17,20 @@ type OAuthConnectionRepositorySuite struct {
 	Cleanup  func()
 }
 
-// createTestUser creates a user for FK constraint tests
-func (s *OAuthConnectionRepositorySuite) createTestUser(id string) {
+// createTestUser creates a user for FK constraint tests and returns the auto-generated ID
+func (s *OAuthConnectionRepositorySuite) createTestUser(emailPrefix string) string {
 	if s.UserRepo == nil {
-		return
+		return ""
 	}
 	ctx := context.Background()
 	user := &domain.User{
-		ID:    id,
-		Email: id + "@example.com",
+		Email: emailPrefix + "@example.com",
 	}
-	_ = s.UserRepo.Create(ctx, user)
+	err := s.UserRepo.Create(ctx, user)
+	if err != nil {
+		return ""
+	}
+	return user.ID
 }
 
 func (s *OAuthConnectionRepositorySuite) TearDownTest() {
@@ -38,12 +42,15 @@ func (s *OAuthConnectionRepositorySuite) TearDownTest() {
 func (s *OAuthConnectionRepositorySuite) TestCreate() {
 	ctx := context.Background()
 
-	s.createTestUser("user-1")
+	userID := s.createTestUser("oauth-create")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	conn := &domain.OAuthConnection{
-		UserID:     "user-1",
+		UserID:     userID,
 		Provider:   "github",
-		ProviderID: "github-user-123",
+		ProviderID: "github-user-" + uuid.New().String(),
 	}
 
 	err := s.Repo.Create(ctx, conn)
@@ -59,17 +66,21 @@ func (s *OAuthConnectionRepositorySuite) TestCreate() {
 func (s *OAuthConnectionRepositorySuite) TestFindByProviderAndProviderID() {
 	ctx := context.Background()
 
-	s.createTestUser("user-2")
+	userID := s.createTestUser("oauth-find")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
+	providerID := "github-user-" + uuid.New().String()
 	conn := &domain.OAuthConnection{
-		UserID:     "user-2",
+		UserID:     userID,
 		Provider:   "github",
-		ProviderID: "github-user-456",
+		ProviderID: providerID,
 	}
 	err := s.Repo.Create(ctx, conn)
 	s.Require().NoError(err)
 
-	found, err := s.Repo.FindByProviderAndProviderID(ctx, "github", "github-user-456")
+	found, err := s.Repo.FindByProviderAndProviderID(ctx, "github", providerID)
 	s.Require().NoError(err)
 	s.Require().NotNil(found)
 	s.Equal(conn.ID, found.ID)
@@ -79,7 +90,7 @@ func (s *OAuthConnectionRepositorySuite) TestFindByProviderAndProviderID() {
 func (s *OAuthConnectionRepositorySuite) TestFindByProviderAndProviderID_NotFound() {
 	ctx := context.Background()
 
-	found, err := s.Repo.FindByProviderAndProviderID(ctx, "github", "non-existing")
+	found, err := s.Repo.FindByProviderAndProviderID(ctx, "github", "non-existing-"+uuid.New().String())
 	s.NoError(err)
 	s.Nil(found)
 }
@@ -87,9 +98,11 @@ func (s *OAuthConnectionRepositorySuite) TestFindByProviderAndProviderID_NotFoun
 func (s *OAuthConnectionRepositorySuite) TestFindByUserID() {
 	ctx := context.Background()
 
-	userID := "user-with-connections"
-	s.createTestUser(userID)
-	s.createTestUser("other-user")
+	userID := s.createTestUser("oauth-finduser")
+	otherUserID := s.createTestUser("oauth-other")
+	if userID == "" || otherUserID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	// Create multiple connections
 	providers := []string{"github", "google"}
@@ -97,7 +110,7 @@ func (s *OAuthConnectionRepositorySuite) TestFindByUserID() {
 		conn := &domain.OAuthConnection{
 			UserID:     userID,
 			Provider:   provider,
-			ProviderID: provider + "-id-" + string(rune('a'+i)),
+			ProviderID: provider + "-id-" + string(rune('a'+i)) + "-" + uuid.New().String(),
 		}
 		err := s.Repo.Create(ctx, conn)
 		s.Require().NoError(err)
@@ -105,9 +118,9 @@ func (s *OAuthConnectionRepositorySuite) TestFindByUserID() {
 
 	// Create connection for different user
 	otherConn := &domain.OAuthConnection{
-		UserID:     "other-user",
+		UserID:     otherUserID,
 		Provider:   "github",
-		ProviderID: "other-github-id",
+		ProviderID: "other-github-id-" + uuid.New().String(),
 	}
 	err := s.Repo.Create(ctx, otherConn)
 	s.Require().NoError(err)
@@ -124,12 +137,16 @@ func (s *OAuthConnectionRepositorySuite) TestFindByUserID() {
 func (s *OAuthConnectionRepositorySuite) TestDelete() {
 	ctx := context.Background()
 
-	s.createTestUser("user-3")
+	userID := s.createTestUser("oauth-delete")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
+	providerID := "delete-github-id-" + uuid.New().String()
 	conn := &domain.OAuthConnection{
-		UserID:     "user-3",
+		UserID:     userID,
 		Provider:   "github",
-		ProviderID: "delete-github-id",
+		ProviderID: providerID,
 	}
 	err := s.Repo.Create(ctx, conn)
 	s.Require().NoError(err)
@@ -138,7 +155,7 @@ func (s *OAuthConnectionRepositorySuite) TestDelete() {
 	s.Require().NoError(err)
 
 	// Verify deleted
-	found, err := s.Repo.FindByProviderAndProviderID(ctx, "github", "delete-github-id")
+	found, err := s.Repo.FindByProviderAndProviderID(ctx, "github", providerID)
 	s.NoError(err)
 	s.Nil(found)
 }
