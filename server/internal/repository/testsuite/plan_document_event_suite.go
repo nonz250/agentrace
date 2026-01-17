@@ -266,8 +266,9 @@ func (s *PlanDocumentEventRepositorySuite) TestFindByPlanDocumentID_Chronologica
 	}
 
 	// Also verify the first and last events have the expected timestamps
-	s.Equal(baseTime.Add(100*time.Millisecond).UnixNano(), events[0].CreatedAt.UnixNano(), "First event should have earliest timestamp")
-	s.Equal(baseTime.Add(500*time.Millisecond).UnixNano(), events[4].CreatedAt.UnixNano(), "Last event should have latest timestamp")
+	// Use WithinDuration to allow for database precision differences (PostgreSQL has microsecond precision)
+	s.WithinDuration(baseTime.Add(100*time.Millisecond), events[0].CreatedAt, time.Microsecond, "First event should have earliest timestamp")
+	s.WithinDuration(baseTime.Add(500*time.Millisecond), events[4].CreatedAt, time.Microsecond, "Last event should have latest timestamp")
 }
 
 func (s *PlanDocumentEventRepositorySuite) TestFindByClaudeSessionID() {
