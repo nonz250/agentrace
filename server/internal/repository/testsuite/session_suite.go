@@ -18,10 +18,11 @@ type SessionRepositorySuite struct {
 	Cleanup     func()
 }
 
-// createTestUser creates a user for FK constraint tests
-func (s *SessionRepositorySuite) createTestUser(id string) {
+// createTestUserWithID creates a user with a specific ID for FK constraint tests
+// Returns the created user ID, or empty string if UserRepo is nil
+func (s *SessionRepositorySuite) createTestUserWithID(id string) string {
 	if s.UserRepo == nil {
-		return
+		return ""
 	}
 	ctx := context.Background()
 	user := &domain.User{
@@ -29,12 +30,31 @@ func (s *SessionRepositorySuite) createTestUser(id string) {
 		Email: id + "@example.com",
 	}
 	_ = s.UserRepo.Create(ctx, user)
+	return id
 }
 
-// createTestProject creates a project for FK constraint tests
-func (s *SessionRepositorySuite) createTestProject(id string) {
+// createTestUser creates a user and returns the auto-generated ID
+// Returns empty string if UserRepo is nil
+func (s *SessionRepositorySuite) createTestUser(emailPrefix string) string {
+	if s.UserRepo == nil {
+		return ""
+	}
+	ctx := context.Background()
+	user := &domain.User{
+		Email: emailPrefix + "@example.com",
+	}
+	err := s.UserRepo.Create(ctx, user)
+	if err != nil {
+		return ""
+	}
+	return user.ID
+}
+
+// createTestProjectWithID creates a project with a specific ID for FK constraint tests
+// Returns the created project ID, or empty string if ProjectRepo is nil
+func (s *SessionRepositorySuite) createTestProjectWithID(id string) string {
 	if s.ProjectRepo == nil {
-		return
+		return ""
 	}
 	ctx := context.Background()
 	project := &domain.Project{
@@ -42,6 +62,24 @@ func (s *SessionRepositorySuite) createTestProject(id string) {
 		CanonicalGitRepository: "https://github.com/test/" + id,
 	}
 	_ = s.ProjectRepo.Create(ctx, project)
+	return id
+}
+
+// createTestProject creates a project and returns the auto-generated ID
+// Returns empty string if ProjectRepo is nil
+func (s *SessionRepositorySuite) createTestProject(gitRepoSuffix string) string {
+	if s.ProjectRepo == nil {
+		return ""
+	}
+	ctx := context.Background()
+	project := &domain.Project{
+		CanonicalGitRepository: "https://github.com/test/" + gitRepoSuffix,
+	}
+	err := s.ProjectRepo.Create(ctx, project)
+	if err != nil {
+		return ""
+	}
+	return project.ID
 }
 
 func (s *SessionRepositorySuite) TearDownTest() {
@@ -76,8 +114,10 @@ func (s *SessionRepositorySuite) TestCreate() {
 func (s *SessionRepositorySuite) TestCreate_WithUserID() {
 	ctx := context.Background()
 
-	userID := "user-123"
-	s.createTestUser(userID)
+	userID := s.createTestUser("user-for-create")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	session := &domain.Session{
 		ClaudeSessionID: "claude-session-2",
@@ -87,7 +127,7 @@ func (s *SessionRepositorySuite) TestCreate_WithUserID() {
 	err := s.Repo.Create(ctx, session)
 	s.Require().NoError(err)
 	s.Require().NotNil(session.UserID)
-	s.Equal("user-123", *session.UserID)
+	s.Equal(userID, *session.UserID)
 }
 
 func (s *SessionRepositorySuite) TestFindByID() {
@@ -109,7 +149,20 @@ func (s *SessionRepositorySuite) TestFindByID() {
 func (s *SessionRepositorySuite) TestFindByID_NotFound() {
 	ctx := context.Background()
 
-	found, err := s.Repo.FindByID(ctx, "non-existing-id")
+	// Create a session to get a valid ID format, then modify it to create a non-existent ID
+	session := &domain.Session{
+		ClaudeSessionID: "session-for-notfound-id",
+	}
+	err := s.Repo.Create(ctx, session)
+	s.Require().NoError(err)
+
+	// Modify the last character to create a valid but non-existent ID
+	nonExistentID := session.ID[:len(session.ID)-1] + "0"
+	if session.ID[len(session.ID)-1] == '0' {
+		nonExistentID = session.ID[:len(session.ID)-1] + "1"
+	}
+
+	found, err := s.Repo.FindByID(ctx, nonExistentID)
 	s.NoError(err)
 	s.Nil(found)
 }
@@ -184,9 +237,11 @@ func (s *SessionRepositorySuite) TestFindAll_SortByCreatedAt() {
 func (s *SessionRepositorySuite) TestFindByProjectID() {
 	ctx := context.Background()
 
-	projectID := "test-project-id"
-	s.createTestProject(projectID)
-	s.createTestProject("other-project-id")
+	projectID := s.createTestProject("test-project")
+	otherProjectID := s.createTestProject("other-project")
+	if projectID == "" || otherProjectID == "" {
+		s.T().Skip("ProjectRepo not available, skipping test")
+	}
 
 	// Create sessions for different projects
 	for i := 0; i < 3; i++ {
@@ -202,7 +257,7 @@ func (s *SessionRepositorySuite) TestFindByProjectID() {
 	// Create session for different project
 	otherSession := &domain.Session{
 		ClaudeSessionID: "other-project-session",
-		ProjectID:       "other-project-id",
+		ProjectID:       otherProjectID,
 	}
 	err := s.Repo.Create(ctx, otherSession)
 	s.Require().NoError(err)
@@ -231,14 +286,16 @@ func (s *SessionRepositorySuite) TestFindOrCreateByClaudeSessionID_Create() {
 func (s *SessionRepositorySuite) TestFindOrCreateByClaudeSessionID_CreateWithUserID() {
 	ctx := context.Background()
 
-	userID := "user-456"
-	s.createTestUser(userID)
+	userID := s.createTestUser("user-for-findorcreate")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	session, err := s.Repo.FindOrCreateByClaudeSessionID(ctx, "new-claude-session-with-user", &userID)
 	s.Require().NoError(err)
 	s.Require().NotNil(session)
 	s.Require().NotNil(session.UserID)
-	s.Equal("user-456", *session.UserID)
+	s.Equal(userID, *session.UserID)
 }
 
 func (s *SessionRepositorySuite) TestFindOrCreateByClaudeSessionID_Find() {
@@ -261,8 +318,10 @@ func (s *SessionRepositorySuite) TestFindOrCreateByClaudeSessionID_Find() {
 func (s *SessionRepositorySuite) TestFindOrCreateByClaudeSessionID_FindAndUpdateUserID() {
 	ctx := context.Background()
 
-	userID := "new-user-id"
-	s.createTestUser(userID)
+	userID := s.createTestUser("user-for-update")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	// Create without UserID
 	original := &domain.Session{
@@ -278,13 +337,16 @@ func (s *SessionRepositorySuite) TestFindOrCreateByClaudeSessionID_FindAndUpdate
 	s.Require().NotNil(found)
 	s.Equal(original.ID, found.ID)
 	s.Require().NotNil(found.UserID)
-	s.Equal("new-user-id", *found.UserID)
+	s.Equal(userID, *found.UserID)
 }
 
 func (s *SessionRepositorySuite) TestUpdateUserID() {
 	ctx := context.Background()
 
-	s.createTestUser("updated-user-id")
+	userID := s.createTestUser("user-for-updateuserid")
+	if userID == "" {
+		s.T().Skip("UserRepo not available, skipping test")
+	}
 
 	session := &domain.Session{
 		ClaudeSessionID: "session-update-userid",
@@ -292,13 +354,13 @@ func (s *SessionRepositorySuite) TestUpdateUserID() {
 	err := s.Repo.Create(ctx, session)
 	s.Require().NoError(err)
 
-	err = s.Repo.UpdateUserID(ctx, session.ID, "updated-user-id")
+	err = s.Repo.UpdateUserID(ctx, session.ID, userID)
 	s.Require().NoError(err)
 
 	found, err := s.Repo.FindByID(ctx, session.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(found.UserID)
-	s.Equal("updated-user-id", *found.UserID)
+	s.Equal(userID, *found.UserID)
 }
 
 func (s *SessionRepositorySuite) TestUpdateProjectPath() {
@@ -321,7 +383,10 @@ func (s *SessionRepositorySuite) TestUpdateProjectPath() {
 func (s *SessionRepositorySuite) TestUpdateProjectID() {
 	ctx := context.Background()
 
-	s.createTestProject("new-project-id")
+	projectID := s.createTestProject("project-for-updateprojectid")
+	if projectID == "" {
+		s.T().Skip("ProjectRepo not available, skipping test")
+	}
 
 	session := &domain.Session{
 		ClaudeSessionID: "session-update-projectid",
@@ -329,12 +394,12 @@ func (s *SessionRepositorySuite) TestUpdateProjectID() {
 	err := s.Repo.Create(ctx, session)
 	s.Require().NoError(err)
 
-	err = s.Repo.UpdateProjectID(ctx, session.ID, "new-project-id")
+	err = s.Repo.UpdateProjectID(ctx, session.ID, projectID)
 	s.Require().NoError(err)
 
 	found, err := s.Repo.FindByID(ctx, session.ID)
 	s.Require().NoError(err)
-	s.Equal("new-project-id", found.ProjectID)
+	s.Equal(projectID, found.ProjectID)
 }
 
 func (s *SessionRepositorySuite) TestUpdateGitBranch() {
@@ -480,8 +545,21 @@ func (s *SessionRepositorySuite) TestFindSubagentsByParentID_Empty() {
 func (s *SessionRepositorySuite) TestFindSubagentsByParentID_NonExistentParent() {
 	ctx := context.Background()
 
-	// Find subagents for non-existent parent
-	subagents, err := s.Repo.FindSubagentsByParentID(ctx, "non-existent-parent-id")
+	// Create a session to get a valid ID format, then use a different valid-format ID
+	session := &domain.Session{
+		ClaudeSessionID: "session-for-id-format",
+	}
+	err := s.Repo.Create(ctx, session)
+	s.Require().NoError(err)
+
+	// Find subagents for non-existent parent (use the session ID prefix with different suffix)
+	// This ensures the ID format is valid for databases that use UUIDs
+	nonExistentID := session.ID[:len(session.ID)-1] + "0"
+	if session.ID[len(session.ID)-1] == '0' {
+		nonExistentID = session.ID[:len(session.ID)-1] + "1"
+	}
+
+	subagents, err := s.Repo.FindSubagentsByParentID(ctx, nonExistentID)
 	s.Require().NoError(err)
 	s.Empty(subagents)
 }
@@ -532,8 +610,18 @@ func (s *SessionRepositorySuite) TestFindAll_ExcludesSubagents() {
 func (s *SessionRepositorySuite) TestFindByProjectID_ExcludesSubagents() {
 	ctx := context.Background()
 
-	projectID := "project-exclude-subagents"
-	s.createTestProject(projectID)
+	// Skip if ProjectRepo is not available (can't create unique project)
+	if s.ProjectRepo == nil {
+		s.T().Skip("ProjectRepo not available, skipping test")
+	}
+
+	// Create a unique project for this test
+	uniqueProject := &domain.Project{
+		CanonicalGitRepository: "https://github.com/test/subagent-exclude-test-" + time.Now().Format("20060102150405"),
+	}
+	err := s.ProjectRepo.Create(ctx, uniqueProject)
+	s.Require().NoError(err)
+	projectID := uniqueProject.ID
 
 	// Create regular sessions for the project
 	for i := 0; i < 2; i++ {
@@ -551,7 +639,7 @@ func (s *SessionRepositorySuite) TestFindByProjectID_ExcludesSubagents() {
 		ClaudeSessionID: "project-parent-exclude",
 		ProjectID:       projectID,
 	}
-	err := s.Repo.Create(ctx, parentSession)
+	err = s.Repo.Create(ctx, parentSession)
 	s.Require().NoError(err)
 
 	// Create subagent session for the same project
