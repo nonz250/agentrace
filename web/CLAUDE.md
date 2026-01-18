@@ -64,12 +64,28 @@ web/src/
 - **ローカルコマンド グループ化**: `/compact` 等とメタメッセージ・サマリーをまとめる
 
 ### ブロックタイプ
-| タイプ | デフォルト |
-|--------|-----------|
-| text | 展開 |
-| thinking | 折りたたみ |
-| tool_group | 折りたたみ |
-| compact_summary | 展開 |
+| タイプ | デフォルト | 備考 |
+|--------|-----------|------|
+| text | 展開 | |
+| thinking | 折りたたみ | |
+| tool_group | 折りたたみ | TodoWrite/TodoReadは展開 |
+| tool_group (Todo) | 展開 | 専用UI表示 |
+| agentrace_tool | 展開 | プランカード表示 |
+| compact_summary | 展開 | |
+
+### ツール専用表示
+
+特定のツールは専用UIで表示される（`ContentBlockCard.tsx`）:
+
+| ツール | 表示形式 |
+|--------|---------|
+| TodoWrite / TodoRead | チェックボックス形式のタスクリスト |
+| AgenTrace MCP tools | プランカード（APIから詳細取得） |
+
+#### Todoツール表示
+- pending: 灰色の空チェックボックス (Circle)
+- in_progress: 青いドット付き円 (CircleDot)
+- completed: 緑のチェック (CheckCircle2) + 打ち消し線
 
 ## Plan表示
 
