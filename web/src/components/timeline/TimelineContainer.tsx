@@ -10,6 +10,10 @@ interface TimelineContainerProps {
 
 export function TimelineContainer({ events, projectPath }: TimelineContainerProps) {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
+  // Track if initial hash scroll has completed to avoid overwriting the hash during initial load
+  const isInitialScrollDoneRef = useRef(false)
+  // Track debounce timer for hash updates
+  const hashUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Expand events and extract message blocks (user + assistant)
   const displayBlocks = useMemo(() => expandEvents(events, projectPath), [events, projectPath])
@@ -41,7 +45,12 @@ export function TimelineContainer({ events, projectPath }: TimelineContainerProp
           if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'start' })
           }
+          // Mark initial scroll as done after attempting to scroll
+          isInitialScrollDoneRef.current = true
         }, 100)
+      } else {
+        // No hash to scroll to, mark as done immediately
+        isInitialScrollDoneRef.current = true
       }
     }
 
@@ -52,6 +61,33 @@ export function TimelineContainer({ events, projectPath }: TimelineContainerProp
     window.addEventListener('hashchange', scrollToHash)
     return () => window.removeEventListener('hashchange', scrollToHash)
   }, [events]) // Re-run when events change (data loaded)
+
+  // Update URL hash when active block changes (debounced)
+  useEffect(() => {
+    // Skip during initial load to avoid interfering with hash-based scroll restoration
+    if (!isInitialScrollDoneRef.current || !activeBlockId) {
+      return
+    }
+
+    // Clear any pending timer
+    if (hashUpdateTimerRef.current) {
+      clearTimeout(hashUpdateTimerRef.current)
+    }
+
+    // Debounce hash updates to avoid excessive URL changes while scrolling
+    hashUpdateTimerRef.current = setTimeout(() => {
+      const newHash = `#event-${activeBlockId}`
+      if (window.location.hash !== newHash) {
+        window.history.replaceState(null, '', newHash)
+      }
+    }, 300)
+
+    return () => {
+      if (hashUpdateTimerRef.current) {
+        clearTimeout(hashUpdateTimerRef.current)
+      }
+    }
+  }, [activeBlockId])
 
   // Set up IntersectionObserver to track which message block is currently visible
   useEffect(() => {
