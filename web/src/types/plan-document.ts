@@ -24,7 +24,8 @@ export type PlanDocumentEventType = 'body_change' | 'status_change'
 export interface PlanDocumentEvent {
   id: string
   plan_document_id: string
-  session_id: string | null
+  claude_session_id: string | null
+  tool_use_id: string | null
   user_id: string | null
   user_name: string | null
   event_type: PlanDocumentEventType

@@ -42,9 +42,9 @@ export function PlanEventHistory({ events }: PlanEventHistoryProps) {
                     <Clock className="h-4 w-4" />
                     {formattedDate}
                   </span>
-                  {event.session_id && (
+                  {event.claude_session_id && (
                     <Link
-                      to={`/sessions/${event.session_id}`}
+                      to={`/sessions/${event.claude_session_id}`}
                       className="flex items-center gap-1 text-blue-500 hover:text-blue-700"
                     >
                       <ExternalLink className="h-4 w-4" />
