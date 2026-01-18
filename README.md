@@ -1,4 +1,4 @@
-# ![AgenTrace](images/logo-title.png)
+<img src="images/logo-title.png" alt="AgenTrace" width="244">
 
 AgenTrace is a service for sharing Claude Code sessions and managing implementation plans with your team.
 
