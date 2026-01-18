@@ -1,5 +1,5 @@
 import { cn } from '@/lib/cn'
-import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal, FileText, ExternalLink, Loader2, ArrowRight, Link2, Check, Circle, CheckCircle2, CircleDot } from 'lucide-react'
+import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal, FileText, ExternalLink, Loader2, ArrowRight, Link2, Check, Circle, CheckCircle2, CircleDot, MessageCircleQuestion, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -38,11 +38,11 @@ function shouldExpandByDefault(block: DisplayBlock): boolean {
   if (!isSecondaryBlock(block)) return true
   // Agentrace tools should be expanded by default
   if (block.blockType === 'agentrace_tool') return true
-  // Todo tools should be expanded by default
+  // Todo and AskUserQuestion tools should be expanded by default
   if (block.blockType === 'tool_group') {
     const content = block.content as Record<string, unknown> | undefined
     const toolName = content?.name as string | undefined
-    if (toolName && isTodoTool(toolName)) return true
+    if (toolName && (isTodoTool(toolName) || isAskUserQuestionTool(toolName))) return true
   }
   return false
 }
@@ -116,6 +116,19 @@ interface TodoItem {
   priority?: 'high' | 'medium' | 'low'
 }
 
+// AskUserQuestion interfaces
+interface AskUserQuestionOption {
+  label: string
+  description: string
+}
+
+interface AskUserQuestionItem {
+  header: string
+  question: string
+  multiSelect: boolean
+  options: AskUserQuestionOption[]
+}
+
 // Check if tool is a Todo tool
 function isTodoTool(toolName: string): boolean {
   return toolName === 'TodoWrite' || toolName === 'TodoRead'
@@ -162,6 +175,54 @@ function extractTodos(
   return null
 }
 
+// Check if tool is AskUserQuestion
+function isAskUserQuestionTool(toolName: string): boolean {
+  return toolName === 'AskUserQuestion'
+}
+
+// Extract questions from AskUserQuestion input
+function extractAskUserQuestions(input: unknown): AskUserQuestionItem[] | null {
+  const inputObj = input as { questions?: AskUserQuestionItem[] } | undefined
+  if (inputObj?.questions && Array.isArray(inputObj.questions)) {
+    return inputObj.questions
+  }
+  return null
+}
+
+// Parse user answers from tool_result content
+// Format: User has answered your questions: "Q1"="A1", "Q2"="A2". ...
+function parseUserAnswers(resultContent: unknown): Record<string, string> {
+  const answers: Record<string, string> = {}
+
+  let contentStr: string
+  if (typeof resultContent === 'string') {
+    contentStr = resultContent
+  } else if (Array.isArray(resultContent)) {
+    contentStr = resultContent
+      .map((c) => {
+        if (typeof c === 'string') return c
+        if (c?.type === 'text' && typeof c.text === 'string') return c.text
+        return ''
+      })
+      .join('')
+  } else {
+    return answers
+  }
+
+  // Extract "question"="answer" patterns
+  const regex = /"([^"]+)"="([^"]+)"/g
+  let match
+  while ((match = regex.exec(contentStr)) !== null) {
+    answers[match[1]] = match[2]
+  }
+  return answers
+}
+
+// Check if answer matches any option label
+function isOptionSelected(answer: string, options: AskUserQuestionOption[]): boolean {
+  return options.some(opt => opt.label === answer)
+}
+
 // Todo list display component
 function TodoListBlock({ todos }: { todos: TodoItem[] }) {
   if (todos.length === 0) {
@@ -197,6 +258,102 @@ function TodoListBlock({ todos }: { todos: TodoItem[] }) {
           </span>
         </div>
       ))}
+    </div>
+  )
+}
+
+// AskUserQuestion display component
+function AskUserQuestionBlock({
+  questions,
+  answers,
+}: {
+  questions: AskUserQuestionItem[]
+  answers: Record<string, string>
+}) {
+  if (questions.length === 0) {
+    return (
+      <div className="text-sm text-gray-500 italic">
+        No questions
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {questions.map((q, i) => {
+        const answer = answers[q.question]
+        const isOtherAnswer = answer && !isOptionSelected(answer, q.options)
+
+        return (
+          <div key={i} className="rounded-lg border border-gray-200 bg-white p-3">
+            {/* Header */}
+            <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+              <MessageCircleQuestion className="h-3.5 w-3.5" />
+              {q.header}
+            </div>
+
+            {/* Question */}
+            <div className="mb-3 font-medium text-gray-900">
+              {q.question}
+            </div>
+
+            {/* Options */}
+            <div className="space-y-2">
+              {q.options.map((opt, j) => {
+                const isSelected = answer === opt.label
+                return (
+                  <div
+                    key={j}
+                    className={cn(
+                      'flex items-start gap-2 rounded-md p-2 transition-colors',
+                      isSelected && 'bg-blue-50'
+                    )}
+                  >
+                    {isSelected ? (
+                      <CircleDot className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
+                    ) : (
+                      <Circle className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-300" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          'text-sm',
+                          isSelected ? 'font-medium text-blue-700' : 'text-gray-700'
+                        )}
+                      >
+                        {opt.label}
+                      </span>
+                      {opt.description && (
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          {opt.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Other (custom) answer */}
+              {isOtherAnswer && (
+                <div className="mt-2 flex items-start gap-2 rounded-md border-t border-gray-100 bg-blue-50 p-2 pt-3">
+                  <Pencil className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium text-gray-500">Other</span>
+                    <p className="text-sm font-medium text-blue-700">{answer}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* No answer yet */}
+              {!answer && (
+                <div className="mt-2 text-xs italic text-gray-400">
+                  Waiting for answer...
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -313,6 +470,16 @@ function renderContent(block: DisplayBlock) {
       const todos = extractTodos(toolName, input, resultData)
       if (todos) {
         return <TodoListBlock todos={todos} />
+      }
+      // Fallback to JSON if extraction fails
+    }
+
+    // Check if this is AskUserQuestion tool
+    if (toolName && isAskUserQuestionTool(toolName)) {
+      const questions = extractAskUserQuestions(input)
+      if (questions) {
+        const answers = parseUserAnswers(resultData)
+        return <AskUserQuestionBlock questions={questions} answers={answers} />
       }
       // Fallback to JSON if extraction fails
     }

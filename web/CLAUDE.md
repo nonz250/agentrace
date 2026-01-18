@@ -68,8 +68,9 @@ web/src/
 |--------|-----------|------|
 | text | 展開 | |
 | thinking | 折りたたみ | |
-| tool_group | 折りたたみ | TodoWrite/TodoReadは展開 |
+| tool_group | 折りたたみ | Todo/AskUserQuestionは展開 |
 | tool_group (Todo) | 展開 | 専用UI表示 |
+| tool_group (AskUserQuestion) | 展開 | 専用UI表示 |
 | agentrace_tool | 展開 | プランカード表示 |
 | compact_summary | 展開 | |
 
@@ -80,12 +81,19 @@ web/src/
 | ツール | 表示形式 |
 |--------|---------|
 | TodoWrite / TodoRead | チェックボックス形式のタスクリスト |
+| AskUserQuestion | 質問・選択肢カード + 回答表示 |
 | AgenTrace MCP tools | プランカード（APIから詳細取得） |
 
 #### Todoツール表示
 - pending: 灰色の空チェックボックス (Circle)
 - in_progress: 青いドット付き円 (CircleDot)
 - completed: 緑のチェック (CheckCircle2) + 打ち消し線
+
+#### AskUserQuestionツール表示
+- ヘッダー + 質問テキスト
+- 選択肢: ラジオボタン風表示（Circle / CircleDot）
+- 選択された回答: 青背景でハイライト
+- Other回答: Pencilアイコン + 別枠表示
 
 ## Plan表示
 
