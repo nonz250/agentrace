@@ -140,6 +140,10 @@ git push origin cli-v0.0.x
 
 タグ `v*` をプッシュすると Docker Hub に自動公開されます。
 
+**バージョニングルール**:
+- **migrationなし**: パッチバージョンを上げる（例: 0.0.1 → 0.0.2）
+- **migrationあり**: マイナーバージョンを上げる（例: 0.0.2 → 0.1.0）
+
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
