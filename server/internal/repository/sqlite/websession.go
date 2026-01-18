@@ -29,7 +29,7 @@ func (r *WebSessionRepository) Create(ctx context.Context, session *domain.WebSe
 		`INSERT INTO web_sessions (id, user_id, token, expires_at, created_at)
 		 VALUES (?, ?, ?, ?, ?)`,
 		session.ID, session.UserID, session.Token,
-		session.ExpiresAt.Format(time.RFC3339), session.CreatedAt.Format(time.RFC3339),
+		session.ExpiresAt.Format(time.RFC3339Nano), session.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return err
 }
@@ -51,8 +51,8 @@ func (r *WebSessionRepository) FindByToken(ctx context.Context, token string) (*
 		return nil, err
 	}
 
-	session.ExpiresAt, _ = time.Parse(time.RFC3339, expiresAt)
-	session.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	session.ExpiresAt, _ = time.Parse(time.RFC3339Nano, expiresAt)
+	session.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 
 	return &session, nil
 }
@@ -65,7 +65,7 @@ func (r *WebSessionRepository) Delete(ctx context.Context, id string) error {
 func (r *WebSessionRepository) DeleteExpired(ctx context.Context) error {
 	_, err := r.db.ExecContext(ctx,
 		`DELETE FROM web_sessions WHERE expires_at < ?`,
-		time.Now().Format(time.RFC3339),
+		time.Now().Format(time.RFC3339Nano),
 	)
 	return err
 }

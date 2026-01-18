@@ -27,14 +27,14 @@ func (r *APIKeyRepository) Create(ctx context.Context, key *domain.APIKey) error
 
 	var lastUsedAt *string
 	if key.LastUsedAt != nil {
-		s := key.LastUsedAt.Format(time.RFC3339)
+		s := key.LastUsedAt.Format(time.RFC3339Nano)
 		lastUsedAt = &s
 	}
 
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, last_used_at, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		key.ID, key.UserID, key.Name, key.KeyHash, key.KeyPrefix, lastUsedAt, key.CreatedAt.Format(time.RFC3339),
+		key.ID, key.UserID, key.Name, key.KeyHash, key.KeyPrefix, lastUsedAt, key.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return err
 }
@@ -86,7 +86,7 @@ func (r *APIKeyRepository) Delete(ctx context.Context, id string) error {
 func (r *APIKeyRepository) UpdateLastUsedAt(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE api_keys SET last_used_at = ? WHERE id = ?`,
-		time.Now().Format(time.RFC3339), id,
+		time.Now().Format(time.RFC3339Nano), id,
 	)
 	return err
 }
@@ -104,11 +104,11 @@ func (r *APIKeyRepository) scanKey(row *sql.Row) (*domain.APIKey, error) {
 	}
 
 	if lastUsedAt.Valid {
-		t, _ := time.Parse(time.RFC3339, lastUsedAt.String)
+		t, _ := time.Parse(time.RFC3339Nano, lastUsedAt.String)
 		key.LastUsedAt = &t
 	}
 	if createdAt.Valid {
-		key.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
+		key.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt.String)
 	}
 
 	return &key, nil
@@ -124,11 +124,11 @@ func (r *APIKeyRepository) scanKeyFromRows(rows *sql.Rows) (*domain.APIKey, erro
 	}
 
 	if lastUsedAt.Valid {
-		t, _ := time.Parse(time.RFC3339, lastUsedAt.String)
+		t, _ := time.Parse(time.RFC3339Nano, lastUsedAt.String)
 		key.LastUsedAt = &t
 	}
 	if createdAt.Valid {
-		key.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
+		key.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt.String)
 	}
 
 	return &key, nil

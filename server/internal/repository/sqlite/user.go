@@ -27,7 +27,7 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO users (id, email, display_name, created_at) VALUES (?, ?, ?, ?)`,
-		user.ID, user.Email, user.DisplayName, user.CreatedAt.Format(time.RFC3339),
+		user.ID, user.Email, user.DisplayName, user.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return err
 }
@@ -50,7 +50,7 @@ func (r *UserRepository) FindByID(ctx context.Context, id string) (*domain.User,
 	}
 
 	user.DisplayName = displayName.String
-	user.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	user.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 	return &user, nil
 }
 
@@ -72,7 +72,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain
 	}
 
 	user.DisplayName = displayName.String
-	user.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	user.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 	return &user, nil
 }
 
@@ -94,7 +94,7 @@ func (r *UserRepository) FindAll(ctx context.Context) ([]*domain.User, error) {
 		}
 
 		user.DisplayName = displayName.String
-		user.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		user.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 		users = append(users, &user)
 	}
 

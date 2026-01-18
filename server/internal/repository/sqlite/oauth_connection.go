@@ -27,7 +27,7 @@ func (r *OAuthConnectionRepository) Create(ctx context.Context, conn *domain.OAu
 
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO oauth_connections (id, user_id, provider, provider_id, created_at) VALUES (?, ?, ?, ?, ?)`,
-		conn.ID, conn.UserID, conn.Provider, conn.ProviderID, conn.CreatedAt.Format(time.RFC3339),
+		conn.ID, conn.UserID, conn.Provider, conn.ProviderID, conn.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return err
 }
@@ -48,7 +48,7 @@ func (r *OAuthConnectionRepository) FindByProviderAndProviderID(ctx context.Cont
 		return nil, err
 	}
 
-	conn.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	conn.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 	return &conn, nil
 }
 
@@ -71,7 +71,7 @@ func (r *OAuthConnectionRepository) FindByUserID(ctx context.Context, userID str
 			return nil, err
 		}
 
-		conn.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		conn.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 		connections = append(connections, &conn)
 	}
 

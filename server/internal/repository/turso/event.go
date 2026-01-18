@@ -122,7 +122,7 @@ func sortEventsByPayloadTimestamp(events []*domain.Event) {
 
 func getTimestampFromPayload(e *domain.Event) time.Time {
 	if ts, ok := e.Payload["timestamp"].(string); ok {
-		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+		if parsed, err := time.Parse(time.RFC3339Nano, ts); err == nil {
 			return parsed
 		}
 		// Try parsing without timezone

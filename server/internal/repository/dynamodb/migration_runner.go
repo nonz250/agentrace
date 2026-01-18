@@ -146,7 +146,7 @@ func (r *MigrationRunner) recordVersion(ctx context.Context, version string) err
 
 	item, err := attributevalue.MarshalMap(map[string]interface{}{
 		"version":    version,
-		"applied_at": time.Now().Format(time.RFC3339),
+		"applied_at": time.Now().Format(time.RFC3339Nano),
 	})
 	if err != nil {
 		return err

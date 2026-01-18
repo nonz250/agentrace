@@ -29,7 +29,7 @@ func (r *ProjectRepository) Create(ctx context.Context, project *domain.Project)
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO projects (id, canonical_git_repository, created_at)
 		 VALUES (?, ?, ?)`,
-		project.ID, project.CanonicalGitRepository, project.CreatedAt.Format(time.RFC3339),
+		project.ID, project.CanonicalGitRepository, project.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return err
 }
@@ -156,7 +156,7 @@ func (r *ProjectRepository) scanProject(row *sql.Row) (*domain.Project, error) {
 	}
 
 	if createdAt.Valid {
-		project.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
+		project.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt.String)
 	}
 
 	return &project, nil
@@ -172,7 +172,7 @@ func (r *ProjectRepository) scanProjectFromRows(rows *sql.Rows) (*domain.Project
 	}
 
 	if createdAt.Valid {
-		project.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
+		project.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt.String)
 	}
 
 	return &project, nil

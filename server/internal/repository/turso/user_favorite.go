@@ -28,7 +28,7 @@ func (r *UserFavoriteRepository) Create(ctx context.Context, favorite *domain.Us
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO user_favorites (id, user_id, target_type, target_id, created_at)
 		 VALUES (?, ?, ?, ?, ?)`,
-		favorite.ID, favorite.UserID, string(favorite.TargetType), favorite.TargetID, favorite.CreatedAt.Format(time.RFC3339),
+		favorite.ID, favorite.UserID, string(favorite.TargetType), favorite.TargetID, favorite.CreatedAt.Format(time.RFC3339Nano),
 	)
 	return err
 }
@@ -137,7 +137,7 @@ func (r *UserFavoriteRepository) scanFavorite(row *sql.Row) (*domain.UserFavorit
 
 	favorite.TargetType = domain.UserFavoriteTargetType(targetType)
 	if createdAt.Valid {
-		favorite.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
+		favorite.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt.String)
 	}
 
 	return &favorite, nil
@@ -155,7 +155,7 @@ func (r *UserFavoriteRepository) scanFavoriteFromRows(rows *sql.Rows) (*domain.U
 
 	favorite.TargetType = domain.UserFavoriteTargetType(targetType)
 	if createdAt.Valid {
-		favorite.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
+		favorite.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt.String)
 	}
 
 	return &favorite, nil

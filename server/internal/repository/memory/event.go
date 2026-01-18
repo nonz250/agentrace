@@ -52,7 +52,7 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 // getTimestampFromPayload extracts timestamp from payload, falls back to CreatedAt
 func getTimestampFromPayload(e *domain.Event) time.Time {
 	if ts, ok := e.Payload["timestamp"].(string); ok {
-		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+		if parsed, err := time.Parse(time.RFC3339Nano, ts); err == nil {
 			return parsed
 		}
 		// Try parsing without timezone

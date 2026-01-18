@@ -41,7 +41,7 @@ func (r *PlanDocumentRepository) Create(ctx context.Context, doc *domain.PlanDoc
 		`INSERT INTO plan_documents (id, project_id, description, body, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		doc.ID, doc.ProjectID, doc.Description, doc.Body, string(doc.Status),
-		doc.CreatedAt.Format(time.RFC3339), doc.UpdatedAt.Format(time.RFC3339),
+		doc.CreatedAt.Format(time.RFC3339Nano), doc.UpdatedAt.Format(time.RFC3339Nano),
 	)
 	return err
 }
@@ -161,7 +161,7 @@ func (r *PlanDocumentRepository) Update(ctx context.Context, doc *domain.PlanDoc
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE plan_documents SET project_id = ?, description = ?, body = ?, status = ?, updated_at = ?
 		 WHERE id = ?`,
-		doc.ProjectID, doc.Description, doc.Body, string(doc.Status), doc.UpdatedAt.Format(time.RFC3339), doc.ID,
+		doc.ProjectID, doc.Description, doc.Body, string(doc.Status), doc.UpdatedAt.Format(time.RFC3339Nano), doc.ID,
 	)
 	return err
 }
@@ -177,7 +177,7 @@ func (r *PlanDocumentRepository) Delete(ctx context.Context, id string) error {
 func (r *PlanDocumentRepository) SetStatus(ctx context.Context, id string, status domain.PlanDocumentStatus) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE plan_documents SET status = ?, updated_at = ? WHERE id = ?`,
-		string(status), time.Now().Format(time.RFC3339), id,
+		string(status), time.Now().Format(time.RFC3339Nano), id,
 	)
 	return err
 }
@@ -202,8 +202,8 @@ func (r *PlanDocumentRepository) scanDocument(row *sql.Row) (*domain.PlanDocumen
 		doc.ProjectID = domain.DefaultProjectID
 	}
 	doc.Status = domain.PlanDocumentStatus(status)
-	doc.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-	doc.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+	doc.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
+	doc.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt)
 
 	return &doc, nil
 }
@@ -225,8 +225,8 @@ func (r *PlanDocumentRepository) scanDocumentFromRows(rows *sql.Rows) (*domain.P
 		doc.ProjectID = domain.DefaultProjectID
 	}
 	doc.Status = domain.PlanDocumentStatus(status)
-	doc.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-	doc.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+	doc.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
+	doc.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt)
 
 	return &doc, nil
 }

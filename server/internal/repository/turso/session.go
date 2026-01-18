@@ -38,7 +38,7 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 
 	var endedAt *string
 	if session.EndedAt != nil {
-		s := session.EndedAt.Format(time.RFC3339)
+		s := session.EndedAt.Format(time.RFC3339Nano)
 		endedAt = &s
 	}
 
@@ -52,7 +52,7 @@ func (r *SessionRepository) Create(ctx context.Context, session *domain.Session)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		session.ID, session.UserID, session.ProjectID, session.ClaudeSessionID, session.ProjectPath,
 		session.GitBranch, session.Title,
-		session.StartedAt.Format(time.RFC3339), endedAt, session.UpdatedAt.Format(time.RFC3339), session.CreatedAt.Format(time.RFC3339),
+		session.StartedAt.Format(time.RFC3339Nano), endedAt, session.UpdatedAt.Format(time.RFC3339Nano), session.CreatedAt.Format(time.RFC3339Nano),
 		session.ParentSessionID, session.AgentID, isSidechain,
 	)
 	return err
@@ -247,7 +247,7 @@ func (r *SessionRepository) UpdateTitle(ctx context.Context, id string, title st
 func (r *SessionRepository) UpdateUpdatedAt(ctx context.Context, id string, updatedAt time.Time) error {
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE sessions SET updated_at = ? WHERE id = ?`,
-		updatedAt.Format(time.RFC3339), id,
+		updatedAt.Format(time.RFC3339Nano), id,
 	)
 	return err
 }
@@ -284,17 +284,17 @@ func (r *SessionRepository) scanSession(row *sql.Row) (*domain.Session, error) {
 		session.Title = &title.String
 	}
 	if startedAt.Valid {
-		session.StartedAt, _ = time.Parse(time.RFC3339, startedAt.String)
+		session.StartedAt, _ = time.Parse(time.RFC3339Nano, startedAt.String)
 	}
 	if endedAt.Valid {
-		t, _ := time.Parse(time.RFC3339, endedAt.String)
+		t, _ := time.Parse(time.RFC3339Nano, endedAt.String)
 		session.EndedAt = &t
 	}
 	if updatedAt.Valid {
-		session.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt.String)
+		session.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt.String)
 	}
 	if createdAt.Valid {
-		session.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
+		session.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt.String)
 	}
 	if parentSessionID.Valid {
 		session.ParentSessionID = &parentSessionID.String
@@ -338,17 +338,17 @@ func (r *SessionRepository) scanSessionFromRows(rows *sql.Rows) (*domain.Session
 		session.Title = &title.String
 	}
 	if startedAt.Valid {
-		session.StartedAt, _ = time.Parse(time.RFC3339, startedAt.String)
+		session.StartedAt, _ = time.Parse(time.RFC3339Nano, startedAt.String)
 	}
 	if endedAt.Valid {
-		t, _ := time.Parse(time.RFC3339, endedAt.String)
+		t, _ := time.Parse(time.RFC3339Nano, endedAt.String)
 		session.EndedAt = &t
 	}
 	if updatedAt.Valid {
-		session.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt.String)
+		session.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt.String)
 	}
 	if createdAt.Valid {
-		session.CreatedAt, _ = time.Parse(time.RFC3339, createdAt.String)
+		session.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt.String)
 	}
 	if parentSessionID.Valid {
 		session.ParentSessionID = &parentSessionID.String
