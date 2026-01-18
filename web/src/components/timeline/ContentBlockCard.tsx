@@ -1,5 +1,5 @@
 import { cn } from '@/lib/cn'
-import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal, FileText, ExternalLink, Loader2, ArrowRight, Link2, Check } from 'lucide-react'
+import { User, Bot, Wrench, Sparkles, ChevronDown, ChevronRight, Terminal, FileText, ExternalLink, Loader2, ArrowRight, Link2, Check, Circle, CheckCircle2, CircleDot } from 'lucide-react'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -38,6 +38,12 @@ function shouldExpandByDefault(block: DisplayBlock): boolean {
   if (!isSecondaryBlock(block)) return true
   // Agentrace tools should be expanded by default
   if (block.blockType === 'agentrace_tool') return true
+  // Todo tools should be expanded by default
+  if (block.blockType === 'tool_group') {
+    const content = block.content as Record<string, unknown> | undefined
+    const toolName = content?.name as string | undefined
+    if (toolName && isTodoTool(toolName)) return true
+  }
   return false
 }
 
@@ -100,6 +106,99 @@ function getIconStyle(block: DisplayBlock) {
 function extractCommandOutput(content: string): string {
   const match = content.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
   return match ? match[1].trim() : content
+}
+
+// Todo item interface
+interface TodoItem {
+  content: string
+  status: 'pending' | 'in_progress' | 'completed'
+  activeForm?: string
+  priority?: 'high' | 'medium' | 'low'
+}
+
+// Check if tool is a Todo tool
+function isTodoTool(toolName: string): boolean {
+  return toolName === 'TodoWrite' || toolName === 'TodoRead'
+}
+
+// Extract todos from tool input or result
+function extractTodos(
+  toolName: string,
+  input: unknown,
+  resultContent: unknown
+): TodoItem[] | null {
+  if (toolName === 'TodoWrite') {
+    // TodoWrite: todos are in input
+    const inputObj = input as { todos?: TodoItem[] } | undefined
+    if (inputObj?.todos && Array.isArray(inputObj.todos)) {
+      return inputObj.todos
+    }
+  }
+
+  if (toolName === 'TodoRead') {
+    // TodoRead: todos are in result
+    // Result format: { todos: TodoItem[] } or just the array
+    if (resultContent) {
+      // Try to parse if it's a string
+      let parsed = resultContent
+      if (typeof resultContent === 'string') {
+        try {
+          parsed = JSON.parse(resultContent)
+        } catch {
+          return null
+        }
+      }
+
+      const resultObj = parsed as { todos?: TodoItem[] } | TodoItem[]
+      if (Array.isArray(resultObj)) {
+        return resultObj as TodoItem[]
+      }
+      if (resultObj && 'todos' in resultObj && Array.isArray(resultObj.todos)) {
+        return resultObj.todos
+      }
+    }
+  }
+
+  return null
+}
+
+// Todo list display component
+function TodoListBlock({ todos }: { todos: TodoItem[] }) {
+  if (todos.length === 0) {
+    return (
+      <div className="text-sm text-gray-500 italic">
+        No tasks
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {todos.map((todo, i) => (
+        <div key={i} className="flex items-start gap-2">
+          {todo.status === 'completed' && (
+            <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+          )}
+          {todo.status === 'in_progress' && (
+            <CircleDot className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+          )}
+          {todo.status === 'pending' && (
+            <Circle className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+          )}
+          <span
+            className={cn(
+              'text-sm',
+              todo.status === 'completed' && 'text-gray-500 line-through',
+              todo.status === 'in_progress' && 'text-blue-700 font-medium',
+              todo.status === 'pending' && 'text-gray-700'
+            )}
+          >
+            {todo.content}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // Plan link card component - fetches latest plan data from API
@@ -203,10 +302,20 @@ function renderContent(block: DisplayBlock) {
 
   // Tool group - show tool input and result together
   if (block.blockType === 'tool_group') {
+    const toolName = content?.name as string | undefined
     const input = content?.input
     const resultBlock = block.toolResultBlock
     const resultContent = resultBlock?.content as Record<string, unknown> | undefined
     const resultData = resultContent?.content
+
+    // Check if this is a Todo tool
+    if (toolName && isTodoTool(toolName)) {
+      const todos = extractTodos(toolName, input, resultData)
+      if (todos) {
+        return <TodoListBlock todos={todos} />
+      }
+      // Fallback to JSON if extraction fails
+    }
 
     let displayResult: string
     if (typeof resultData === 'string') {
