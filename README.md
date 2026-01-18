@@ -1,13 +1,11 @@
-# AgenTrace
+# ![AgenTrace](images/logo-title.png)
+
+AgenTrace is a service for sharing Claude Code sessions and managing implementation plans with your team.
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/satetsu888/agentrace)](https://hub.docker.com/r/satetsu888/agentrace)
 [![npm version](https://img.shields.io/npm/v/agentrace)](https://www.npmjs.com/package/agentrace)
 
 ![Session View](images/session.png)
-
-AgenTrace is a self-hosted service for sharing Claude Code sessions and managing implementation plans with your team.
-
-Since Claude Code logs contain source code and environment information, AgenTrace is designed to run on your local machine or internal network rather than on the public internet.
 
 **Live Demo:** https://satetsu888.github.io/agentrace
 
@@ -16,6 +14,8 @@ Since Claude Code logs contain source code and environment information, AgenTrac
 
 - **Session Sharing**: Automatically capture and share Claude Code conversations with your team
 - **Plan Management**: Create and track implementation plans via Claude Code's MCP tools
+
+Since Claude Code logs contain source code and environment information, AgenTrace is designed to run on your local machine or internal network rather than on the public internet.
 
 ## Quick Start
 
