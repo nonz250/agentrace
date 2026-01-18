@@ -52,6 +52,7 @@ type PlanDocumentListResponse struct {
 type PlanDocumentEventResponse struct {
 	ID              string  `json:"id"`
 	PlanDocumentID  string  `json:"plan_document_id"`
+	SessionID       *string `json:"session_id"`
 	ClaudeSessionID *string `json:"claude_session_id"`
 	ToolUseID       *string `json:"tool_use_id"`
 	UserID          *string `json:"user_id"`
@@ -148,6 +149,15 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 		}
 	}
 
+	// Resolve claude_session_id to AgenTrace session ID
+	var sessionID *string
+	if event.ClaudeSessionID != nil && *event.ClaudeSessionID != "" {
+		session, err := h.repos.Session.FindByClaudeSessionID(ctx, *event.ClaudeSessionID)
+		if err == nil && session != nil {
+			sessionID = &session.ID
+		}
+	}
+
 	eventType := string(event.EventType)
 	if eventType == "" {
 		eventType = string(domain.PlanDocumentEventTypeBodyChange)
@@ -156,6 +166,7 @@ func (h *PlanDocumentHandler) eventToResponse(ctx context.Context, event *domain
 	return &PlanDocumentEventResponse{
 		ID:              event.ID,
 		PlanDocumentID:  event.PlanDocumentID,
+		SessionID:       sessionID,
 		ClaudeSessionID: event.ClaudeSessionID,
 		ToolUseID:       event.ToolUseID,
 		UserID:          event.UserID,
