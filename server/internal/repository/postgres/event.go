@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -104,10 +105,10 @@ func (r *EventRepository) scanEvent(rows *sql.Rows) (*domain.Event, error) {
 
 func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string) (int, error) {
 	var count int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM events WHERE session_id = $1`,
-		sessionID,
-	).Scan(&count)
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM events
+		 WHERE session_id = $1
+		 AND (event_type IS NULL OR event_type NOT IN (%s))`, domain.HiddenEventTypesSQL())
+	err := r.db.QueryRowContext(ctx, query, sessionID).Scan(&count)
 	if err != nil {
 		return 0, err
 	}

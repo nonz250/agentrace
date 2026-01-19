@@ -98,23 +98,7 @@ func eventToResponse(e *domain.Event) *EventResponse {
 // shouldFilterEvent returns true if the event should be hidden from the response
 func shouldFilterEvent(e *domain.Event) bool {
 	payloadType, _ := e.Payload["type"].(string)
-
-	// Filter out file-history-snapshot events
-	if payloadType == "file-history-snapshot" {
-		return true
-	}
-
-	// Filter out system events (internal events not useful for display)
-	if payloadType == "system" {
-		// All system subtypes are filtered for now:
-		// - stop_hook_summary
-		// - init
-		// - mcp_server_status
-		// - etc.
-		return true
-	}
-
-	return false
+	return domain.IsHiddenEventType(payloadType)
 }
 
 // filterEvents returns events that should be displayed

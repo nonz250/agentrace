@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -135,10 +136,10 @@ func getTimestampFromPayload(e *domain.Event) time.Time {
 
 func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string) (int, error) {
 	var count int
-	err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM events WHERE session_id = ?`,
-		sessionID,
-	).Scan(&count)
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM events
+		 WHERE session_id = ?
+		 AND (event_type IS NULL OR event_type NOT IN (%s))`, domain.HiddenEventTypesSQL())
+	err := r.db.QueryRowContext(ctx, query, sessionID).Scan(&count)
 	if err != nil {
 		return 0, err
 	}

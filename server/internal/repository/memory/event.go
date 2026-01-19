@@ -88,7 +88,7 @@ func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string
 
 	count := 0
 	for _, e := range r.events {
-		if e.SessionID == sessionID {
+		if e.SessionID == sessionID && !domain.IsHiddenEventType(e.EventType) {
 			count++
 		}
 	}
