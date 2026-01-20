@@ -69,7 +69,7 @@ func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string)
 
 	events := make([]*domain.Event, 0)
 	for _, e := range r.events {
-		if e.SessionID == sessionID {
+		if e.SessionID == sessionID && !domain.IsHiddenEventType(e.EventType) {
 			events = append(events, e)
 		}
 	}

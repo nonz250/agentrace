@@ -84,7 +84,22 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 
 func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.Event, error) {
 	keyCond := expression.Key("session_id").Equal(expression.Value(sessionID))
-	expr, err := expression.NewBuilder().WithKeyCondition(keyCond).Build()
+
+	// Build filter condition from domain.HiddenEventTypes
+	var filterCond expression.ConditionBuilder
+	for i, eventType := range domain.HiddenEventTypes {
+		cond := expression.Name("event_type").NotEqual(expression.Value(eventType))
+		if i == 0 {
+			filterCond = cond
+		} else {
+			filterCond = expression.And(filterCond, cond)
+		}
+	}
+
+	expr, err := expression.NewBuilder().
+		WithKeyCondition(keyCond).
+		WithFilter(filterCond).
+		Build()
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +107,7 @@ func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string)
 	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
 		TableName:                 aws.String(r.db.TableName("events")),
 		KeyConditionExpression:    expr.KeyCondition(),
+		FilterExpression:          expr.Filter(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		ScanIndexForward:          aws.Bool(true), // Ascending order (chronological)

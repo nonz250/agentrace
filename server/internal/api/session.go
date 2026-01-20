@@ -95,22 +95,6 @@ func eventToResponse(e *domain.Event) *EventResponse {
 	}
 }
 
-// shouldFilterEvent returns true if the event should be hidden from the response
-func shouldFilterEvent(e *domain.Event) bool {
-	payloadType, _ := e.Payload["type"].(string)
-	return domain.IsHiddenEventType(payloadType)
-}
-
-// filterEvents returns events that should be displayed
-func filterEvents(events []*domain.Event) []*domain.Event {
-	filtered := make([]*domain.Event, 0, len(events))
-	for _, e := range events {
-		if !shouldFilterEvent(e) {
-			filtered = append(filtered, e)
-		}
-	}
-	return filtered
-}
 
 type SessionListResponse struct {
 	Sessions   []*SessionResponse `json:"sessions"`
@@ -261,16 +245,13 @@ func (h *SessionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Filter out internal events that shouldn't be displayed
-	filteredEvents := filterEvents(events)
-
-	eventResponses := make([]*EventResponse, len(filteredEvents))
-	for i, e := range filteredEvents {
+	eventResponses := make([]*EventResponse, len(events))
+	for i, e := range events {
 		eventResponses[i] = eventToResponse(e)
 	}
 
 	response := SessionDetailResponse{
-		SessionResponse: *h.sessionToResponse(ctx, session, userName, len(filteredEvents), isFavorited),
+		SessionResponse: *h.sessionToResponse(ctx, session, userName, len(events), isFavorited),
 		Events:          eventResponses,
 	}
 

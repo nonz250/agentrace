@@ -58,12 +58,11 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 
 func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.Event, error) {
 	// Order by payload->>'timestamp' if available, otherwise by created_at
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, session_id, uuid, event_type, payload, created_at
+	query := fmt.Sprintf(`SELECT id, session_id, uuid, event_type, payload, created_at
 		 FROM events WHERE session_id = $1
-		 ORDER BY COALESCE(payload->>'timestamp', created_at::text) ASC`,
-		sessionID,
-	)
+		 AND (event_type IS NULL OR event_type NOT IN (%s))
+		 ORDER BY COALESCE(payload->>'timestamp', created_at::text) ASC`, domain.HiddenEventTypesSQL())
+	rows, err := r.db.QueryContext(ctx, query, sessionID)
 	if err != nil {
 		return nil, err
 	}

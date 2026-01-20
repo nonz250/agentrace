@@ -318,3 +318,86 @@ func (s *EventRepositorySuite) TestDeleteBySessionID_NoEvents() {
 	err := s.Repo.DeleteBySessionID(ctx, sessionID)
 	s.NoError(err)
 }
+
+func (s *EventRepositorySuite) TestFindBySessionID_FiltersHiddenEventTypes() {
+	ctx := context.Background()
+
+	sessionID := s.createTestSession("event-hidden")
+	if sessionID == "" {
+		s.T().Skip("SessionRepo not available, skipping test")
+	}
+
+	// Create visible events
+	visibleTypes := []string{"message", "user", "assistant", "tool_use", "tool_result"}
+	for i, eventType := range visibleTypes {
+		event := &domain.Event{
+			SessionID: sessionID,
+			UUID:      uuid.New().String(),
+			EventType: eventType,
+			Payload:   map[string]interface{}{"index": i},
+		}
+		err := s.Repo.Create(ctx, event)
+		s.Require().NoError(err)
+	}
+
+	// Create hidden events (should be filtered out)
+	for i, eventType := range domain.HiddenEventTypes {
+		event := &domain.Event{
+			SessionID: sessionID,
+			UUID:      uuid.New().String(),
+			EventType: eventType,
+			Payload:   map[string]interface{}{"hidden_index": i},
+		}
+		err := s.Repo.Create(ctx, event)
+		s.Require().NoError(err)
+	}
+
+	// Find events - should only return visible events
+	events, err := s.Repo.FindBySessionID(ctx, sessionID)
+	s.Require().NoError(err)
+	s.Len(events, len(visibleTypes), "Should only return visible events, not hidden ones")
+
+	// Verify no hidden event types in results
+	for _, e := range events {
+		s.False(domain.IsHiddenEventType(e.EventType), "Event type %s should not be in results", e.EventType)
+	}
+}
+
+func (s *EventRepositorySuite) TestCountBySessionID_ExcludesHiddenEventTypes() {
+	ctx := context.Background()
+
+	sessionID := s.createTestSession("event-count-hidden")
+	if sessionID == "" {
+		s.T().Skip("SessionRepo not available, skipping test")
+	}
+
+	// Create visible events
+	visibleCount := 3
+	for i := 0; i < visibleCount; i++ {
+		event := &domain.Event{
+			SessionID: sessionID,
+			UUID:      uuid.New().String(),
+			EventType: "message",
+			Payload:   map[string]interface{}{},
+		}
+		err := s.Repo.Create(ctx, event)
+		s.Require().NoError(err)
+	}
+
+	// Create hidden events (should not be counted)
+	for _, eventType := range domain.HiddenEventTypes {
+		event := &domain.Event{
+			SessionID: sessionID,
+			UUID:      uuid.New().String(),
+			EventType: eventType,
+			Payload:   map[string]interface{}{},
+		}
+		err := s.Repo.Create(ctx, event)
+		s.Require().NoError(err)
+	}
+
+	// Count should only include visible events
+	count, err := s.Repo.CountBySessionID(ctx, sessionID)
+	s.Require().NoError(err)
+	s.Equal(visibleCount, count, "Count should only include visible events, not hidden ones")
+}
