@@ -18,7 +18,7 @@ export interface PlanLinkInfo {
 export interface DisplayBlock {
   id: string
   eventType: 'user' | 'assistant' | 'tool_use' | 'tool_result'
-  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'tool_group', 'local_command', 'local_command_output', 'local_command_group', 'agentrace_tool', etc.
+  blockType: string // 'text', 'thinking', 'tool_use', 'tool_result', 'tool_group', 'skill_group', 'local_command', 'local_command_output', 'local_command_group', 'agentrace_tool', etc.
   label: BlockLabel
   timestamp: string
   content: unknown
@@ -27,6 +27,8 @@ export interface DisplayBlock {
   childBlocks?: DisplayBlock[]
   // For tool_group: the result block
   toolResultBlock?: DisplayBlock
+  // For skill_group: the skill content block
+  skillContentBlock?: DisplayBlock
   // For agentrace MCP tools: linked plan documents
   planLinks?: PlanLinkInfo[]
   isAgentraceTool?: boolean
@@ -359,6 +361,29 @@ function buildToolResultMap(events: Event[]): Map<string, { content: unknown; ti
   return map
 }
 
+// Build a map of sourceToolUseID -> skill content event (for Skill tool)
+function buildSkillContentMap(events: Event[]): Map<string, { content: unknown; timestamp: string; event: Event }> {
+  const map = new Map<string, { content: unknown; timestamp: string; event: Event }>()
+
+  for (const event of events) {
+    if (event.event_type !== 'user') continue
+
+    // Check if this is a skill content event (isMeta with sourceToolUseID)
+    const isMeta = event.payload?.isMeta === true
+    const sourceToolUseID = event.payload?.sourceToolUseID as string | undefined
+
+    if (isMeta && sourceToolUseID) {
+      const message = event.payload?.message as Record<string, unknown> | undefined
+      const content = message?.content
+      const timestamp = (event.payload?.timestamp as string) || event.created_at
+
+      map.set(sourceToolUseID, { content, timestamp, event })
+    }
+  }
+
+  return map
+}
+
 // Expand events into individual display blocks
 function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
   const blocks: DisplayBlock[] = []
@@ -369,8 +394,14 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
   // Build tool result map: Map<tool_use_id, tool_result_content>
   const toolResultMap = buildToolResultMap(events)
 
+  // Build skill content map: Map<sourceToolUseID, skill_content_event>
+  const skillContentMap = buildSkillContentMap(events)
+
   // Track which tool_result blocks should be skipped (grouped with tool_use)
   const groupedToolResultIds = new Set<string>()
+
+  // Track which skill content events should be skipped (grouped with Skill tool_use)
+  const groupedSkillContentEventIds = new Set<string>()
 
   // Track which events should be skipped (they'll be grouped with their command)
   const relatedEventIds = new Set(eventToCommandMap.keys())
@@ -383,6 +414,11 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
     if (event.event_type === 'user') {
       // Skip events related to local commands (they'll be grouped with the command)
       if (relatedEventIds.has(event.id)) {
+        continue
+      }
+
+      // Skip skill content events (they'll be grouped with the Skill tool_use)
+      if (groupedSkillContentEventIds.has(event.id)) {
         continue
       }
 
@@ -508,9 +544,14 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
 
             const input = blockObj?.input as Record<string, unknown> | undefined
             const isAgentrace = isAgentraceMcpTool(toolName)
+            const isSkill = toolName === 'Skill'
 
-            // For agentrace tools, use shorter display name but same format
-            if (isAgentrace) {
+            // For Skill tool, use skill name in label
+            if (isSkill) {
+              const skillName = input?.skill as string || 'Unknown'
+              label = { text: `Skill: ${skillName}` }
+            } else if (isAgentrace) {
+              // For agentrace tools, use shorter display name but same format
               const displayName = getAgentraceToolDisplayName(toolName)
               label = { text: `Tool: ${displayName}` }
             } else {
@@ -524,9 +565,17 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
             // Check if there's a matching tool_result
             const toolResult = toolUseId ? toolResultMap.get(toolUseId) : undefined
 
+            // Check if there's a matching skill content (for Skill tool)
+            const skillContent = isSkill && toolUseId ? skillContentMap.get(toolUseId) : undefined
+
             if (toolResult) {
               // Mark this tool_result as grouped
               groupedToolResultIds.add(toolUseId)
+
+              // Mark skill content event as grouped (if exists)
+              if (skillContent) {
+                groupedSkillContentEventIds.add(skillContent.event.id)
+              }
 
               // Create a tool_group block
               const resultBlock: DisplayBlock = {
@@ -539,6 +588,20 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
                 originalEvent: toolResult.event,
               }
 
+              // Create skill content block (if exists)
+              let skillContentBlock: DisplayBlock | undefined
+              if (skillContent) {
+                skillContentBlock = {
+                  id: `${event.id}-${i}-skill-content`,
+                  eventType: 'user',
+                  blockType: 'skill_content',
+                  label: { text: 'Skill Content' },
+                  timestamp: skillContent.timestamp,
+                  content: skillContent.content,
+                  originalEvent: skillContent.event,
+                }
+              }
+
               // Extract plan links for agentrace tools
               let planLinks: PlanLinkInfo[] | undefined
               if (isAgentrace) {
@@ -549,12 +612,13 @@ function expandEvents(events: Event[], projectPath?: string): DisplayBlock[] {
               blocks.push({
                 id: `${event.id}-${i}`,
                 eventType: 'assistant',
-                blockType: isAgentrace ? 'agentrace_tool' : 'tool_group',
+                blockType: isSkill ? 'skill_group' : (isAgentrace ? 'agentrace_tool' : 'tool_group'),
                 label,
                 timestamp,
                 content: block,
                 originalEvent: event,
                 toolResultBlock: resultBlock,
+                skillContentBlock: skillContentBlock,
                 planLinks: planLinks && planLinks.length > 0 ? planLinks : undefined,
                 isAgentraceTool: isAgentrace || undefined,
               })

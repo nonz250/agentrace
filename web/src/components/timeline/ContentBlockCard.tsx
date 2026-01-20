@@ -17,13 +17,14 @@ interface ContentBlockCardProps {
   block: DisplayBlock
 }
 
-// Check if block is secondary (less prominent) - Thinking, Tool, LocalCommand
+// Check if block is secondary (less prominent) - Thinking, Tool, LocalCommand, Skill
 function isSecondaryBlock(block: DisplayBlock): boolean {
   const secondaryBlockTypes = [
     'thinking',
     'tool_use',
     'tool_result',
     'tool_group',
+    'skill_group',
     'agentrace_tool',
     'local_command',
     'local_command_output',
@@ -69,6 +70,10 @@ function getIcon(block: DisplayBlock) {
   // Local command uses Terminal icon
   if (block.blockType === 'local_command' || block.blockType === 'local_command_output' || block.blockType === 'local_command_group') {
     return <Terminal className="h-4 w-4" />
+  }
+  // Skill group uses Sparkles icon
+  if (block.blockType === 'skill_group') {
+    return <Sparkles className="h-4 w-4" />
   }
   // Tool-related blocks (including agentrace_tool) use Wrench icon
   if (block.blockType === 'tool_use' || block.blockType === 'tool_result' || block.blockType === 'tool_group' || block.blockType === 'agentrace_tool') {
@@ -532,6 +537,103 @@ function renderContent(block: DisplayBlock) {
               }}
             >
               {displayResult}
+            </SyntaxHighlighter>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Skill group - show skill name, result, and skill content
+  if (block.blockType === 'skill_group') {
+    const input = content?.input as Record<string, unknown> | undefined
+    const resultBlock = block.toolResultBlock
+    const resultContent = resultBlock?.content as Record<string, unknown> | undefined
+    const resultData = resultContent?.content as string | undefined
+    const skillContentBlock = block.skillContentBlock
+    const skillContent = skillContentBlock?.content
+
+    // Extract text from skill content
+    let skillText = ''
+    if (Array.isArray(skillContent)) {
+      skillText = skillContent
+        .map((c) => {
+          if (typeof c === 'string') return c
+          if (c?.type === 'text' && typeof c.text === 'string') return c.text
+          return ''
+        })
+        .filter(Boolean)
+        .join('\n')
+    } else if (typeof skillContent === 'string') {
+      skillText = skillContent
+    }
+
+    return (
+      <div className="space-y-3">
+        {/* Skill execution result */}
+        {resultData && (
+          <div className="flex items-center gap-2 text-sm">
+            <Check className="h-4 w-4 text-green-500" />
+            <span className="text-gray-600">{resultData}</span>
+          </div>
+        )}
+
+        {/* Skill content (markdown) */}
+        {skillText && (
+          <div className="border border-gray-200 rounded-lg p-3 bg-white">
+            <div className="mb-2 text-xs font-medium text-gray-400">Skill Content</div>
+            <div className="prose prose-sm max-w-none prose-headings:mt-3 prose-headings:mb-2 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  code({ className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '')
+                    const code = String(children).replace(/\n$/, '')
+                    if (match) {
+                      return (
+                        <SyntaxHighlighter
+                          language={match[1]}
+                          style={oneLight}
+                          customStyle={{
+                            fontSize: '0.75rem',
+                            borderRadius: '0.375rem',
+                            margin: 0,
+                          }}
+                        >
+                          {code}
+                        </SyntaxHighlighter>
+                      )
+                    }
+                    return (
+                      <code className={cn('bg-gray-100 px-1 py-0.5 rounded text-xs', className)} {...props}>
+                        {children}
+                      </code>
+                    )
+                  },
+                }}
+              >
+                {skillText}
+              </ReactMarkdown>
+            </div>
+          </div>
+        )}
+
+        {/* Fallback: show input if no skill content */}
+        {!skillText && (
+          <div>
+            <div className="mb-1 text-xs font-medium text-gray-400">Input</div>
+            <SyntaxHighlighter
+              language="json"
+              style={oneLight}
+              customStyle={{
+                fontSize: '0.75rem',
+                borderRadius: '0.5rem',
+                margin: 0,
+                maxHeight: '200px',
+                overflow: 'auto',
+              }}
+            >
+              {JSON.stringify(input, null, 2)}
             </SyntaxHighlighter>
           </div>
         )}
