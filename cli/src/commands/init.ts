@@ -16,6 +16,7 @@ const CALLBACK_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 export interface InitOptions {
   url?: string;
+  proxy?: string;
   dev?: boolean;
 }
 
@@ -36,6 +37,18 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
   } catch {
     console.error("Error: Invalid URL format");
     process.exit(1);
+  }
+
+  // Validate proxy URL if provided
+  if (options.proxy) {
+    try {
+      new URL(options.proxy);
+    } catch {
+      console.error("Error: Invalid proxy URL format");
+      console.error("Example: http://proxy.example.com:8080");
+      console.error("         http://user:pass@proxy.example.com:8080");
+      process.exit(1);
+    }
   }
 
   console.log("AgenTrace Setup\n");
@@ -84,8 +97,12 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     saveConfig({
       server_url: serverUrlStr,
       api_key: result.apiKey,
+      ...(options.proxy && { proxy_url: options.proxy }),
     });
     console.log(`✓ Config saved to ${getConfigPath()}`);
+    if (options.proxy) {
+      console.log(`  Proxy: ${options.proxy}`);
+    }
 
     // Determine hook command
     let hookCommand: string | undefined;

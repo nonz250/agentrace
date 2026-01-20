@@ -17,9 +17,10 @@ program
   .command("init")
   .description("Initialize agentrace configuration and hooks")
   .requiredOption("--url <url>", "Server URL (required)")
+  .option("--proxy <url>", "HTTP/HTTPS proxy URL")
   .option("--dev", "Use local CLI path for development")
-  .action(async (options: { url: string; dev?: boolean }) => {
-    await initCommand({ url: options.url, dev: options.dev });
+  .action(async (options: { url: string; proxy?: string; dev?: boolean }) => {
+    await initCommand({ url: options.url, proxy: options.proxy, dev: options.dev });
   });
 
 program

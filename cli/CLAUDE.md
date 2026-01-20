@@ -67,6 +67,7 @@ cli/src/
 | コマンド | 説明 |
 |---------|------|
 | `init --url <url>` | 初期設定 + hooks + MCP インストール |
+| `init --url <url> --proxy <proxy-url>` | プロキシ経由で接続 |
 | `init --url <url> --dev` | 開発モード（ローカルCLIパス使用） |
 | `login` | Webログイン URL 発行 |
 | `send` | transcript 差分送信（hooks用、stdin から JSON 受け取り） |
@@ -82,9 +83,12 @@ cli/src/
 ```json
 {
   "server_url": "http://localhost:8080",
-  "api_key": "agtr_xxxxxxxxxxxxxxxxxxxxxxxx"
+  "api_key": "agtr_xxxxxxxxxxxxxxxxxxxxxxxx",
+  "proxy_url": "http://proxy.example.com:8080"
 }
 ```
+
+**proxy_url** はオプション。設定しない場合は環境変数 `HTTPS_PROXY` / `HTTP_PROXY` にフォールバックする。
 
 ### ~/.agentrace/cursors/{session_id}.json
 

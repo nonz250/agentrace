@@ -66,6 +66,7 @@ Claude Code will automatically use these tools when discussing implementation pl
 | Command | Description |
 | ------- | ----------- |
 | `npx agentrace init --url <url>` | Initial setup with browser authentication |
+| `npx agentrace init --url <url> --proxy <proxy>` | Setup with HTTP proxy |
 | `npx agentrace login` | Open web dashboard in browser |
 | `npx agentrace on` | Enable hooks (keeps credentials) |
 | `npx agentrace off` | Disable hooks temporarily (keeps credentials) |
@@ -82,6 +83,22 @@ npx agentrace off
 # Re-enable hooks later
 npx agentrace on
 ```
+
+### Proxy Configuration
+
+If you need to connect through an HTTP proxy:
+
+```bash
+# Using --proxy option
+npx agentrace init --url http://localhost:9080 --proxy http://proxy.example.com:8080
+
+# With authentication
+npx agentrace init --url http://localhost:9080 --proxy http://user:pass@proxy.example.com:8080
+```
+
+The CLI also supports `HTTPS_PROXY` and `HTTP_PROXY` environment variables as a fallback.
+
+See [CLI README](cli/README.md#proxy-configuration) for more details.
 
 ## Environment Variables
 

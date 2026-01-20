@@ -1,4 +1,6 @@
+import { fetch } from "undici";
 import { loadConfig } from "../config/manager.js";
+import { createDispatcher } from "../utils/proxy.js";
 
 export type PlanDocumentStatus = "scratch" | "draft" | "planning" | "pending" | "ready" | "implementation" | "complete";
 
@@ -91,6 +93,7 @@ export class PlanDocumentClient {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      dispatcher: createDispatcher(),
     });
 
     if (!response.ok) {

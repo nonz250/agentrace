@@ -1,4 +1,6 @@
+import { fetch } from "undici";
 import { loadConfig } from "../config/manager.js";
+import { createDispatcher } from "./proxy.js";
 
 export interface IngestPayload {
   session_id: string;
@@ -46,6 +48,7 @@ export async function sendIngest(
         Authorization: `Bearer ${config.api_key}`,
       },
       body: JSON.stringify(payload),
+      dispatcher: createDispatcher(),
     });
 
     if (!response.ok) {
@@ -77,6 +80,7 @@ export async function createWebSession(): Promise<
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.api_key}`,
       },
+      dispatcher: createDispatcher(),
     });
 
     if (!response.ok) {

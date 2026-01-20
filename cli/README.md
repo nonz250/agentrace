@@ -31,14 +31,15 @@ That's it! When you use Claude Code, sessions will be automatically sent to Agen
 
 ## Commands
 
-| Command                      | Description                            |
-| ---------------------------- | -------------------------------------- |
-| `agentrace init --url <url>` | Initial setup + hooks installation     |
-| `agentrace login`            | Open the web dashboard                 |
-| `agentrace send`             | Send transcript diff (used by hooks)   |
-| `agentrace on`               | Enable hooks                           |
-| `agentrace off`              | Disable hooks                          |
-| `agentrace uninstall`        | Remove hooks and configuration         |
+| Command                                      | Description                            |
+| -------------------------------------------- | -------------------------------------- |
+| `agentrace init --url <url>`                 | Initial setup + hooks installation     |
+| `agentrace init --url <url> --proxy <proxy>` | Setup with proxy                       |
+| `agentrace login`                            | Open the web dashboard                 |
+| `agentrace send`                             | Send transcript diff (used by hooks)   |
+| `agentrace on`                               | Enable hooks                           |
+| `agentrace off`                              | Disable hooks                          |
+| `agentrace uninstall`                        | Remove hooks and configuration         |
 
 ## Command Details
 
@@ -121,6 +122,38 @@ Configuration is stored in the following locations:
 
 - Only the transcript diff is sent to the server when a Claude Code conversation ends
 - Errors do not block Claude Code's operation by design
+
+## Proxy Configuration
+
+If you need to connect through an HTTP proxy, you can configure it in several ways:
+
+### 1. Using the `--proxy` Option
+
+```bash
+npx agentrace init --url http://localhost:9080 --proxy http://proxy.example.com:8080
+```
+
+For proxies requiring authentication:
+
+```bash
+npx agentrace init --url http://localhost:9080 --proxy http://user:pass@proxy.example.com:8080
+```
+
+### 2. Using Environment Variables
+
+If `proxy_url` is not set in the config file, the CLI will check the following environment variables (in order):
+
+1. `HTTPS_PROXY`
+2. `https_proxy`
+3. `HTTP_PROXY`
+4. `http_proxy`
+
+```bash
+export HTTPS_PROXY=http://proxy.example.com:8080
+npx agentrace send
+```
+
+**Priority:** Config file > Environment variables
 
 ## Requirements
 
