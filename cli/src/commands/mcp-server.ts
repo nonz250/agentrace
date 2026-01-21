@@ -178,6 +178,7 @@ IMPORTANT GUIDELINES:
           description: plan.description,
           status: plan.status,
           git_remote_url: plan.project?.canonical_git_repository || null,
+          url: plan.url || null,
           updated_at: plan.updated_at,
           collaborators: plan.collaborators.map((c) => c.display_name).join(", "),
         }));
@@ -213,11 +214,16 @@ IMPORTANT GUIDELINES:
       try {
         const plan = await getClient().getPlan(args.id);
 
+        let text = `# ${plan.description}\n\nStatus: ${plan.status}\n\n${plan.body}`;
+        if (plan.url) {
+          text += `\n\n---\nURL: ${plan.url}`;
+        }
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `# ${plan.description}\n\nStatus: ${plan.status}\n\n${plan.body}`,
+              text,
             },
           ],
         };
@@ -252,11 +258,16 @@ IMPORTANT GUIDELINES:
           tool_use_id: sessionInfo.tool_use_id,
         });
 
+        let text = `Plan created successfully.\n\nID: ${plan.id}\nDescription: ${plan.description}`;
+        if (plan.url) {
+          text += `\nURL: ${plan.url}`;
+        }
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `Plan created successfully.\n\nID: ${plan.id}\nDescription: ${plan.description}`,
+              text,
             },
           ],
         };
@@ -299,11 +310,16 @@ IMPORTANT GUIDELINES:
           tool_use_id: sessionInfo.tool_use_id,
         });
 
+        let text = `Plan updated successfully.\n\nID: ${plan.id}\nDescription: ${plan.description}`;
+        if (plan.url) {
+          text += `\nURL: ${plan.url}`;
+        }
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `Plan updated successfully.\n\nID: ${plan.id}\nDescription: ${plan.description}`,
+              text,
             },
           ],
         };
@@ -330,11 +346,16 @@ IMPORTANT GUIDELINES:
       try {
         const plan = await getClient().setStatus(args.id, args.status, args.message);
 
+        let text = `Plan status updated successfully.\n\nID: ${plan.id}\nDescription: ${plan.description}\nStatus: ${plan.status}`;
+        if (plan.url) {
+          text += `\nURL: ${plan.url}`;
+        }
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `Plan status updated successfully.\n\nID: ${plan.id}\nDescription: ${plan.description}\nStatus: ${plan.status}`,
+              text,
             },
           ],
         };

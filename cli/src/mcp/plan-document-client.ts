@@ -19,6 +19,7 @@ export interface PlanDocument {
     id: string;
     display_name: string;
   }[];
+  url?: string;
   created_at: string;
   updated_at: string;
 }

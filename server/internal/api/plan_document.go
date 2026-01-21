@@ -13,11 +13,12 @@ import (
 )
 
 type PlanDocumentHandler struct {
-	repos *repository.Repositories
+	repos  *repository.Repositories
+	webURL string
 }
 
-func NewPlanDocumentHandler(repos *repository.Repositories) *PlanDocumentHandler {
-	return &PlanDocumentHandler{repos: repos}
+func NewPlanDocumentHandler(webURL string, repos *repository.Repositories) *PlanDocumentHandler {
+	return &PlanDocumentHandler{repos: repos, webURL: webURL}
 }
 
 // Response types
@@ -39,6 +40,7 @@ type PlanDocumentResponse struct {
 	Body          string                       `json:"body"`
 	Status        string                       `json:"status"`
 	Collaborators []*CollaboratorResponse      `json:"collaborators"`
+	URL           string                       `json:"url,omitempty"`
 	CreatedAt     string                       `json:"created_at"`
 	UpdatedAt     string                       `json:"updated_at"`
 	IsFavorited   bool                         `json:"is_favorited"`
@@ -126,6 +128,12 @@ func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *d
 		}
 	}
 
+	// Generate URL if webURL is configured
+	var url string
+	if h.webURL != "" {
+		url = h.webURL + "/plans/" + doc.ID
+	}
+
 	return &PlanDocumentResponse{
 		ID:            doc.ID,
 		Project:       projectResp,
@@ -133,6 +141,7 @@ func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *d
 		Body:          doc.Body,
 		Status:        string(doc.Status),
 		Collaborators: collaborators,
+		URL:           url,
 		CreatedAt:     doc.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     doc.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		IsFavorited:   isFavorited,

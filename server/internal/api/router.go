@@ -29,7 +29,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	ingestHandler := NewIngestHandler(repos)
 	sessionHandler := NewSessionHandler(repos)
 	authHandler := NewAuthHandler(cfg, repos)
-	planDocumentHandler := NewPlanDocumentHandler(repos)
+	planDocumentHandler := NewPlanDocumentHandler(cfg.WebURL, repos)
 	projectHandler := NewProjectHandler(repos)
 	userFavoriteHandler := NewUserFavoriteHandler(repos)
 
