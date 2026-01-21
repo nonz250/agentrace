@@ -21,6 +21,9 @@ interface SendTranscriptParams {
   isHook: boolean;
 }
 
+// Event types that should not be sent to the server (high-volume, not needed for display)
+const SKIPPED_EVENT_TYPES = ["progress", "file-history-snapshot"];
+
 function getGitRemoteUrl(cwd: string): string | null {
   try {
     const url = execSync("git remote get-url origin", {
@@ -78,11 +81,16 @@ async function sendTranscript(params: SendTranscriptParams): Promise<void> {
     process.exit(0);
   }
 
-  // Parse JSONL lines
+  // Parse JSONL lines and filter out skipped event types
   const transcriptLines: unknown[] = [];
   for (const line of lines) {
     try {
-      transcriptLines.push(JSON.parse(line));
+      const parsed = JSON.parse(line) as Record<string, unknown>;
+      // Skip high-volume event types that are not needed for display
+      if (typeof parsed.type === "string" && SKIPPED_EVENT_TYPES.includes(parsed.type)) {
+        continue;
+      }
+      transcriptLines.push(parsed);
     } catch {
       // Skip invalid JSON lines
     }
