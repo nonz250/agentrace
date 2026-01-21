@@ -1,6 +1,6 @@
 {
   "name": "agentrace",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "CLI for AgenTrace - Claude Code session tracker",
   "type": "module",
   "bin": {
