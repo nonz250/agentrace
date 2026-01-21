@@ -3,6 +3,8 @@ package dynamodb
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"sort"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -25,7 +27,7 @@ func NewEventRepository(db *DB) *EventRepository {
 
 type eventItem struct {
 	SessionID string `dynamodbav:"session_id"`
-	SortKey   string `dynamodbav:"sort_key"` // created_at#id for chronological ordering
+	SortKey   string `dynamodbav:"sort_key"` // "e#<uuid>" for uuid-based, "t#<created_at>#<id>" for timestamp-based
 	ID        string `dynamodbav:"id"`
 	EventType string `dynamodbav:"event_type"`
 	Payload   string `dynamodbav:"payload"` // JSON string
@@ -41,24 +43,20 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 		event.CreatedAt = time.Now()
 	}
 
-	// Check for duplicate UUID within session
-	if event.UUID != "" {
-		existing, err := r.findByUUID(ctx, event.SessionID, event.UUID)
-		if err != nil {
-			return err
-		}
-		if existing != nil {
-			return repository.ErrDuplicateEvent
-		}
-	}
-
 	payloadJSON, err := json.Marshal(event.Payload)
 	if err != nil {
 		return err
 	}
 
 	createdAtStr := event.CreatedAt.Format(time.RFC3339Nano)
-	sortKey := createdAtStr + "#" + event.ID // Chronological ordering with ID as tiebreaker
+
+	// Use uuid-based sort_key for uniqueness, fall back to timestamp-based for events without uuid
+	var sortKey string
+	if event.UUID != "" {
+		sortKey = "e#" + event.UUID // "e#" prefix for uuid-based events
+	} else {
+		sortKey = "t#" + createdAtStr + "#" + event.ID // "t#" prefix for timestamp-based events
+	}
 
 	item := eventItem{
 		SessionID: event.SessionID,
@@ -75,11 +73,22 @@ func (r *EventRepository) Create(ctx context.Context, event *domain.Event) error
 		return err
 	}
 
+	// Use conditional PutItem to atomically check for duplicates
+	// attribute_not_exists(session_id) ensures this is a new item (session_id + sort_key combination)
 	_, err = r.db.Client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(r.db.TableName("events")),
-		Item:      av,
+		TableName:           aws.String(r.db.TableName("events")),
+		Item:                av,
+		ConditionExpression: aws.String("attribute_not_exists(session_id)"),
 	})
-	return err
+	if err != nil {
+		// Check if it's a conditional check failure (duplicate)
+		var ccf *types.ConditionalCheckFailedException
+		if errors.As(err, &ccf) {
+			return repository.ErrDuplicateEvent
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string) ([]*domain.Event, error) {
@@ -126,6 +135,11 @@ func (r *EventRepository) FindBySessionID(ctx context.Context, sessionID string)
 		events[i] = r.itemToEvent(&item)
 	}
 
+	// Sort by created_at since sort_key is now uuid-based and doesn't preserve chronological order
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].CreatedAt.Before(events[j].CreatedAt)
+	})
+
 	return events, nil
 }
 
@@ -164,40 +178,6 @@ func (r *EventRepository) CountBySessionID(ctx context.Context, sessionID string
 	}
 
 	return int(result.Count), nil
-}
-
-func (r *EventRepository) findByUUID(ctx context.Context, sessionID, eventUUID string) (*domain.Event, error) {
-	keyCond := expression.Key("session_id").Equal(expression.Value(sessionID))
-	filterExpr := expression.Name("uuid").Equal(expression.Value(eventUUID))
-	expr, err := expression.NewBuilder().
-		WithKeyCondition(keyCond).
-		WithFilter(filterExpr).
-		Build()
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
-		TableName:                 aws.String(r.db.TableName("events")),
-		KeyConditionExpression:    expr.KeyCondition(),
-		FilterExpression:          expr.Filter(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		Limit:                     aws.Int32(1),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(result.Items) == 0 {
-		return nil, nil
-	}
-
-	var item eventItem
-	if err := attributevalue.UnmarshalMap(result.Items[0], &item); err != nil {
-		return nil, err
-	}
-
-	return r.itemToEvent(&item), nil
 }
 
 func (r *EventRepository) itemToEvent(item *eventItem) *domain.Event {

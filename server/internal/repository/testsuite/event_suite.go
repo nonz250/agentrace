@@ -2,6 +2,7 @@ package testsuite
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -400,4 +401,60 @@ func (s *EventRepositorySuite) TestCountBySessionID_ExcludesHiddenEventTypes() {
 	count, err := s.Repo.CountBySessionID(ctx, sessionID)
 	s.Require().NoError(err)
 	s.Equal(visibleCount, count, "Count should only include visible events, not hidden ones")
+}
+
+func (s *EventRepositorySuite) TestCreate_DuplicateUUID_Concurrent() {
+	ctx := context.Background()
+
+	sessionID := s.createTestSession("event-concurrent")
+	if sessionID == "" {
+		s.T().Skip("SessionRepo not available, skipping test")
+	}
+
+	duplicateUUID := uuid.New().String()
+	concurrency := 10
+
+	var wg sync.WaitGroup
+	results := make(chan error, concurrency)
+
+	// Launch concurrent event creations with same UUID
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			event := &domain.Event{
+				SessionID: sessionID,
+				UUID:      duplicateUUID,
+				EventType: "message",
+				Payload:   map[string]interface{}{},
+			}
+			err := s.Repo.Create(ctx, event)
+			results <- err
+		}()
+	}
+
+	wg.Wait()
+	close(results)
+
+	// Count successes and duplicate errors
+	successCount := 0
+	duplicateCount := 0
+	var otherErrors []error
+
+	for err := range results {
+		if err == nil {
+			successCount++
+		} else if err == repository.ErrDuplicateEvent {
+			duplicateCount++
+		} else {
+			otherErrors = append(otherErrors, err)
+		}
+	}
+
+	s.T().Logf("Results: success=%d, duplicate=%d, other=%d", successCount, duplicateCount, len(otherErrors))
+
+	// Exactly 1 should succeed, rest should be duplicates
+	s.Equal(1, successCount, "exactly 1 concurrent create should succeed")
+	s.Equal(concurrency-1, duplicateCount, "all other concurrent creates should return ErrDuplicateEvent")
+	s.Empty(otherErrors, "no other errors should occur")
 }
