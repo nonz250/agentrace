@@ -124,6 +124,11 @@ func (h *IngestHandler) Handle(w http.ResponseWriter, r *http.Request) {
 			event.EventType = et
 		}
 
+		// Skip events that should not be stored (high-volume, not needed for display)
+		if domain.IsSkippedEventType(eventType) {
+			continue
+		}
+
 		// Auto-generate title from first user message if not set
 		// Skip meta messages, command messages, and tool results
 		if eventType == "user" && session.Title == nil && !isMetaMessage(line) {

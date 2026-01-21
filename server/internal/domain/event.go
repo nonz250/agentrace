@@ -46,3 +46,22 @@ func HiddenEventTypesSQL() string {
 	}
 	return strings.Join(quoted, ", ")
 }
+
+// SkippedEventTypes defines event types that should not be stored in the database.
+// These events are high-volume and not needed for display or analysis:
+// - progress: Real-time progress indicator events (very frequent)
+// - file-history-snapshot: Claude Code internal file history tracking (large payload)
+var SkippedEventTypes = []string{
+	"progress",
+	"file-history-snapshot",
+}
+
+// IsSkippedEventType checks if the given event type should be skipped from storage
+func IsSkippedEventType(eventType string) bool {
+	for _, skipped := range SkippedEventTypes {
+		if eventType == skipped {
+			return true
+		}
+	}
+	return false
+}
