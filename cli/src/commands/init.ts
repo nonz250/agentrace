@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ProxyAgent } from "undici";
 import { saveConfig, getConfigPath } from "../config/manager.js";
 import { installHooks, installMcpServer, installPreToolUseHook } from "../hooks/installer.js";
 import {
@@ -39,12 +40,14 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     process.exit(1);
   }
 
-  // Validate proxy URL if provided
+  // Validate proxy URL if provided (using ProxyAgent to match actual usage)
   if (options.proxy) {
     try {
-      new URL(options.proxy);
-    } catch {
+      new ProxyAgent(options.proxy);
+    } catch (error) {
       console.error("Error: Invalid proxy URL format");
+      console.error(`  ${error instanceof Error ? error.message : String(error)}`);
+      console.error("");
       console.error("Example: http://proxy.example.com:8080");
       console.error("         http://user:pass@proxy.example.com:8080");
       process.exit(1);
