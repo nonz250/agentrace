@@ -2,12 +2,20 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
-const CLAUDE_SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json");
+const GLOBAL_CLAUDE_SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json");
 // MCP servers are configured in ~/.claude.json, NOT in settings.json
 const CLAUDE_CONFIG_PATH = path.join(os.homedir(), ".claude.json");
 // Agentrace hooks directory
 const AGENTRACE_HOOKS_DIR = path.join(os.homedir(), ".agentrace", "hooks");
 const SESSION_ID_HOOK_PATH = path.join(AGENTRACE_HOOKS_DIR, "inject-session-id.js");
+
+// Helper to get settings path based on local/global scope
+function getSettingsPath(options: { local?: boolean; projectDir?: string }): string {
+  if (options.local && options.projectDir) {
+    return path.join(options.projectDir, ".claude", "settings.json");
+  }
+  return GLOBAL_CLAUDE_SETTINGS_PATH;
+}
 
 interface ClaudeHook {
   type: string;
@@ -37,9 +45,19 @@ interface ClaudeSettings {
 }
 
 // ~/.claude.json structure (separate from settings.json)
+interface ClaudeProjectConfig {
+  mcpServers?: {
+    [key: string]: McpServerConfig;
+  };
+  [key: string]: unknown;
+}
+
 interface ClaudeConfig {
   mcpServers?: {
     [key: string]: McpServerConfig;
+  };
+  projects?: {
+    [projectPath: string]: ClaudeProjectConfig;
   };
   [key: string]: unknown;
 }
@@ -60,17 +78,21 @@ function isAgentraceHook(hook: ClaudeHook): boolean {
 
 export interface InstallHooksOptions {
   command?: string;
+  local?: boolean;
+  projectDir?: string;
 }
 
 export function installHooks(options: InstallHooksOptions = {}): { success: boolean; message: string } {
   const command = options.command || DEFAULT_COMMAND;
   const agentraceHook = createAgentraceHook(command);
+  const settingsPath = getSettingsPath(options);
+
   try {
     let settings: ClaudeSettings = {};
 
     // Load existing settings if file exists
-    if (fs.existsSync(CLAUDE_SETTINGS_PATH)) {
-      const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    if (fs.existsSync(settingsPath)) {
+      const content = fs.readFileSync(settingsPath, "utf-8");
       settings = JSON.parse(content);
     }
 
@@ -144,28 +166,35 @@ export function installHooks(options: InstallHooksOptions = {}): { success: bool
     }
 
     // Ensure directory exists
-    const dir = path.dirname(CLAUDE_SETTINGS_PATH);
+    const dir = path.dirname(settingsPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
     // Write settings
-    fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-    return { success: true, message: `Hooks added to ${CLAUDE_SETTINGS_PATH}` };
+    return { success: true, message: `Hooks added to ${settingsPath}` };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { success: false, message: `Failed to install hooks: ${message}` };
   }
 }
 
-export function uninstallHooks(): { success: boolean; message: string } {
+export interface UninstallHooksOptions {
+  local?: boolean;
+  projectDir?: string;
+}
+
+export function uninstallHooks(options: UninstallHooksOptions = {}): { success: boolean; message: string } {
+  const settingsPath = getSettingsPath(options);
+
   try {
-    if (!fs.existsSync(CLAUDE_SETTINGS_PATH)) {
+    if (!fs.existsSync(settingsPath)) {
       return { success: true, message: "No settings file found" };
     }
 
-    const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    const content = fs.readFileSync(settingsPath, "utf-8");
     const settings: ClaudeSettings = JSON.parse(content);
 
     if (!settings.hooks) {
@@ -217,11 +246,11 @@ export function uninstallHooks(): { success: boolean; message: string } {
       delete settings.hooks;
     }
 
-    fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
     return {
       success: true,
-      message: `Removed hooks from ${CLAUDE_SETTINGS_PATH}`,
+      message: `Removed hooks from ${settingsPath}`,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -229,13 +258,19 @@ export function uninstallHooks(): { success: boolean; message: string } {
   }
 }
 
-export function checkHooksInstalled(): boolean {
+export interface CheckHooksOptions {
+  local?: boolean;
+  projectDir?: string;
+}
+
+export function checkHooksInstalled(options: CheckHooksOptions = {}): boolean {
+  const settingsPath = getSettingsPath(options);
   try {
-    if (!fs.existsSync(CLAUDE_SETTINGS_PATH)) {
+    if (!fs.existsSync(settingsPath)) {
       return false;
     }
 
-    const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    const content = fs.readFileSync(settingsPath, "utf-8");
     const settings: ClaudeSettings = JSON.parse(content);
 
     const hasStopHook = settings.hooks?.Stop?.some((matcher) =>
@@ -267,6 +302,8 @@ const MCP_SERVER_NAME = "agentrace";
 export interface InstallMcpServerOptions {
   command?: string;
   args?: string[];
+  local?: boolean;
+  projectDir?: string;
 }
 
 export function installMcpServer(options: InstallMcpServerOptions = {}): { success: boolean; message: string } {
@@ -283,33 +320,60 @@ export function installMcpServer(options: InstallMcpServerOptions = {}): { succe
       config = JSON.parse(content);
     }
 
-    // Initialize mcpServers structure if not present
-    if (!config.mcpServers) {
-      config.mcpServers = {};
-    }
+    if (options.local && options.projectDir) {
+      // Local scope: add to projects.{projectDir}.mcpServers
+      if (!config.projects) {
+        config.projects = {};
+      }
+      if (!config.projects[options.projectDir]) {
+        config.projects[options.projectDir] = {};
+      }
+      if (!config.projects[options.projectDir].mcpServers) {
+        config.projects[options.projectDir].mcpServers = {};
+      }
 
-    // Check if already installed
-    if (config.mcpServers[MCP_SERVER_NAME]) {
-      // Update existing config
+      const projectMcpServers = config.projects[options.projectDir].mcpServers!;
+      const alreadyExists = !!projectMcpServers[MCP_SERVER_NAME];
+
+      projectMcpServers[MCP_SERVER_NAME] = { command, args };
+      fs.writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2));
+
+      return {
+        success: true,
+        message: alreadyExists
+          ? "MCP server config updated (local)"
+          : `MCP server added to ${CLAUDE_CONFIG_PATH} (local scope for ${options.projectDir})`,
+      };
+    } else {
+      // User scope: add to mcpServers (global)
+      if (!config.mcpServers) {
+        config.mcpServers = {};
+      }
+
+      const alreadyExists = !!config.mcpServers[MCP_SERVER_NAME];
+
       config.mcpServers[MCP_SERVER_NAME] = { command, args };
       fs.writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2));
-      return { success: true, message: "MCP server config updated" };
+
+      return {
+        success: true,
+        message: alreadyExists
+          ? "MCP server config updated"
+          : `MCP server added to ${CLAUDE_CONFIG_PATH}`,
+      };
     }
-
-    // Add MCP server config
-    config.mcpServers[MCP_SERVER_NAME] = { command, args };
-
-    // Write config
-    fs.writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2));
-
-    return { success: true, message: `MCP server added to ${CLAUDE_CONFIG_PATH}` };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { success: false, message: `Failed to install MCP server: ${message}` };
   }
 }
 
-export function uninstallMcpServer(): { success: boolean; message: string } {
+export interface UninstallMcpServerOptions {
+  local?: boolean;
+  projectDir?: string;
+}
+
+export function uninstallMcpServer(options: UninstallMcpServerOptions = {}): { success: boolean; message: string } {
   try {
     if (!fs.existsSync(CLAUDE_CONFIG_PATH)) {
       return { success: true, message: "No config file found" };
@@ -318,31 +382,57 @@ export function uninstallMcpServer(): { success: boolean; message: string } {
     const content = fs.readFileSync(CLAUDE_CONFIG_PATH, "utf-8");
     const config: ClaudeConfig = JSON.parse(content);
 
-    if (!config.mcpServers || !config.mcpServers[MCP_SERVER_NAME]) {
-      return { success: true, message: "MCP server not configured" };
+    if (options.local && options.projectDir) {
+      // Local scope: remove from projects.{projectDir}.mcpServers
+      if (!config.projects?.[options.projectDir]?.mcpServers?.[MCP_SERVER_NAME]) {
+        return { success: true, message: "MCP server not configured (local)" };
+      }
+
+      delete config.projects[options.projectDir].mcpServers![MCP_SERVER_NAME];
+
+      // Clean up empty mcpServers object
+      if (Object.keys(config.projects[options.projectDir].mcpServers!).length === 0) {
+        delete config.projects[options.projectDir].mcpServers;
+      }
+
+      fs.writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2));
+
+      return {
+        success: true,
+        message: `Removed MCP server from ${CLAUDE_CONFIG_PATH} (local scope)`,
+      };
+    } else {
+      // User scope: remove from mcpServers (global)
+      if (!config.mcpServers || !config.mcpServers[MCP_SERVER_NAME]) {
+        return { success: true, message: "MCP server not configured" };
+      }
+
+      delete config.mcpServers[MCP_SERVER_NAME];
+
+      // Clean up empty mcpServers object
+      if (Object.keys(config.mcpServers).length === 0) {
+        delete config.mcpServers;
+      }
+
+      fs.writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2));
+
+      return {
+        success: true,
+        message: `Removed MCP server from ${CLAUDE_CONFIG_PATH}`,
+      };
     }
-
-    // Remove agentrace MCP server
-    delete config.mcpServers[MCP_SERVER_NAME];
-
-    // Clean up empty mcpServers object
-    if (Object.keys(config.mcpServers).length === 0) {
-      delete config.mcpServers;
-    }
-
-    fs.writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2));
-
-    return {
-      success: true,
-      message: `Removed MCP server from ${CLAUDE_CONFIG_PATH}`,
-    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { success: false, message: `Failed to uninstall MCP server: ${message}` };
   }
 }
 
-export function checkMcpServerInstalled(): boolean {
+export interface CheckMcpServerOptions {
+  local?: boolean;
+  projectDir?: string;
+}
+
+export function checkMcpServerInstalled(options: CheckMcpServerOptions = {}): boolean {
   try {
     if (!fs.existsSync(CLAUDE_CONFIG_PATH)) {
       return false;
@@ -351,7 +441,11 @@ export function checkMcpServerInstalled(): boolean {
     const content = fs.readFileSync(CLAUDE_CONFIG_PATH, "utf-8");
     const config: ClaudeConfig = JSON.parse(content);
 
-    return !!config.mcpServers?.[MCP_SERVER_NAME];
+    if (options.local && options.projectDir) {
+      return !!config.projects?.[options.projectDir]?.mcpServers?.[MCP_SERVER_NAME];
+    } else {
+      return !!config.mcpServers?.[MCP_SERVER_NAME];
+    }
   } catch {
     return false;
   }
@@ -403,7 +497,14 @@ function isAgentracePreToolUseHook(matcher: ClaudeHookMatcher): boolean {
     matcher.hooks?.some(h => h.command?.includes("inject-session-id"));
 }
 
-export function installPreToolUseHook(): { success: boolean; message: string } {
+export interface InstallPreToolUseHookOptions {
+  local?: boolean;
+  projectDir?: string;
+}
+
+export function installPreToolUseHook(options: InstallPreToolUseHookOptions = {}): { success: boolean; message: string } {
+  const settingsPath = getSettingsPath(options);
+
   try {
     // Create hooks directory if not exists
     if (!fs.existsSync(AGENTRACE_HOOKS_DIR)) {
@@ -415,8 +516,8 @@ export function installPreToolUseHook(): { success: boolean; message: string } {
 
     // Load existing settings
     let settings: ClaudeSettings = {};
-    if (fs.existsSync(CLAUDE_SETTINGS_PATH)) {
-      const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    if (fs.existsSync(settingsPath)) {
+      const content = fs.readFileSync(settingsPath, "utf-8");
       settings = JSON.parse(content);
     }
 
@@ -446,13 +547,13 @@ export function installPreToolUseHook(): { success: boolean; message: string } {
     });
 
     // Ensure directory exists
-    const dir = path.dirname(CLAUDE_SETTINGS_PATH);
+    const dir = path.dirname(settingsPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
     // Write settings
-    fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
     return { success: true, message: `PreToolUse hook installed to ${SESSION_ID_HOOK_PATH}` };
   } catch (error) {
@@ -461,19 +562,28 @@ export function installPreToolUseHook(): { success: boolean; message: string } {
   }
 }
 
-export function uninstallPreToolUseHook(): { success: boolean; message: string } {
+export interface UninstallPreToolUseHookOptions {
+  local?: boolean;
+  projectDir?: string;
+  // If true, also remove the hook script file (only when uninstalling global hooks)
+  removeScript?: boolean;
+}
+
+export function uninstallPreToolUseHook(options: UninstallPreToolUseHookOptions = {}): { success: boolean; message: string } {
+  const settingsPath = getSettingsPath(options);
+
   try {
-    // Remove hook script
-    if (fs.existsSync(SESSION_ID_HOOK_PATH)) {
+    // Remove hook script only when uninstalling global hooks (not local)
+    if (!options.local && options.removeScript !== false && fs.existsSync(SESSION_ID_HOOK_PATH)) {
       fs.unlinkSync(SESSION_ID_HOOK_PATH);
     }
 
     // Remove from settings
-    if (!fs.existsSync(CLAUDE_SETTINGS_PATH)) {
+    if (!fs.existsSync(settingsPath)) {
       return { success: true, message: "No settings file found" };
     }
 
-    const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    const content = fs.readFileSync(settingsPath, "utf-8");
     const settings: ClaudeSettings = JSON.parse(content);
 
     if (!settings.hooks?.PreToolUse) {
@@ -494,7 +604,7 @@ export function uninstallPreToolUseHook(): { success: boolean; message: string }
       delete settings.hooks;
     }
 
-    fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
     return { success: true, message: "PreToolUse hook removed" };
   } catch (error) {
@@ -503,13 +613,20 @@ export function uninstallPreToolUseHook(): { success: boolean; message: string }
   }
 }
 
-export function checkPreToolUseHookInstalled(): boolean {
+export interface CheckPreToolUseHookOptions {
+  local?: boolean;
+  projectDir?: string;
+}
+
+export function checkPreToolUseHookInstalled(options: CheckPreToolUseHookOptions = {}): boolean {
+  const settingsPath = getSettingsPath(options);
+
   try {
-    if (!fs.existsSync(CLAUDE_SETTINGS_PATH) || !fs.existsSync(SESSION_ID_HOOK_PATH)) {
+    if (!fs.existsSync(settingsPath) || !fs.existsSync(SESSION_ID_HOOK_PATH)) {
       return false;
     }
 
-    const content = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf-8");
+    const content = fs.readFileSync(settingsPath, "utf-8");
     const settings: ClaudeSettings = JSON.parse(content);
 
     return settings.hooks?.PreToolUse?.some(isAgentracePreToolUseHook) ?? false;

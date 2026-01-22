@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ProxyAgent } from "undici";
-import { saveConfig, getConfigPath } from "../config/manager.js";
+import { saveConfig, getConfigPath, saveLocalConfig, getLocalConfigPath } from "../config/manager.js";
 import { installHooks, installMcpServer, installPreToolUseHook } from "../hooks/installer.js";
 import {
   startCallbackServer,
@@ -19,6 +19,8 @@ export interface InitOptions {
   url?: string;
   proxy?: string;
   dev?: boolean;
+  local?: boolean;
+  separateLocalConfig?: boolean;
 }
 
 export async function initCommand(options: InitOptions = {}): Promise<void> {
@@ -60,6 +62,13 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     console.log("[Dev Mode] Using local CLI for hooks\n");
   }
 
+  if (options.local) {
+    console.log("[Local Mode] Installing hooks/MCP for this project only\n");
+  }
+
+  // Project directory for local scope
+  const projectDir = options.local ? process.cwd() : undefined;
+
   // Generate token and start callback server
   const token = generateToken();
   const port = getRandomPort();
@@ -97,12 +106,22 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
 
     // Save config (remove trailing slash from URL)
     const serverUrlStr = serverUrl.toString().replace(/\/+$/, '');
-    saveConfig({
+    const configData = {
       server_url: serverUrlStr,
       api_key: result.apiKey,
       ...(options.proxy && { proxy_url: options.proxy }),
-    });
-    console.log(`✓ Config saved to ${getConfigPath()}`);
+    };
+
+    if (options.local && options.separateLocalConfig && projectDir) {
+      // Save config locally in project directory
+      saveLocalConfig(projectDir, configData);
+      console.log(`✓ Config saved to ${getLocalConfigPath(projectDir)}`);
+      console.log(`⚠ Remember to add '.agentrace/' to your .gitignore`);
+    } else {
+      // Save config globally
+      saveConfig(configData);
+      console.log(`✓ Config saved to ${getConfigPath()}`);
+    }
     if (options.proxy) {
       console.log(`  Proxy: ${options.proxy}`);
     }
@@ -118,7 +137,11 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     }
 
     // Install hooks
-    const hookResult = installHooks({ command: hookCommand });
+    const hookResult = installHooks({
+      command: hookCommand,
+      local: options.local,
+      projectDir,
+    });
     if (hookResult.success) {
       console.log(`✓ ${hookResult.message}`);
     } else {
@@ -134,7 +157,12 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
       mcpCommand = "npx";
       mcpArgs = ["tsx", indexPath, "mcp-server"];
     }
-    const mcpResult = installMcpServer({ command: mcpCommand, args: mcpArgs });
+    const mcpResult = installMcpServer({
+      command: mcpCommand,
+      args: mcpArgs,
+      local: options.local,
+      projectDir,
+    });
     if (mcpResult.success) {
       console.log(`✓ ${mcpResult.message}`);
     } else {
@@ -142,7 +170,10 @@ export async function initCommand(options: InitOptions = {}): Promise<void> {
     }
 
     // Install PreToolUse hook for session_id injection
-    const preToolUseResult = installPreToolUseHook();
+    const preToolUseResult = installPreToolUseHook({
+      local: options.local,
+      projectDir,
+    });
     if (preToolUseResult.success) {
       console.log(`✓ ${preToolUseResult.message}`);
     } else {

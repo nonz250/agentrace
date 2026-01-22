@@ -35,11 +35,15 @@ That's it! When you use Claude Code, sessions will be automatically sent to Agen
 | -------------------------------------------- | -------------------------------------- |
 | `agentrace init --url <url>`                 | Initial setup + hooks installation     |
 | `agentrace init --url <url> --proxy <proxy>` | Setup with proxy                       |
+| `agentrace init --url <url> --local`         | Setup for current project only         |
 | `agentrace login`                            | Open the web dashboard                 |
 | `agentrace send`                             | Send transcript diff (used by hooks)   |
 | `agentrace on`                               | Enable hooks                           |
+| `agentrace on --local`                       | Enable hooks for current project       |
 | `agentrace off`                              | Disable hooks                          |
+| `agentrace off --local`                      | Disable hooks for current project      |
 | `agentrace uninstall`                        | Remove hooks and configuration         |
+| `agentrace uninstall --local`                | Remove project-local settings only     |
 
 ## Command Details
 
@@ -48,7 +52,14 @@ That's it! When you use Claude Code, sessions will be automatically sent to Agen
 Sets up the server connection and installs Claude Code hooks.
 
 ```bash
+# Global setup (all projects)
 npx agentrace init --url http://localhost:9080
+
+# Project-local setup (current project only)
+npx agentrace init --url http://localhost:9080 --local
+
+# Project-local with separate config file
+npx agentrace init --url http://localhost:9080 --local --separate-local-config
 ```
 
 **Process flow:**
@@ -56,6 +67,15 @@ npx agentrace init --url http://localhost:9080
 1. Opens the server's registration/login page in browser
 2. After registration, API key is automatically retrieved
 3. Claude Code hooks are configured
+
+**Options:**
+
+| Option | Description |
+| ------ | ----------- |
+| `--url <url>` | Server URL (required) |
+| `--proxy <url>` | HTTP/HTTPS proxy URL |
+| `--local` | Install hooks/MCP for current project only |
+| `--separate-local-config` | Store config in project directory (requires --local) |
 
 ### login
 
@@ -70,11 +90,15 @@ npx agentrace login
 Toggle hooks enabled/disabled. Configuration is preserved.
 
 ```bash
-# Temporarily stop sending
+# Temporarily stop sending (global)
 npx agentrace off
 
-# Resume sending
+# Resume sending (global)
 npx agentrace on
+
+# For project-local settings
+npx agentrace off --local
+npx agentrace on --local
 ```
 
 ### uninstall
@@ -82,7 +106,11 @@ npx agentrace on
 Completely removes hooks and configuration files.
 
 ```bash
+# Remove global settings
 npx agentrace uninstall
+
+# Remove project-local settings only
+npx agentrace uninstall --local
 ```
 
 ### send
@@ -95,9 +123,28 @@ Configuration is stored in the following locations:
 
 | File                 | Location                          |
 | -------------------- | --------------------------------- |
-| AgenTrace config     | `~/.config/agentrace/config.json` |
-| Cursor data          | `~/.config/agentrace/cursors/`    |
+| AgenTrace config     | `~/.agentrace/config.json`        |
+| Cursor data          | `~/.agentrace/cursors/`           |
 | Claude Code hooks    | `~/.claude/settings.json`         |
+| MCP servers          | `~/.claude.json`                  |
+
+### Project-Local Configuration
+
+With the `--local` option, hooks and MCP are configured per-project:
+
+| File                 | Location                                       |
+| -------------------- | ---------------------------------------------- |
+| Claude Code hooks    | `{project}/.claude/settings.json`              |
+| MCP servers          | `~/.claude.json` (projects.{path}.mcpServers)  |
+| Config (optional)    | `{project}/.agentrace/config.json`             |
+
+To also store the config locally, use `--separate-local-config`:
+
+```bash
+npx agentrace init --url http://localhost:9080 --local --separate-local-config
+```
+
+**Note:** Add `.agentrace/` to your `.gitignore` when using `--separate-local-config` to avoid committing API keys.
 
 ## How It Works
 

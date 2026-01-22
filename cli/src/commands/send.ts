@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { loadConfig } from "../config/manager.js";
+import { loadConfig, loadConfigWithFallback } from "../config/manager.js";
 import { getNewLines, saveCursor, hasCursor } from "../config/cursor.js";
 import { sendIngest } from "../utils/http.js";
 import {
@@ -62,8 +62,8 @@ async function sendTranscript(params: SendTranscriptParams): Promise<void> {
     process.exit(isHook ? 0 : 1);
   };
 
-  // Check if config exists
-  const config = loadConfig();
+  // Check if config exists (local config takes precedence over global)
+  const config = loadConfigWithFallback(cwd);
   if (!config) {
     exitWithError(
       "[agentrace] Warning: Config not found. Run 'npx agentrace init' first."

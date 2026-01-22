@@ -1,21 +1,28 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { installHooks, installMcpServer, installPreToolUseHook } from "../hooks/installer.js";
-import { loadConfig } from "../config/manager.js";
+import { loadConfig, loadConfigWithFallback } from "../config/manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export interface OnOptions {
   dev?: boolean;
+  local?: boolean;
 }
 
 export async function onCommand(options: OnOptions = {}): Promise<void> {
-  // Check if config exists
-  const config = loadConfig();
+  const projectDir = options.local ? process.cwd() : undefined;
+
+  // Check if config exists (local config takes precedence if --local is specified)
+  const config = options.local ? loadConfigWithFallback(projectDir) : loadConfig();
   if (!config) {
     console.log("AgenTrace is not configured. Run 'npx agentrace init' first.");
     return;
+  }
+
+  if (options.local) {
+    console.log("[Local Mode] Enabling hooks/MCP for this project only\n");
   }
 
   // Determine hook command
@@ -27,7 +34,11 @@ export async function onCommand(options: OnOptions = {}): Promise<void> {
     hookCommand = `npx tsx ${indexPath} send`;
   }
 
-  const result = installHooks({ command: hookCommand });
+  const result = installHooks({
+    command: hookCommand,
+    local: options.local,
+    projectDir,
+  });
   if (result.success) {
     console.log(`✓ Hooks enabled. Session data will be sent to ${config.server_url}`);
   } else {
@@ -43,7 +54,12 @@ export async function onCommand(options: OnOptions = {}): Promise<void> {
     mcpCommand = "npx";
     mcpArgs = ["tsx", indexPath, "mcp-server"];
   }
-  const mcpResult = installMcpServer({ command: mcpCommand, args: mcpArgs });
+  const mcpResult = installMcpServer({
+    command: mcpCommand,
+    args: mcpArgs,
+    local: options.local,
+    projectDir,
+  });
   if (mcpResult.success) {
     console.log(`✓ ${mcpResult.message}`);
   } else {
@@ -51,7 +67,10 @@ export async function onCommand(options: OnOptions = {}): Promise<void> {
   }
 
   // Install PreToolUse hook for session_id injection
-  const preToolUseResult = installPreToolUseHook();
+  const preToolUseResult = installPreToolUseHook({
+    local: options.local,
+    projectDir,
+  });
   if (preToolUseResult.success) {
     console.log(`✓ ${preToolUseResult.message}`);
   } else {

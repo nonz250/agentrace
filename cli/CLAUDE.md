@@ -69,16 +69,22 @@ cli/src/
 | `init --url <url>` | 初期設定 + hooks + MCP インストール |
 | `init --url <url> --proxy <proxy-url>` | プロキシ経由で接続 |
 | `init --url <url> --dev` | 開発モード（ローカルCLIパス使用） |
+| `init --url <url> --local` | プロジェクト単位で hooks/MCP を設定 |
+| `init --url <url> --local --separate-local-config` | プロジェクト単位で config も作成 |
 | `login` | Webログイン URL 発行 |
 | `send` | transcript 差分送信（hooks用、stdin から JSON 受け取り） |
 | `send --claude-session-id <id>` | 既存セッションを手動送信（差分のみ） |
 | `mcp-server` | MCPサーバー起動（stdio通信） |
 | `on` / `off` | hooks + MCP 有効化/無効化 |
+| `on --local` / `off --local` | プロジェクト単位で hooks + MCP 有効化/無効化 |
 | `uninstall` | hooks/MCP/config 削除 |
+| `uninstall --local` | プロジェクト単位の hooks/MCP/config 削除 |
 
 ## 設定ファイル
 
-### ~/.agentrace/config.json
+### グローバル設定
+
+#### ~/.agentrace/config.json
 
 ```json
 {
@@ -89,6 +95,39 @@ cli/src/
 ```
 
 **proxy_url** はオプション。設定しない場合は環境変数 `HTTPS_PROXY` / `HTTP_PROXY` にフォールバックする。
+
+### ローカル設定（--local オプション使用時）
+
+`--local` オプションを使うと、プロジェクト単位で AgenTrace を有効/無効にできる。
+
+#### プロジェクトローカルの hooks
+
+`{project}/.claude/settings.json` に hooks が追加される（グローバルの `~/.claude/settings.json` ではなく）。
+
+#### プロジェクトローカルの MCP
+
+`~/.claude.json` の `projects.{project_path}.mcpServers` に追加される（local スコープ）。
+
+```json
+{
+  "projects": {
+    "/path/to/project": {
+      "mcpServers": {
+        "agentrace": {
+          "command": "npx",
+          "args": ["agentrace", "mcp-server"]
+        }
+      }
+    }
+  }
+}
+```
+
+#### プロジェクトローカルの config（--separate-local-config 使用時）
+
+`{project}/.agentrace/config.json` に config が保存される。
+
+**注意**: `.agentrace/` を `.gitignore` に追加すること（API キーを含むため）。
 
 ### ~/.agentrace/cursors/{session_id}.json
 

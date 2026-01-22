@@ -1,31 +1,50 @@
 import { uninstallHooks, uninstallMcpServer, uninstallPreToolUseHook } from "../hooks/installer.js";
-import { loadConfig } from "../config/manager.js";
+import { loadConfig, loadConfigWithFallback } from "../config/manager.js";
 
-export async function offCommand(): Promise<void> {
-  // Check if config exists
-  const config = loadConfig();
+export interface OffOptions {
+  local?: boolean;
+}
+
+export async function offCommand(options: OffOptions = {}): Promise<void> {
+  const projectDir = options.local ? process.cwd() : undefined;
+
+  // Check if config exists (local config takes precedence if --local is specified)
+  const config = options.local ? loadConfigWithFallback(projectDir) : loadConfig();
   if (!config) {
     console.log("AgenTrace is not configured. Run 'npx agentrace init' first.");
     return;
   }
 
-  const result = uninstallHooks();
+  if (options.local) {
+    console.log("[Local Mode] Disabling hooks/MCP for this project only\n");
+  }
+
+  const result = uninstallHooks({
+    local: options.local,
+    projectDir,
+  });
   if (result.success) {
     console.log(`✓ Hooks disabled. Your credentials are still saved.`);
-    console.log(`  Run 'npx agentrace on' to re-enable.`);
+    console.log(`  Run 'npx agentrace on${options.local ? " --local" : ""}' to re-enable.`);
   } else {
     console.error(`✗ ${result.message}`);
   }
 
   // Remove PreToolUse hook
-  const preToolUseResult = uninstallPreToolUseHook();
+  const preToolUseResult = uninstallPreToolUseHook({
+    local: options.local,
+    projectDir,
+  });
   if (preToolUseResult.success) {
     console.log(`✓ ${preToolUseResult.message}`);
   } else {
     console.error(`✗ ${preToolUseResult.message}`);
   }
 
-  const mcpResult = uninstallMcpServer();
+  const mcpResult = uninstallMcpServer({
+    local: options.local,
+    projectDir,
+  });
   if (mcpResult.success) {
     console.log(`✓ ${mcpResult.message}`);
   } else {

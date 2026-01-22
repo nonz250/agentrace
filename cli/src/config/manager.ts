@@ -45,3 +45,59 @@ export function deleteConfig(): boolean {
     return false;
   }
 }
+
+// --- Local (project-level) config functions ---
+
+export function getLocalConfigDir(projectDir: string): string {
+  return path.join(projectDir, ".agentrace");
+}
+
+export function getLocalConfigPath(projectDir: string): string {
+  return path.join(getLocalConfigDir(projectDir), "config.json");
+}
+
+export function loadLocalConfig(projectDir: string): AgentraceConfig | null {
+  const configFile = getLocalConfigPath(projectDir);
+  try {
+    if (!fs.existsSync(configFile)) {
+      return null;
+    }
+    const content = fs.readFileSync(configFile, "utf-8");
+    return JSON.parse(content) as AgentraceConfig;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLocalConfig(projectDir: string, config: AgentraceConfig): void {
+  const localConfigDir = getLocalConfigDir(projectDir);
+  const localConfigFile = getLocalConfigPath(projectDir);
+  if (!fs.existsSync(localConfigDir)) {
+    fs.mkdirSync(localConfigDir, { recursive: true });
+  }
+  fs.writeFileSync(localConfigFile, JSON.stringify(config, null, 2));
+}
+
+export function deleteLocalConfig(projectDir: string): boolean {
+  const localConfigDir = getLocalConfigDir(projectDir);
+  try {
+    if (fs.existsSync(localConfigDir)) {
+      fs.rmSync(localConfigDir, { recursive: true });
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Load config with fallback: local config > global config
+ */
+export function loadConfigWithFallback(projectDir?: string): AgentraceConfig | null {
+  if (projectDir) {
+    const localConfig = loadLocalConfig(projectDir);
+    if (localConfig) return localConfig;
+  }
+  return loadConfig();
+}

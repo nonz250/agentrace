@@ -1,5 +1,5 @@
 import { fetch } from "undici";
-import { loadConfig } from "../config/manager.js";
+import { loadConfigWithFallback } from "../config/manager.js";
 import { createDispatcher } from "../utils/proxy.js";
 
 export type PlanDocumentStatus = "scratch" | "draft" | "planning" | "pending" | "ready" | "implementation" | "complete";
@@ -70,8 +70,8 @@ export class PlanDocumentClient {
   private serverUrl: string;
   private apiKey: string;
 
-  constructor() {
-    const config = loadConfig();
+  constructor(projectDir?: string) {
+    const config = loadConfigWithFallback(projectDir);
     if (!config) {
       throw new Error("AgenTrace is not configured. Run 'npx agentrace init' first.");
     }

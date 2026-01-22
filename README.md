@@ -67,10 +67,26 @@ Claude Code will automatically use these tools when discussing implementation pl
 | ------- | ----------- |
 | `npx agentrace init --url <url>` | Initial setup with browser authentication |
 | `npx agentrace init --url <url> --proxy <proxy>` | Setup with HTTP proxy |
+| `npx agentrace init --url <url> --local` | Setup for current project only |
 | `npx agentrace login` | Open web dashboard in browser |
 | `npx agentrace on` | Enable hooks (keeps credentials) |
 | `npx agentrace off` | Disable hooks temporarily (keeps credentials) |
 | `npx agentrace uninstall` | Remove all hooks and configuration |
+
+### Project-Local Setup
+
+If you want to enable AgenTrace only for specific projects (not globally), use the `--local` option:
+
+```bash
+cd ~/projects/my-project
+npx agentrace init --url http://localhost:9080 --local
+```
+
+This will:
+- Install hooks in `{project}/.claude/settings.json` instead of global settings
+- Configure MCP server in local scope (stored in `~/.claude.json` under `projects.{path}`)
+
+Use `--local --separate-local-config` to also store the config (API key) in the project directory.
 
 ### Temporarily Disable Tracking
 
@@ -158,8 +174,14 @@ npx agentrace uninstall
 This removes:
 
 - Claude Code hooks from `~/.claude/settings.json`
-- MCP server configuration from `~/.claude/claude_desktop_config.json`
+- MCP server configuration from `~/.claude.json`
 - Configuration from `~/.agentrace/`
+
+To remove project-local settings only:
+
+```bash
+npx agentrace uninstall --local
+```
 
 ### 2. Stop and Remove Docker Container
 

@@ -1,11 +1,24 @@
-import { deleteConfig } from "../config/manager.js";
+import { deleteConfig, deleteLocalConfig } from "../config/manager.js";
 import { uninstallHooks, uninstallMcpServer, uninstallPreToolUseHook } from "../hooks/installer.js";
 
-export async function uninstallCommand(): Promise<void> {
-  console.log("Uninstalling AgenTrace...\n");
+export interface UninstallOptions {
+  local?: boolean;
+}
+
+export async function uninstallCommand(options: UninstallOptions = {}): Promise<void> {
+  const projectDir = options.local ? process.cwd() : undefined;
+
+  if (options.local) {
+    console.log("Uninstalling AgenTrace (local settings only)...\n");
+  } else {
+    console.log("Uninstalling AgenTrace...\n");
+  }
 
   // Remove hooks
-  const hookResult = uninstallHooks();
+  const hookResult = uninstallHooks({
+    local: options.local,
+    projectDir,
+  });
   if (hookResult.success) {
     console.log(`✓ ${hookResult.message}`);
   } else {
@@ -13,7 +26,12 @@ export async function uninstallCommand(): Promise<void> {
   }
 
   // Remove PreToolUse hook
-  const preToolUseResult = uninstallPreToolUseHook();
+  const preToolUseResult = uninstallPreToolUseHook({
+    local: options.local,
+    projectDir,
+    // Don't remove the hook script when uninstalling local settings
+    removeScript: !options.local,
+  });
   if (preToolUseResult.success) {
     console.log(`✓ ${preToolUseResult.message}`);
   } else {
@@ -21,7 +39,10 @@ export async function uninstallCommand(): Promise<void> {
   }
 
   // Remove MCP server
-  const mcpResult = uninstallMcpServer();
+  const mcpResult = uninstallMcpServer({
+    local: options.local,
+    projectDir,
+  });
   if (mcpResult.success) {
     console.log(`✓ ${mcpResult.message}`);
   } else {
@@ -29,11 +50,22 @@ export async function uninstallCommand(): Promise<void> {
   }
 
   // Remove config
-  const configRemoved = deleteConfig();
-  if (configRemoved) {
-    console.log("✓ Config removed");
+  if (options.local && projectDir) {
+    // Remove local config directory
+    const configRemoved = deleteLocalConfig(projectDir);
+    if (configRemoved) {
+      console.log("✓ Local config removed (.agentrace/)");
+    } else {
+      console.log("✓ No local config to remove");
+    }
   } else {
-    console.log("✓ No config to remove");
+    // Remove global config
+    const configRemoved = deleteConfig();
+    if (configRemoved) {
+      console.log("✓ Config removed");
+    } else {
+      console.log("✓ No config to remove");
+    }
   }
 
   console.log("\nUninstall complete!");

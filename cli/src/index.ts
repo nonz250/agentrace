@@ -19,8 +19,16 @@ program
   .requiredOption("--url <url>", "Server URL (required)")
   .option("--proxy <url>", "HTTP/HTTPS proxy URL")
   .option("--dev", "Use local CLI path for development")
-  .action(async (options: { url: string; proxy?: string; dev?: boolean }) => {
-    await initCommand({ url: options.url, proxy: options.proxy, dev: options.dev });
+  .option("--local", "Install hooks/MCP for current project only (project-local scope)")
+  .option("--separate-local-config", "Store config in project directory (requires --local)")
+  .action(async (options: { url: string; proxy?: string; dev?: boolean; local?: boolean; separateLocalConfig?: boolean }) => {
+    await initCommand({
+      url: options.url,
+      proxy: options.proxy,
+      dev: options.dev,
+      local: options.local,
+      separateLocalConfig: options.separateLocalConfig,
+    });
   });
 
 program
@@ -45,23 +53,26 @@ program
 program
   .command("uninstall")
   .description("Remove agentrace hooks and config")
-  .action(async () => {
-    await uninstallCommand();
+  .option("--local", "Remove only project-local hooks/MCP/config")
+  .action(async (options: { local?: boolean }) => {
+    await uninstallCommand({ local: options.local });
   });
 
 program
   .command("on")
   .description("Enable agentrace hooks (credentials preserved)")
   .option("--dev", "Use local CLI path for development")
-  .action(async (options: { dev?: boolean }) => {
-    await onCommand({ dev: options.dev });
+  .option("--local", "Enable hooks/MCP for current project only")
+  .action(async (options: { dev?: boolean; local?: boolean }) => {
+    await onCommand({ dev: options.dev, local: options.local });
   });
 
 program
   .command("off")
   .description("Disable agentrace hooks (credentials preserved)")
-  .action(async () => {
-    await offCommand();
+  .option("--local", "Disable hooks/MCP for current project only")
+  .action(async (options: { local?: boolean }) => {
+    await offCommand({ local: options.local });
   });
 
 program
