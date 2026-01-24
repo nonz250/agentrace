@@ -14,6 +14,9 @@ import (
 type ProjectRepository struct {
 	mu       sync.RWMutex
 	projects map[string]*domain.Project
+	// References to other repositories for HasRelatedData
+	sessionRepo  *SessionRepository
+	planDocRepo  *PlanDocumentRepository
 }
 
 func NewProjectRepository() *ProjectRepository {
@@ -146,4 +149,49 @@ func (r *ProjectRepository) FindAll(ctx context.Context, limit int, cursor strin
 
 func (r *ProjectRepository) GetDefaultProject(ctx context.Context) (*domain.Project, error) {
 	return r.FindByID(ctx, domain.DefaultProjectID)
+}
+
+// SetRelatedRepos sets references to other repositories for HasRelatedData
+func (r *ProjectRepository) SetRelatedRepos(sessionRepo *SessionRepository, planDocRepo *PlanDocumentRepository) {
+	r.sessionRepo = sessionRepo
+	r.planDocRepo = planDocRepo
+}
+
+func (r *ProjectRepository) Delete(ctx context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.projects[id]; !exists {
+		return nil
+	}
+	delete(r.projects, id)
+	return nil
+}
+
+func (r *ProjectRepository) HasRelatedData(ctx context.Context, id string) (bool, error) {
+	// Check sessions
+	if r.sessionRepo != nil {
+		r.sessionRepo.mu.RLock()
+		for _, s := range r.sessionRepo.sessions {
+			if s.ProjectID == id {
+				r.sessionRepo.mu.RUnlock()
+				return true, nil
+			}
+		}
+		r.sessionRepo.mu.RUnlock()
+	}
+
+	// Check plan documents
+	if r.planDocRepo != nil {
+		r.planDocRepo.mu.RLock()
+		for _, d := range r.planDocRepo.documents {
+			if d.ProjectID == id {
+				r.planDocRepo.mu.RUnlock()
+				return true, nil
+			}
+		}
+		r.planDocRepo.mu.RUnlock()
+	}
+
+	return false, nil
 }

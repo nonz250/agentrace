@@ -8,8 +8,10 @@ import (
 )
 
 func TestProjectRepository(t *testing.T) {
+	repos := NewRepositories()
 	s := &testsuite.ProjectRepositorySuite{
-		Repo: NewProjectRepository(),
+		Repo:  repos.Project,
+		Repos: repos,
 	}
 	suite.Run(t, s)
 }

@@ -14,6 +14,7 @@ import (
 type ProjectRepositorySuite struct {
 	suite.Suite
 	Repo    repository.ProjectRepository
+	Repos   *repository.Repositories // Full repos for HasRelatedData tests
 	Cleanup func()
 }
 
@@ -216,4 +217,111 @@ func (s *ProjectRepositorySuite) TestGetDefaultProject() {
 	s.Require().NotNil(defaultProject)
 	s.Equal(domain.DefaultProjectID, defaultProject.ID)
 	s.Empty(defaultProject.CanonicalGitRepository)
+}
+
+func (s *ProjectRepositorySuite) TestDelete() {
+	ctx := context.Background()
+
+	// Create a project
+	project := &domain.Project{
+		CanonicalGitRepository: "https://github.com/example/delete-repo",
+	}
+	err := s.Repo.Create(ctx, project)
+	s.Require().NoError(err)
+
+	// Verify it exists
+	found, err := s.Repo.FindByID(ctx, project.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(found)
+
+	// Delete it
+	err = s.Repo.Delete(ctx, project.ID)
+	s.Require().NoError(err)
+
+	// Verify it's gone
+	found, err = s.Repo.FindByID(ctx, project.ID)
+	s.NoError(err)
+	s.Nil(found)
+}
+
+func (s *ProjectRepositorySuite) TestDelete_NonExistent() {
+	ctx := context.Background()
+
+	// Delete non-existent project should not error
+	err := s.Repo.Delete(ctx, uuid.New().String())
+	s.NoError(err)
+}
+
+func (s *ProjectRepositorySuite) TestHasRelatedData_NoData() {
+	if s.Repos == nil {
+		s.T().Skip("Repos not provided, skipping HasRelatedData test")
+	}
+	ctx := context.Background()
+
+	// Create a project with no related data
+	project := &domain.Project{
+		CanonicalGitRepository: "https://github.com/example/no-related-data",
+	}
+	err := s.Repo.Create(ctx, project)
+	s.Require().NoError(err)
+
+	// Should have no related data
+	hasData, err := s.Repo.HasRelatedData(ctx, project.ID)
+	s.Require().NoError(err)
+	s.False(hasData)
+}
+
+func (s *ProjectRepositorySuite) TestHasRelatedData_WithSession() {
+	if s.Repos == nil {
+		s.T().Skip("Repos not provided, skipping HasRelatedData test")
+	}
+	ctx := context.Background()
+
+	// Create a project
+	project := &domain.Project{
+		CanonicalGitRepository: "https://github.com/example/with-session",
+	}
+	err := s.Repo.Create(ctx, project)
+	s.Require().NoError(err)
+
+	// Create a session linked to the project
+	session := &domain.Session{
+		ClaudeSessionID: uuid.New().String(),
+		ProjectID:       project.ID,
+	}
+	err = s.Repos.Session.Create(ctx, session)
+	s.Require().NoError(err)
+
+	// Should have related data
+	hasData, err := s.Repo.HasRelatedData(ctx, project.ID)
+	s.Require().NoError(err)
+	s.True(hasData)
+}
+
+func (s *ProjectRepositorySuite) TestHasRelatedData_WithPlanDocument() {
+	if s.Repos == nil {
+		s.T().Skip("Repos not provided, skipping HasRelatedData test")
+	}
+	ctx := context.Background()
+
+	// Create a project
+	project := &domain.Project{
+		CanonicalGitRepository: "https://github.com/example/with-plan",
+	}
+	err := s.Repo.Create(ctx, project)
+	s.Require().NoError(err)
+
+	// Create a plan document linked to the project
+	plan := &domain.PlanDocument{
+		ProjectID:   project.ID,
+		Description: "Test plan",
+		Body:        "Test body",
+	}
+	err = s.Repos.PlanDocument.Create(ctx, plan)
+	s.Require().NoError(err)
+
+	// Should have related data
+	hasData, err := s.Repo.HasRelatedData(ctx, project.ID)
+	s.Require().NoError(err)
+	s.True(hasData)
 }

@@ -56,6 +56,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiBearerOrSession.HandleFunc("/plans/{id}", planDocumentHandler.Update).Methods("PATCH")
 	apiBearerOrSession.HandleFunc("/plans/{id}", planDocumentHandler.Delete).Methods("DELETE")
 	apiBearerOrSession.HandleFunc("/plans/{id}/status", planDocumentHandler.SetStatus).Methods("PATCH")
+	apiBearerOrSession.HandleFunc("/projects/{id}", projectHandler.Delete).Methods("DELETE")
 
 	// API routes (Session auth - for Web)
 	apiSession := r.PathPrefix("/api").Subrouter()

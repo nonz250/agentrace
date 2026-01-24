@@ -26,3 +26,7 @@ export async function getProjects(params?: GetProjectsParams): Promise<GetProjec
 export async function getProject(id: string): Promise<ProjectListItem> {
   return fetchAPI(`/api/projects/${id}`)
 }
+
+export async function deleteProject(id: string): Promise<void> {
+  return fetchAPI(`/api/projects/${id}`, { method: 'DELETE' })
+}

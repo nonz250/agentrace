@@ -19,6 +19,8 @@ type ProjectRepository interface {
 	FindOrCreateByCanonicalGitRepository(ctx context.Context, canonicalGitRepo string) (*domain.Project, error)
 	FindAll(ctx context.Context, limit int, cursor string) ([]*domain.Project, string, error) // Returns (projects, nextCursor, error)
 	GetDefaultProject(ctx context.Context) (*domain.Project, error)                           // CanonicalGitRepository が空のプロジェクト
+	Delete(ctx context.Context, id string) error
+	HasRelatedData(ctx context.Context, id string) (bool, error) // Returns true if project has sessions or plan documents
 }
 
 // SessionRepository はセッションの永続化を担当する

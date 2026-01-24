@@ -199,6 +199,58 @@ func (r *ProjectRepository) GetDefaultProject(ctx context.Context) (*domain.Proj
 	return r.FindByID(ctx, domain.DefaultProjectID)
 }
 
+func (r *ProjectRepository) Delete(ctx context.Context, id string) error {
+	_, err := r.db.Client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(r.db.TableName("projects")),
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{Value: id},
+		},
+	})
+	return err
+}
+
+func (r *ProjectRepository) HasRelatedData(ctx context.Context, id string) (bool, error) {
+	// Check sessions table
+	keyCond := expression.Key("project_id").Equal(expression.Value(id))
+	expr, err := expression.NewBuilder().WithKeyCondition(keyCond).Build()
+	if err != nil {
+		return false, err
+	}
+
+	result, err := r.db.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:                 aws.String(r.db.TableName("sessions")),
+		IndexName:                 aws.String("project_id-updated_at-index"),
+		KeyConditionExpression:    expr.KeyCondition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		Limit:                     aws.Int32(1),
+	})
+	if err != nil {
+		return false, err
+	}
+	if len(result.Items) > 0 {
+		return true, nil
+	}
+
+	// Check plan_documents table
+	result, err = r.db.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:                 aws.String(r.db.TableName("plan_documents")),
+		IndexName:                 aws.String("project_id-updated_at-index"),
+		KeyConditionExpression:    expr.KeyCondition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		Limit:                     aws.Int32(1),
+	})
+	if err != nil {
+		return false, err
+	}
+	if len(result.Items) > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (r *ProjectRepository) itemToProject(item *projectItem) *domain.Project {
 	createdAt, _ := time.Parse(time.RFC3339Nano, item.CreatedAt)
 	return &domain.Project{

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/satetsu888/agentrace/server/internal/domain"
 	"github.com/satetsu888/agentrace/server/internal/repository"
 )
 
@@ -97,4 +98,47 @@ func (h *ProjectHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// Delete deletes a project if it has no related sessions or plan documents
+func (h *ProjectHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	// Prevent deletion of default project
+	if id == domain.DefaultProjectID {
+		http.Error(w, `{"error": "cannot delete default project"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Check if project exists
+	project, err := h.repos.Project.FindByID(ctx, id)
+	if err != nil {
+		http.Error(w, `{"error": "failed to fetch project"}`, http.StatusInternalServerError)
+		return
+	}
+	if project == nil {
+		http.Error(w, `{"error": "project not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Check if project has related data (sessions or plan documents)
+	hasData, err := h.repos.Project.HasRelatedData(ctx, id)
+	if err != nil {
+		http.Error(w, `{"error": "failed to check related data"}`, http.StatusInternalServerError)
+		return
+	}
+	if hasData {
+		http.Error(w, `{"error": "cannot delete project with sessions or plans"}`, http.StatusConflict)
+		return
+	}
+
+	// Delete the project
+	if err := h.repos.Project.Delete(ctx, id); err != nil {
+		http.Error(w, `{"error": "failed to delete project"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

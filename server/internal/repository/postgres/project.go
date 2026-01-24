@@ -145,6 +145,26 @@ func (r *ProjectRepository) GetDefaultProject(ctx context.Context) (*domain.Proj
 	return r.FindByID(ctx, domain.DefaultProjectID)
 }
 
+func (r *ProjectRepository) Delete(ctx context.Context, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM projects WHERE id = $1`, id)
+	return err
+}
+
+func (r *ProjectRepository) HasRelatedData(ctx context.Context, id string) (bool, error) {
+	var exists bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM sessions WHERE project_id = $1
+			UNION ALL
+			SELECT 1 FROM plan_documents WHERE project_id = $1
+			LIMIT 1
+		)`, id).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (r *ProjectRepository) scanProject(row *sql.Row) (*domain.Project, error) {
 	var project domain.Project
 	var createdAt sql.NullTime

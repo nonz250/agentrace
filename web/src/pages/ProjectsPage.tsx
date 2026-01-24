@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Terminal, Copy, Check } from 'lucide-react'
 import { ProjectList } from '@/components/projects/ProjectList'
 import { Spinner } from '@/components/ui/Spinner'
@@ -65,6 +65,7 @@ function SetupGuide() {
 }
 
 export function ProjectsPage() {
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [cursors, setCursors] = useState<string[]>(['']) // cursors[0] = '' for first page
 
@@ -102,6 +103,11 @@ export function ProjectsPage() {
     setPage(p => Math.max(1, p - 1))
   }, [])
 
+  const handleProjectDelete = useCallback(() => {
+    // Invalidate and refetch projects list
+    queryClient.invalidateQueries({ queryKey: ['projects'] })
+  }, [queryClient])
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -136,7 +142,7 @@ export function ProjectsPage() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-semibold text-gray-900">Projects</h1>
-      <ProjectList projects={projects} />
+      <ProjectList projects={projects} onProjectDelete={handleProjectDelete} />
 
       {(page > 1 || hasMore) && (
         <div className="mt-6 flex items-center justify-between">

@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/satetsu888/agentrace/server/internal/repository"
 	"github.com/satetsu888/agentrace/server/internal/repository/testsuite"
 	"github.com/stretchr/testify/suite"
 )
@@ -72,8 +73,14 @@ func TestProjectRepository(t *testing.T) {
 	db, cleanup := testDB(t)
 	defer cleanup()
 
+	repos := &repository.Repositories{
+		Project:      NewProjectRepository(db),
+		Session:      NewSessionRepository(db),
+		PlanDocument: NewPlanDocumentRepository(db),
+	}
 	s := &testsuite.ProjectRepositorySuite{
-		Repo: NewProjectRepository(db),
+		Repo:  repos.Project,
+		Repos: repos,
 	}
 	suite.Run(t, s)
 }
