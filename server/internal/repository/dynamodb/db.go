@@ -140,6 +140,7 @@ func (db *DB) ensureTables(ctx context.Context) error {
 		db.oauthConnectionsTable(),
 		db.planDocumentsTable(),
 		db.planDocumentEventsTable(),
+		db.planCommentsTable(),
 		db.userFavoritesTable(),
 	}
 
@@ -545,6 +546,30 @@ func (db *DB) planDocumentEventsTable() tableDefinition {
 				IndexName: aws.String("user_id-index"),
 				KeySchema: []types.KeySchemaElement{
 					{AttributeName: aws.String("user_id"), KeyType: types.KeyTypeHash},
+				},
+				Projection: &types.Projection{ProjectionType: types.ProjectionTypeAll},
+			},
+		},
+	}
+}
+
+func (db *DB) planCommentsTable() tableDefinition {
+	return tableDefinition{
+		name: "plan_comments",
+		keySchema: []types.KeySchemaElement{
+			{AttributeName: aws.String("id"), KeyType: types.KeyTypeHash},
+		},
+		attributeDefinitions: []types.AttributeDefinition{
+			{AttributeName: aws.String("id"), AttributeType: types.ScalarAttributeTypeS},
+			{AttributeName: aws.String("plan_document_id"), AttributeType: types.ScalarAttributeTypeS},
+			{AttributeName: aws.String("created_at"), AttributeType: types.ScalarAttributeTypeS},
+		},
+		globalSecondaryIndexes: []types.GlobalSecondaryIndex{
+			{
+				IndexName: aws.String("plan_document_id-created_at-index"),
+				KeySchema: []types.KeySchemaElement{
+					{AttributeName: aws.String("plan_document_id"), KeyType: types.KeyTypeHash},
+					{AttributeName: aws.String("created_at"), KeyType: types.KeyTypeRange},
 				},
 				Projection: &types.Projection{ProjectionType: types.ProjectionTypeAll},
 			},

@@ -121,6 +121,17 @@ type UserFavoriteRepository interface {
 	GetTargetIDs(ctx context.Context, userID string, targetType domain.UserFavoriteTargetType) ([]string, error)
 }
 
+// PlanCommentRepository はPlanCommentの永続化を担当する
+type PlanCommentRepository interface {
+	Create(ctx context.Context, comment *domain.PlanComment) error
+	FindByID(ctx context.Context, id string) (*domain.PlanComment, error)
+	FindByPlanDocumentID(ctx context.Context, planDocumentID string, status *domain.PlanCommentStatus) ([]*domain.PlanComment, error)
+	Update(ctx context.Context, comment *domain.PlanComment) error
+	Delete(ctx context.Context, id string) error
+	// MarkOutdatedByPlanDocumentID marks all active comments as outdated for the given plan document
+	MarkOutdatedByPlanDocumentID(ctx context.Context, planDocumentID string) error
+}
+
 // Repositories は全リポジトリをまとめる
 type Repositories struct {
 	Project            ProjectRepository
@@ -134,4 +145,5 @@ type Repositories struct {
 	PlanDocument       PlanDocumentRepository
 	PlanDocumentEvent  PlanDocumentEventRepository
 	UserFavorite       UserFavoriteRepository
+	PlanComment        PlanCommentRepository
 }

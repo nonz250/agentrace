@@ -22,5 +22,6 @@ func NewRepositories() *repository.Repositories {
 		PlanDocument:       planDocRepo,
 		PlanDocumentEvent:  NewPlanDocumentEventRepository(),
 		UserFavorite:       NewUserFavoriteRepository(),
+		PlanComment:        NewPlanCommentRepository(),
 	}
 }

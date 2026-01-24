@@ -21,6 +21,14 @@ var SQLiteMigration_0_0_1 string
 //go:embed postgres/v0.0.1.up.sql
 var PostgresMigration_0_0_1 string
 
+// v0.1.0 migration - Add plan_comments table
+//
+//go:embed sqlite/v0.1.0_add_plan_comments.sql
+var SQLiteMigration_0_1_0 string
+
+//go:embed postgres/v0.1.0_add_plan_comments.up.sql
+var PostgresMigration_0_1_0 string
+
 // Migration represents a single versioned migration
 type Migration struct {
 	Version string // Semantic version (e.g., "0.0.1", "0.1.0")
@@ -32,6 +40,7 @@ type Migration struct {
 func SQLiteMigrations() []Migration {
 	return []Migration{
 		{Version: "0.0.1", SQL: SQLiteMigration_0_0_1},
+		{Version: "0.1.0", SQL: SQLiteMigration_0_1_0},
 	}
 }
 
@@ -40,5 +49,6 @@ func SQLiteMigrations() []Migration {
 func PostgresMigrations() []Migration {
 	return []Migration{
 		{Version: "0.0.1", SQL: PostgresMigration_0_0_1},
+		{Version: "0.1.0", SQL: PostgresMigration_0_1_0},
 	}
 }

@@ -22,6 +22,7 @@ export interface PlanDocument {
   url?: string;
   created_at: string;
   updated_at: string;
+  active_comments_count: number;
 }
 
 export interface PlanDocumentEvent {
@@ -64,6 +65,43 @@ export interface UpdatePlanRequest {
   message?: string;
   claude_session_id?: string;
   tool_use_id?: string;
+}
+
+// Comment types
+export type PlanCommentStatus = "active" | "resolved" | "outdated";
+
+export interface CommentPosition {
+  start_offset: number;
+  end_offset: number;
+  start_line: number;
+  start_column: number;
+  end_line: number;
+  end_column: number;
+  found: boolean;
+}
+
+export interface PlanComment {
+  id: string;
+  plan_document_id: string;
+  user_id: string;
+  user_name: string;
+  target_text: string;
+  content: string;
+  status: PlanCommentStatus;
+  position: CommentPosition | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListCommentsResponse {
+  comments: PlanComment[];
+}
+
+export interface CreateCommentRequest {
+  target_text: string;
+  context_before: string;
+  context_after: string;
+  content: string;
 }
 
 export class PlanDocumentClient {
@@ -154,5 +192,21 @@ export class PlanDocumentClient {
 
   async setStatus(id: string, status: PlanDocumentStatus, message?: string): Promise<PlanDocument> {
     return this.request<PlanDocument>("PATCH", `/api/plans/${id}/status`, { status, message });
+  }
+
+  // Comment methods
+  async getComments(planId: string, status?: PlanCommentStatus | "all"): Promise<PlanComment[]> {
+    const params = new URLSearchParams();
+    if (status) {
+      params.set("status", status);
+    }
+    const query = params.toString();
+    const path = `/api/plans/${planId}/comments${query ? `?${query}` : ""}`;
+    const response = await this.request<ListCommentsResponse>("GET", path);
+    return response.comments;
+  }
+
+  async createComment(planId: string, req: CreateCommentRequest): Promise<PlanComment> {
+    return this.request<PlanComment>("POST", `/api/plans/${planId}/comments`, req);
   }
 }

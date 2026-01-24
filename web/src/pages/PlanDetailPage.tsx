@@ -3,11 +3,8 @@ import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save, Copy, Check, FolderEdit } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { PlanEventHistory } from '@/components/plans/PlanEventHistory'
+import { PlanContentWithComments } from '@/components/plans/PlanContentWithComments'
 import { PlanStatusBadge } from '@/components/plans/PlanStatusBadge'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
@@ -15,11 +12,11 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select } from '@/components/ui/Select'
-import { CopyButton } from '@/components/ui/CopyButton'
 import { ProjectSelect } from '@/components/ui/ProjectSelect'
 import { FavoriteButton } from '@/components/ui/FavoriteButton'
 import { useAuth } from '@/hooks/useAuth'
 import * as plansApi from '@/api/plan-documents'
+import * as commentsApi from '@/api/plan-comments'
 import type { PlanDocumentStatus } from '@/types/plan-document'
 import { parseRepoName, getRepoUrl, isDefaultProject, getProjectDisplayName } from '@/lib/project-utils'
 import { statusConfig } from '@/lib/plan-status'
@@ -50,6 +47,12 @@ export function PlanDetailPage() {
     queryKey: ['plan', id, 'events'],
     queryFn: () => plansApi.getPlanEvents(id!),
     enabled: !!id && activeTab === 'history',
+  })
+
+  const { data: commentsData } = useQuery({
+    queryKey: ['plan', id, 'comments'],
+    queryFn: () => commentsApi.getPlanComments(id!),
+    enabled: !!id,
   })
 
   const statusMutation = useMutation({
@@ -353,43 +356,11 @@ export function PlanDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="relative">
-              <CopyButton
-                text={plan.body}
-                className="absolute top-0 right-0"
-              />
-              <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-gray-800 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-transparent prose-pre:p-0 prose-pre:my-0">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    code({ className, children, ...props }) {
-                      const match = /language-(\w+)/.exec(className || '')
-                      const code = String(children).replace(/\n$/, '')
-                      return match ? (
-                        <SyntaxHighlighter
-                          language={match[1]}
-                          style={oneLight}
-                          customStyle={{
-                            fontSize: '0.875rem',
-                            borderRadius: '0.5rem',
-                            margin: '1rem 0',
-                            padding: '1rem',
-                          }}
-                        >
-                          {code}
-                        </SyntaxHighlighter>
-                      ) : (
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      )
-                    },
-                  }}
-                >
-                  {plan.body}
-                </ReactMarkdown>
-              </div>
-            </div>
+            <PlanContentWithComments
+              planId={id!}
+              body={plan.body}
+              comments={commentsData?.comments || []}
+            />
           )}
         </div>
       )}

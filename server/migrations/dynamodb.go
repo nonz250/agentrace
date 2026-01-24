@@ -17,8 +17,7 @@ type DynamoDBMigration struct {
 // This is a registry of versions for documentation purposes.
 func DynamoDBMigrations() []DynamoDBMigration {
 	return []DynamoDBMigration{
-		// Migrations will be added here as they are created
-		// Example:
-		// {Version: "0.0.1", Description: "Add parent_session_id GSI for subagent support"},
+		{Version: "0.0.1", Description: "Add parent_session_id GSI for subagent support"},
+		{Version: "0.1.0", Description: "Add plan_comments table (handled in ensureTables)"},
 	}
 }

@@ -17,6 +17,7 @@ export interface PlanDocument {
   created_at: string
   updated_at: string
   is_favorited: boolean
+  active_comments_count: number
 }
 
 export type PlanDocumentEventType = 'body_change' | 'status_change'
@@ -33,4 +34,30 @@ export interface PlanDocumentEvent {
   patch: string
   message: string
   created_at: string
+}
+
+// Plan Comment types
+export type PlanCommentStatus = 'active' | 'resolved' | 'outdated'
+
+export interface CommentPosition {
+  start_offset: number
+  end_offset: number
+  start_line: number
+  start_column: number
+  end_line: number
+  end_column: number
+  found: boolean
+}
+
+export interface PlanComment {
+  id: string
+  plan_document_id: string
+  user_id: string
+  user_name: string
+  target_text: string
+  content: string
+  status: PlanCommentStatus
+  position: CommentPosition | null
+  created_at: string
+  updated_at: string
 }

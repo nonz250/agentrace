@@ -58,6 +58,17 @@ const SetPlanStatusSchema = z.object({
   message: z.string().optional().describe("One-line description of why the status is being changed"),
 });
 
+const GetPlanCommentsSchema = z.object({
+  plan_id: z.string().describe("Plan document ID"),
+  status: z.enum(["active", "resolved", "outdated", "all"]).optional().describe("Filter comments by status. Defaults to showing all comments."),
+});
+
+const AddPlanCommentSchema = z.object({
+  plan_id: z.string().describe("Plan document ID"),
+  target_text: z.string().describe("The text in the plan body that this comment refers to"),
+  content: z.string().describe("The comment content"),
+});
+
 // Tool descriptions with usage guidance
 const TOOL_DESCRIPTIONS = {
   search_plans: `Search plan documents with filtering options.
@@ -74,7 +85,14 @@ WHEN TO USE:
 WHEN TO USE:
 - When the user asks you to check or review a specific plan by ID
 - When you need to understand an existing plan before making changes
-- When the user references a plan ID in their request`,
+- When the user references a plan ID in their request
+
+IMPORTANT - HANDLING COMMENTS:
+- The response includes 'active_comments_count' showing how many unresolved comments exist
+- If the plan is in 'planning' status AND has active comments (active_comments_count > 0):
+  - You SHOULD use get_plan_comments to read the comments
+  - Consider the feedback in the comments and reflect it in your plan updates
+  - Comments represent team feedback that should be addressed before moving to ready`,
 
   create_plan: `Create a new plan document to record implementation or design plans.
 
@@ -123,6 +141,24 @@ STATUS TRANSITION GUIDELINES:
 
 CAUTION:
 - When a plan is in "implementation" status, someone else might already be working on it. Check with the team before starting work on such plans.`,
+
+  get_plan_comments: `Get comments for a plan document.
+
+WHEN TO USE:
+- When you need to see feedback or discussions on a specific plan
+- When reviewing a plan that others have commented on
+- Before making changes to understand any concerns or suggestions
+
+Returns comments with their status (active, resolved, or outdated).`,
+
+  add_plan_comment: `Add a comment to a specific location in a plan.
+
+WHEN TO USE:
+- When you want to provide feedback on a specific part of a plan
+- When you have a question or suggestion about the plan content
+- When reviewing a plan and want to leave notes for the team
+
+The comment is anchored to specific text in the plan body.`,
 };
 
 export async function mcpServerCommand(): Promise<void> {
@@ -179,6 +215,7 @@ IMPORTANT GUIDELINES:
           id: plan.id,
           description: plan.description,
           status: plan.status,
+          active_comments_count: plan.active_comments_count,
           git_remote_url: plan.project?.canonical_git_repository || null,
           url: plan.url || null,
           updated_at: plan.updated_at,
@@ -216,9 +253,14 @@ IMPORTANT GUIDELINES:
       try {
         const plan = await getClient().getPlan(args.id);
 
-        let text = `# ${plan.description}\n\nStatus: ${plan.status}\n\n${plan.body}`;
+        let text = `# ${plan.description}\n\nStatus: ${plan.status}\nActive Comments: ${plan.active_comments_count}\n\n${plan.body}`;
         if (plan.url) {
           text += `\n\n---\nURL: ${plan.url}`;
+        }
+
+        // Add reminder if there are active comments on a planning status plan
+        if (plan.status === "planning" && plan.active_comments_count > 0) {
+          text += `\n\n---\n⚠️ This plan has ${plan.active_comments_count} active comment(s). Use get_plan_comments to review them and consider the feedback.`;
         }
 
         return {
@@ -358,6 +400,100 @@ IMPORTANT GUIDELINES:
             {
               type: "text" as const,
               text,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // get_plan_comments tool
+  server.tool(
+    "get_plan_comments",
+    TOOL_DESCRIPTIONS.get_plan_comments,
+    GetPlanCommentsSchema.shape,
+    async (args) => {
+      try {
+        const comments = await getClient().getComments(args.plan_id, args.status);
+
+        if (comments.length === 0) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: "No comments found for this plan.",
+              },
+            ],
+          };
+        }
+
+        const commentList = comments.map((comment) => ({
+          id: comment.id,
+          user_name: comment.user_name,
+          target_text: comment.target_text,
+          content: comment.content,
+          status: comment.status,
+          position: comment.position ? {
+            start_line: comment.position.start_line,
+            start_column: comment.position.start_column,
+            end_line: comment.position.end_line,
+            end_column: comment.position.end_column,
+            found: comment.position.found,
+          } : null,
+          created_at: comment.created_at,
+        }));
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(commentList, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // add_plan_comment tool
+  server.tool(
+    "add_plan_comment",
+    TOOL_DESCRIPTIONS.add_plan_comment,
+    AddPlanCommentSchema.shape,
+    async (args) => {
+      try {
+        const comment = await getClient().createComment(args.plan_id, {
+          target_text: args.target_text,
+          context_before: "",
+          context_after: "",
+          content: args.content,
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Comment added successfully.\n\nID: ${comment.id}\nStatus: ${comment.status}\nTarget: "${comment.target_text}"`,
             },
           ],
         };

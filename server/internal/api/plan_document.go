@@ -34,16 +34,17 @@ type PlanDocumentProjectResponse struct {
 }
 
 type PlanDocumentResponse struct {
-	ID            string                       `json:"id"`
-	Project       *PlanDocumentProjectResponse `json:"project"`
-	Description   string                       `json:"description"`
-	Body          string                       `json:"body"`
-	Status        string                       `json:"status"`
-	Collaborators []*CollaboratorResponse      `json:"collaborators"`
-	URL           string                       `json:"url,omitempty"`
-	CreatedAt     string                       `json:"created_at"`
-	UpdatedAt     string                       `json:"updated_at"`
-	IsFavorited   bool                         `json:"is_favorited"`
+	ID                  string                       `json:"id"`
+	Project             *PlanDocumentProjectResponse `json:"project"`
+	Description         string                       `json:"description"`
+	Body                string                       `json:"body"`
+	Status              string                       `json:"status"`
+	Collaborators       []*CollaboratorResponse      `json:"collaborators"`
+	URL                 string                       `json:"url,omitempty"`
+	CreatedAt           string                       `json:"created_at"`
+	UpdatedAt           string                       `json:"updated_at"`
+	IsFavorited         bool                         `json:"is_favorited"`
+	ActiveCommentsCount int                          `json:"active_comments_count"`
 }
 
 type PlanDocumentListResponse struct {
@@ -134,17 +135,26 @@ func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *d
 		url = h.webURL + "/plans/" + doc.ID
 	}
 
+	// Count active comments
+	activeCommentsCount := 0
+	activeStatus := domain.PlanCommentStatusActive
+	comments, err := h.repos.PlanComment.FindByPlanDocumentID(ctx, doc.ID, &activeStatus)
+	if err == nil {
+		activeCommentsCount = len(comments)
+	}
+
 	return &PlanDocumentResponse{
-		ID:            doc.ID,
-		Project:       projectResp,
-		Description:   doc.Description,
-		Body:          doc.Body,
-		Status:        string(doc.Status),
-		Collaborators: collaborators,
-		URL:           url,
-		CreatedAt:     doc.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:     doc.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		IsFavorited:   isFavorited,
+		ID:                  doc.ID,
+		Project:             projectResp,
+		Description:         doc.Description,
+		Body:                doc.Body,
+		Status:              string(doc.Status),
+		Collaborators:       collaborators,
+		URL:                 url,
+		CreatedAt:           doc.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:           doc.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		IsFavorited:         isFavorited,
+		ActiveCommentsCount: activeCommentsCount,
 	}, nil
 }
 
@@ -513,6 +523,9 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (set by auth middleware)
 	userID := GetUserIDFromContext(ctx)
 
+	// Track if body is being updated (for comment invalidation)
+	bodyUpdated := req.Body != nil && *req.Body != doc.Body
+
 	// Update fields if provided
 	if req.Description != nil {
 		doc.Description = *req.Description
@@ -527,6 +540,11 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err := h.repos.PlanDocument.Update(ctx, doc); err != nil {
 		http.Error(w, `{"error": "failed to update plan document"}`, http.StatusInternalServerError)
 		return
+	}
+
+	// If body was updated, check and invalidate comments whose target text is no longer found
+	if bodyUpdated {
+		h.invalidateOutdatedComments(ctx, doc)
 	}
 
 	// Create event with patch if provided
@@ -672,6 +690,29 @@ func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// invalidateOutdatedComments checks all active comments and marks them as outdated
+// if their target text can no longer be found in the updated document body
+func (h *PlanDocumentHandler) invalidateOutdatedComments(ctx context.Context, doc *domain.PlanDocument) {
+	// Get all active comments for this plan
+	activeStatus := domain.PlanCommentStatusActive
+	comments, err := h.repos.PlanComment.FindByPlanDocumentID(ctx, doc.ID, &activeStatus)
+	if err != nil {
+		// Log error but don't fail - the document update was successful
+		return
+	}
+
+	for _, comment := range comments {
+		// Check if the comment's target text can still be found
+		position := FindCommentPosition(doc.Body, comment)
+		if !position.Found {
+			// Mark as outdated
+			comment.Status = domain.PlanCommentStatusOutdated
+			h.repos.PlanComment.Update(ctx, comment)
+			// Ignore update errors - best effort
+		}
+	}
 }
 
 // bodyToInitialPatch converts body content to an "all additions" diff format.

@@ -18,5 +18,6 @@ func NewRepositories(db *DB) *repository.Repositories {
 		PlanDocument:       NewPlanDocumentRepository(db),
 		PlanDocumentEvent:  NewPlanDocumentEventRepository(db),
 		UserFavorite:       NewUserFavoriteRepository(db),
+		PlanComment:        NewPlanCommentRepository(db),
 	}
 }

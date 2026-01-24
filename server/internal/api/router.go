@@ -30,6 +30,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	sessionHandler := NewSessionHandler(repos)
 	authHandler := NewAuthHandler(cfg, repos)
 	planDocumentHandler := NewPlanDocumentHandler(cfg.WebURL, repos)
+	planCommentHandler := NewPlanCommentHandler(repos)
 	projectHandler := NewProjectHandler(repos)
 	userFavoriteHandler := NewUserFavoriteHandler(repos)
 
@@ -56,6 +57,10 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiBearerOrSession.HandleFunc("/plans/{id}", planDocumentHandler.Update).Methods("PATCH")
 	apiBearerOrSession.HandleFunc("/plans/{id}", planDocumentHandler.Delete).Methods("DELETE")
 	apiBearerOrSession.HandleFunc("/plans/{id}/status", planDocumentHandler.SetStatus).Methods("PATCH")
+	apiBearerOrSession.HandleFunc("/plans/{id}/comments", planCommentHandler.Create).Methods("POST")
+	apiBearerOrSession.HandleFunc("/plans/{id}/comments/{commentId}", planCommentHandler.Update).Methods("PATCH")
+	apiBearerOrSession.HandleFunc("/plans/{id}/comments/{commentId}", planCommentHandler.Delete).Methods("DELETE")
+	apiBearerOrSession.HandleFunc("/plans/{id}/comments/{commentId}/resolve", planCommentHandler.Resolve).Methods("POST")
 	apiBearerOrSession.HandleFunc("/projects/{id}", projectHandler.Delete).Methods("DELETE")
 
 	// API routes (Session auth - for Web)
@@ -79,6 +84,7 @@ func NewRouter(cfg *config.Config, repos *repository.Repositories) http.Handler 
 	apiOptional.HandleFunc("/plans", planDocumentHandler.List).Methods("GET")
 	apiOptional.HandleFunc("/plans/{id}", planDocumentHandler.Get).Methods("GET")
 	apiOptional.HandleFunc("/plans/{id}/events", planDocumentHandler.GetEvents).Methods("GET")
+	apiOptional.HandleFunc("/plans/{id}/comments", planCommentHandler.List).Methods("GET")
 	apiOptional.HandleFunc("/projects", projectHandler.List).Methods("GET")
 	apiOptional.HandleFunc("/projects/{id}", projectHandler.Get).Methods("GET")
 	apiOptional.HandleFunc("/users", authHandler.ListUsers).Methods("GET")
