@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { PlanList } from '@/components/plans/PlanList'
 import { CreatePlanModal } from '@/components/plans/CreatePlanModal'
@@ -22,6 +22,7 @@ const PAGE_SIZE = 20
 
 export function PlansPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { projectId } = useParams<{ projectId: string }>()
   const [page, setPage] = useState(1)
   const [cursors, setCursors] = useState<string[]>(['']) // cursors[0] = '' for first page
@@ -205,6 +206,13 @@ export function PlansPage() {
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         defaultProjectId={projectId}
+        onSuccess={(plan) => {
+          if (plan.project?.id) {
+            navigate(`/projects/${plan.project.id}/plans/${plan.id}`)
+          } else {
+            navigate(`/plans/${plan.id}`)
+          }
+        }}
       />
 
       {(page > 1 || hasMore) && (

@@ -9,12 +9,12 @@ import { createPlan } from '@/api/plan-documents'
 import { getProjects } from '@/api/projects'
 import { getProjectDisplayName } from '@/lib/project-utils'
 import { statusConfig } from '@/lib/plan-status'
-import type { PlanDocumentStatus } from '@/types/plan-document'
+import type { PlanDocument, PlanDocumentStatus } from '@/types/plan-document'
 
 interface CreatePlanModalProps {
   open: boolean
   onClose: () => void
-  onSuccess?: () => void
+  onSuccess?: (plan: PlanDocument) => void
   defaultProjectId?: string | null
 }
 
@@ -45,10 +45,10 @@ export function CreatePlanModal({ open, onClose, onSuccess, defaultProjectId }: 
       project_id: projectId || undefined,
       status,
     }),
-    onSuccess: () => {
+    onSuccess: (plan) => {
       queryClient.invalidateQueries({ queryKey: ['plans'] })
       handleClose()
-      onSuccess?.()
+      onSuccess?.(plan)
     },
   })
 

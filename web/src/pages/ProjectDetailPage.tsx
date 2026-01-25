@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Plus } from 'lucide-react'
 import { SessionList } from '@/components/sessions/SessionList'
 import { PlanList } from '@/components/plans/PlanList'
@@ -28,6 +28,7 @@ interface Creator {
 
 export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const { selectedStatuses, setStatuses } = usePlanStatusFilter()
@@ -259,6 +260,13 @@ export function ProjectDetailPage() {
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         defaultProjectId={projectId}
+        onSuccess={(plan) => {
+          if (plan.project?.id) {
+            navigate(`/projects/${plan.project.id}/plans/${plan.id}`)
+          } else {
+            navigate(`/plans/${plan.id}`)
+          }
+        }}
       />
 
       {/* Recent Sessions */}
