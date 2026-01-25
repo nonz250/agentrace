@@ -181,7 +181,15 @@ func FindThreadPosition(body string, thread *domain.PlanCommentThread) *domain.C
 		}
 	}
 
-	// Last resort: find just the target text (first occurrence)
+	// If we had context but couldn't match with it, don't fall back to first occurrence
+	// This prevents comments from jumping to unrelated identical text
+	if contextBefore != "" || contextAfter != "" {
+		return &domain.CommentPosition{
+			Found: false,
+		}
+	}
+
+	// Only fall back to first occurrence if no context was provided at all
 	idx = strings.Index(body, targetText)
 	if idx >= 0 {
 		return createPosition(body, idx, idx+len(targetText))
