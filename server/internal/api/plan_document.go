@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -484,6 +485,7 @@ func (h *PlanDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err := h.repos.PlanDocumentEvent.Create(ctx, event); err != nil {
 		// Log error but don't fail the request
 		// The document was created successfully
+		log.Printf("Warning: failed to create plan document event: %v", err)
 	}
 
 	resp, err := h.planDocumentToResponse(ctx, doc, false)
@@ -565,6 +567,7 @@ func (h *PlanDocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		if err := h.repos.PlanDocumentEvent.Create(ctx, event); err != nil {
 			// Log error but don't fail the request
 			// The document was updated successfully
+			log.Printf("Warning: failed to create plan document event: %v", err)
 		}
 	}
 
