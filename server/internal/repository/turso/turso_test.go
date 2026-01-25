@@ -33,6 +33,8 @@ func testDB(t *testing.T) (*DB, func()) {
 	// Clean up tables before tests
 	cleanup := func() {
 		tables := []string{
+			"plan_comment_messages",
+			"plan_comment_threads",
 			"plan_document_events",
 			"plan_documents",
 			"user_favorites",
@@ -53,6 +55,8 @@ func testDB(t *testing.T) (*DB, func()) {
 
 	// Clean before test as well
 	tables := []string{
+		"plan_comment_messages",
+		"plan_comment_threads",
 		"plan_document_events",
 		"plan_documents",
 		"user_favorites",
@@ -196,6 +200,33 @@ func TestUserFavoriteRepository(t *testing.T) {
 	s := &testsuite.UserFavoriteRepositorySuite{
 		Repo:     NewUserFavoriteRepository(db),
 		UserRepo: NewUserRepository(db),
+	}
+	suite.Run(t, s)
+}
+
+func TestPlanCommentThreadRepository(t *testing.T) {
+	db, cleanup := testDB(t)
+	defer cleanup()
+
+	s := &testsuite.PlanCommentThreadRepositorySuite{
+		Repo:        NewPlanCommentThreadRepository(db),
+		PlanDocRepo: NewPlanDocumentRepository(db),
+		ProjectRepo: NewProjectRepository(db),
+		UserRepo:    NewUserRepository(db),
+	}
+	suite.Run(t, s)
+}
+
+func TestPlanCommentMessageRepository(t *testing.T) {
+	db, cleanup := testDB(t)
+	defer cleanup()
+
+	s := &testsuite.PlanCommentMessageRepositorySuite{
+		Repo:        NewPlanCommentMessageRepository(db),
+		ThreadRepo:  NewPlanCommentThreadRepository(db),
+		PlanDocRepo: NewPlanDocumentRepository(db),
+		ProjectRepo: NewProjectRepository(db),
+		UserRepo:    NewUserRepository(db),
 	}
 	suite.Run(t, s)
 }

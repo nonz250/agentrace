@@ -161,3 +161,30 @@ func TestUserFavoriteRepository(t *testing.T) {
 	}
 	suite.Run(t, s)
 }
+
+func TestPlanCommentThreadRepository(t *testing.T) {
+	db, cleanup := testDB(t)
+	defer cleanup()
+
+	s := &testsuite.PlanCommentThreadRepositorySuite{
+		Repo:        NewPlanCommentThreadRepository(db),
+		PlanDocRepo: NewPlanDocumentRepository(db),
+		ProjectRepo: NewProjectRepository(db),
+		UserRepo:    NewUserRepository(db),
+	}
+	suite.Run(t, s)
+}
+
+func TestPlanCommentMessageRepository(t *testing.T) {
+	db, cleanup := testDB(t)
+	defer cleanup()
+
+	s := &testsuite.PlanCommentMessageRepositorySuite{
+		Repo:        NewPlanCommentMessageRepository(db),
+		ThreadRepo:  NewPlanCommentThreadRepository(db),
+		PlanDocRepo: NewPlanDocumentRepository(db),
+		ProjectRepo: NewProjectRepository(db),
+		UserRepo:    NewUserRepository(db),
+	}
+	suite.Run(t, s)
+}

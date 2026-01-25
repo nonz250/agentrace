@@ -2,27 +2,26 @@ package domain
 
 import "time"
 
-type PlanCommentStatus string
+type PlanCommentThreadStatus string
 
 const (
-	PlanCommentStatusActive   PlanCommentStatus = "active"
-	PlanCommentStatusResolved PlanCommentStatus = "resolved"
-	PlanCommentStatusOutdated PlanCommentStatus = "outdated" // 本文変更で無効化
+	PlanCommentThreadStatusActive   PlanCommentThreadStatus = "active"
+	PlanCommentThreadStatusResolved PlanCommentThreadStatus = "resolved"
+	PlanCommentThreadStatusOutdated PlanCommentThreadStatus = "outdated" // 本文変更で無効化
 )
 
-func (s PlanCommentStatus) IsValid() bool {
+func (s PlanCommentThreadStatus) IsValid() bool {
 	switch s {
-	case PlanCommentStatusActive, PlanCommentStatusResolved, PlanCommentStatusOutdated:
+	case PlanCommentThreadStatusActive, PlanCommentThreadStatusResolved, PlanCommentThreadStatusOutdated:
 		return true
 	}
 	return false
 }
 
-// PlanComment represents a comment on a specific location in a PlanDocument
-type PlanComment struct {
+// PlanCommentThread represents a comment thread anchored to a specific location in a PlanDocument
+type PlanCommentThread struct {
 	ID             string
 	PlanDocumentID string // reference to PlanDocument
-	UserID         string // reference to User (required)
 
 	// 位置特定情報
 	TargetText       string // コメント対象のテキスト（選択範囲）
@@ -30,14 +29,13 @@ type PlanComment struct {
 	ContextAfter     string // 対象テキストの後のコンテキスト（〜100文字）
 	OriginalBodyHash string // コメント作成時のPlan本文のハッシュ
 
-	Content string            // コメント本文
-	Status  PlanCommentStatus // active / resolved / outdated
+	Status PlanCommentThreadStatus // active / resolved / outdated
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-// CommentPosition represents the calculated position of a comment in the current document body
+// CommentPosition represents the calculated position of a comment thread in the current document body
 type CommentPosition struct {
 	StartOffset int  // 開始位置（文字オフセット）
 	EndOffset   int  // 終了位置（文字オフセット）

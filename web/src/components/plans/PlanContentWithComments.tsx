@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { MessageSquare, MessageSquarePlus, X, Send, CheckCircle, User, Trash2 } from 'lucide-react'
+import { MessageSquare, MessageSquarePlus, X, Send, CheckCircle, User, Trash2, MessageCircle, MoreVertical } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { CopyButton } from '@/components/ui/CopyButton'
 import { useAuth } from '@/hooks/useAuth'
 import * as commentsApi from '@/api/plan-comments'
-import type { PlanComment } from '@/types/plan-document'
+import type { PlanCommentThread } from '@/types/plan-document'
 
 interface SelectionInfo {
   text: string
@@ -73,7 +73,7 @@ const CommentForm = memo(function CommentForm({ planId, selection, onSuccess, on
 
   const createMutation = useMutation({
     mutationFn: (data: { target_text: string; context_before: string; context_after: string; content: string }) =>
-      commentsApi.createPlanComment(planId, {
+      commentsApi.createPlanThread(planId, {
         target_text: data.target_text,
         context_before: data.context_before,
         context_after: data.context_after,
@@ -99,9 +99,8 @@ const CommentForm = memo(function CommentForm({ planId, selection, onSuccess, on
     <div
       className="comment-form absolute z-[5] bg-white border border-gray-200 rounded-lg shadow-xl p-4 w-80"
       style={{
-        top: Math.max(selection.rect.top, 16),
+        top: selection.rect.top + 8,
         left: selection.rect.left + 12,
-        transform: 'translateY(-50%)',
       }}
     >
       <div className="mb-3">
@@ -139,10 +138,10 @@ const CommentForm = memo(function CommentForm({ planId, selection, onSuccess, on
 interface PlanContentWithCommentsProps {
   planId: string
   body: string
-  comments: PlanComment[]
+  threads: PlanCommentThread[]
 }
 
-export function PlanContentWithComments({ planId, body, comments }: PlanContentWithCommentsProps) {
+export function PlanContentWithComments({ planId, body, threads }: PlanContentWithCommentsProps) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -150,22 +149,41 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
 
   const [selection, setSelection] = useState<SelectionInfo | null>(null)
   const [isAddingComment, setIsAddingComment] = useState(false)
-  const [activeComment, setActiveComment] = useState<PlanComment | null>(null)
-  const [activeCommentRect, setActiveCommentRect] = useState<DOMRect | null>(null)
+  const [activeThread, setActiveThread] = useState<PlanCommentThread | null>(null)
+  const [activeThreadRect, setActiveThreadRect] = useState<DOMRect | null>(null)
+  const [replyContent, setReplyContent] = useState('')
+  const [showThreadMenu, setShowThreadMenu] = useState(false)
+  const [showThreadList, setShowThreadList] = useState(false)
 
-  const resolveMutation = useMutation({
-    mutationFn: (commentId: string) => commentsApi.resolvePlanComment(planId, commentId),
+  const resolveThreadMutation = useMutation({
+    mutationFn: (threadId: string) => commentsApi.resolvePlanThread(planId, threadId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
-      setActiveComment(null)
+      setActiveThread(null)
     },
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: (commentId: string) => commentsApi.deletePlanComment(planId, commentId),
+  const deleteThreadMutation = useMutation({
+    mutationFn: (threadId: string) => commentsApi.deletePlanThread(planId, threadId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
-      setActiveComment(null)
+      setActiveThread(null)
+    },
+  })
+
+  const addMessageMutation = useMutation({
+    mutationFn: ({ threadId, content }: { threadId: string; content: string }) =>
+      commentsApi.addThreadMessage(planId, threadId, { content }),
+    onSuccess: (newMessage) => {
+      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
+      setReplyContent('')
+      // Update activeThread with the new message for immediate UI feedback
+      if (activeThread && newMessage) {
+        setActiveThread({
+          ...activeThread,
+          messages: [...activeThread.messages, newMessage],
+        })
+      }
     },
   })
 
@@ -243,7 +261,6 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
       }
 
       // Check if selection spans across block-level elements
-      // by examining the commonAncestorContainer
       const commonAncestor = range.commonAncestorContainer
       const commonAncestorElement = commonAncestor.nodeType === Node.ELEMENT_NODE
         ? commonAncestor as Element
@@ -255,16 +272,14 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
         return
       }
 
-      // If the common ancestor is a list, table, or similar container (not a leaf element),
-      // selection spans multiple items
+      // If the common ancestor is a list, table, or similar container, selection spans multiple items
       const containerTags = ['UL', 'OL', 'TABLE', 'TBODY', 'THEAD', 'TFOOT']
       if (commonAncestorElement && containerTags.includes(commonAncestorElement.tagName)) {
         setSelection(null)
         return
       }
 
-      // Check if selection spans across inline formatting elements (code, strong, em, etc.)
-      // This happens when selecting text like "Repository: `server" which crosses a code boundary
+      // Check if selection spans across inline formatting elements
       const getInlineFormattingParent = (node: Node): Element | null => {
         let current = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement
         const inlineTags = ['CODE', 'STRONG', 'EM', 'A', 'MARK', 'SPAN']
@@ -280,7 +295,6 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
       const startInlineParent = getInlineFormattingParent(range.startContainer)
       const endInlineParent = getInlineFormattingParent(range.endContainer)
 
-      // If one end is in an inline element and the other is not, or they're in different inline elements
       if (startInlineParent !== endInlineParent) {
         setSelection(null)
         return
@@ -300,12 +314,10 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
       const { contextBefore, contextAfter } = extractContextFromBody(text, occurrencesBeforeInRendered)
 
       // Use mouse position for more reliable popup placement
-      // Calculate position relative to container for absolute positioning
       const containerRect = containerRef.current?.getBoundingClientRect()
       const relativeX = e.clientX - (containerRect?.left || 0)
       const relativeY = e.clientY - (containerRect?.top || 0)
 
-      // Create a rect based on container-relative position
       const rect = {
         top: relativeY,
         bottom: relativeY,
@@ -348,24 +360,24 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
     setSelection(null)
   }
 
-  // Store comments in a ref for event delegation
-  const commentsRef = useRef<PlanComment[]>([])
-  commentsRef.current = comments
+  // Store threads in a ref for event delegation
+  const threadsRef = useRef<PlanCommentThread[]>([])
+  threadsRef.current = threads
 
   // Handle click on highlight via event delegation
   const handleContentClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement
     const highlight = target.closest('.comment-highlight') as HTMLElement | null
-    if (highlight && highlight.dataset.commentId) {
+    if (highlight && highlight.dataset.threadId) {
       e.stopPropagation()
-      const comment = commentsRef.current.find(c => c.id === highlight.dataset.commentId)
-      if (comment) {
-        setActiveComment(comment)
+      const thread = threadsRef.current.find(t => t.id === highlight.dataset.threadId)
+      if (thread) {
+        setActiveThread(thread)
         // Calculate position relative to container for absolute positioning
         const containerRect = containerRef.current?.getBoundingClientRect()
         const relativeX = e.clientX - (containerRect?.left || 0)
         const relativeY = e.clientY - (containerRect?.top || 0)
-        setActiveCommentRect({
+        setActiveThreadRect({
           top: relativeY,
           bottom: relativeY,
           left: relativeX,
@@ -393,7 +405,7 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
     return charIndex
   }, [])
 
-  // Find and highlight comments in the rendered content
+  // Find and highlight threads in the rendered content
   useEffect(() => {
     if (!contentRef.current) return
 
@@ -410,8 +422,8 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
         }
       })
 
-      // Add new highlights for active comments
-      const activeComments = comments.filter((c) => c.status === 'active' && c.position?.found)
+      // Add new highlights for active threads
+      const activeThreads = threads.filter((t) => t.status === 'active' && t.position?.found)
 
       // Get all text content from the container for cross-element matching
       const getTextNodesWithPositions = (root: Node): { node: Text; start: number; end: number }[] => {
@@ -431,24 +443,22 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
       // Get full text content (without markup)
       const fullRenderedText = contentRef.current.textContent || ''
 
-      for (const comment of activeComments) {
-        // Determine which occurrence this comment refers to using the position from server
-        // Server returns byte offset in the body, we need to find the same Nth occurrence in rendered content
-        const startByteOffset = comment.position!.start_offset
+      for (const thread of activeThreads) {
+        // Determine which occurrence this thread refers to using the position from server
+        const startByteOffset = thread.position!.start_offset
         const startCharOffset = byteOffsetToCharOffset(body, startByteOffset)
 
         // Count how many occurrences of target_text appear before this position in body
         const bodyBeforeTarget = body.substring(0, startCharOffset)
-        const occurrencesBeforeInBody = findAllOccurrences(bodyBeforeTarget, comment.target_text).length
+        const occurrencesBeforeInBody = findAllOccurrences(bodyBeforeTarget, thread.target_text).length
 
         // Find all occurrences in rendered content
-        const occurrencesInRendered = findAllOccurrences(fullRenderedText, comment.target_text)
+        const occurrencesInRendered = findAllOccurrences(fullRenderedText, thread.target_text)
 
         // Get the position of the same Nth occurrence in rendered content
-        // If there are fewer occurrences in rendered than in body, use the last one
         const targetOccurrenceIndex = Math.min(occurrencesBeforeInBody, occurrencesInRendered.length - 1)
         if (targetOccurrenceIndex < 0 || occurrencesInRendered.length === 0) {
-          continue // Can't find this occurrence in rendered content
+          continue
         }
         const targetPosInRendered = occurrencesInRendered[targetOccurrenceIndex]
 
@@ -459,25 +469,23 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
         for (const { node: textNode, start: nodeStart, end: nodeEnd } of textNodes) {
           if (highlighted) break
 
-          // Check if this node contains our target position
           if (targetPosInRendered >= nodeStart && targetPosInRendered < nodeEnd) {
             const text = textNode.textContent || ''
             const indexInNode = targetPosInRendered - nodeStart
 
-            // Verify the text matches at this position
-            if (text.substring(indexInNode, indexInNode + comment.target_text.length) !== comment.target_text) {
+            if (text.substring(indexInNode, indexInNode + thread.target_text.length) !== thread.target_text) {
               continue
             }
 
             if (textNode.parentNode) {
               try {
                 const before = text.substring(0, indexInNode)
-                const target = text.substring(indexInNode, indexInNode + comment.target_text.length)
-                const after = text.substring(indexInNode + comment.target_text.length)
+                const target = text.substring(indexInNode, indexInNode + thread.target_text.length)
+                const after = text.substring(indexInNode + thread.target_text.length)
 
                 const highlight = document.createElement('mark')
                 highlight.className = 'comment-highlight bg-yellow-100 hover:bg-yellow-200 cursor-pointer rounded px-0.5 transition-colors'
-                highlight.dataset.commentId = comment.id
+                highlight.dataset.threadId = thread.id
                 highlight.textContent = target
 
                 const parent = textNode.parentNode
@@ -500,15 +508,13 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
           }
         }
 
-        // If not found in single node, try cross-element matching using the same calculated position
+        // Cross-element matching fallback
         if (!highlighted && targetPosInRendered >= 0) {
-          // Re-get text nodes (DOM might have changed)
           const freshTextNodes = getTextNodesWithPositions(contentRef.current!)
-          const matchEnd = targetPosInRendered + comment.target_text.length
+          const matchEnd = targetPosInRendered + thread.target_text.length
 
-          // Find all text nodes that overlap with our match
           for (const { node: textNode, start, end } of freshTextNodes) {
-            if (end <= targetPosInRendered || start >= matchEnd) continue // No overlap
+            if (end <= targetPosInRendered || start >= matchEnd) continue
             if (!textNode.parentNode) continue
 
             const text = textNode.textContent || ''
@@ -524,7 +530,7 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
 
               const highlight = document.createElement('mark')
               highlight.className = 'comment-highlight bg-yellow-100 hover:bg-yellow-200 cursor-pointer rounded px-0.5 transition-colors'
-              highlight.dataset.commentId = comment.id
+              highlight.dataset.threadId = thread.id
               highlight.textContent = target
 
               const parent = textNode.parentNode
@@ -548,23 +554,93 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
       }
     }
 
-    // Apply highlights after a small delay to ensure DOM is stable
     const timer = setTimeout(applyHighlights, 10)
     return () => clearTimeout(timer)
-  }, [comments, body, byteOffsetToCharOffset, findAllOccurrences])
+  }, [threads, body, byteOffsetToCharOffset, findAllOccurrences])
 
-  // Get active comments count
-  const activeCommentsCount = comments.filter((c) => c.status === 'active').length
+  // Get active threads count
+  const activeThreadsCount = threads.filter((t) => t.status === 'active').length
+
+  // Get first message creator for thread owner check
+  const isThreadOwner = activeThread && activeThread.messages.length > 0 && user?.id === activeThread.messages[0].user_id
 
   return (
     <div ref={containerRef} className="relative">
       <CopyButton text={body} className="absolute top-0 right-0 z-10" />
 
-      {/* Comments indicator */}
-      {activeCommentsCount > 0 && (
-        <div className="absolute top-0 right-12 flex items-center gap-1 text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
-          <MessageSquare className="h-3 w-3" />
-          {activeCommentsCount} comment{activeCommentsCount > 1 ? 's' : ''}
+      {/* Threads indicator - clickable to show thread list */}
+      {activeThreadsCount > 0 && (
+        <div className="absolute top-0 right-12">
+          <button
+            className="flex items-center gap-1 text-xs text-yellow-600 bg-yellow-50 hover:bg-yellow-100 px-2 py-1 rounded transition-colors cursor-pointer"
+            onClick={() => setShowThreadList(!showThreadList)}
+          >
+            <MessageSquare className="h-3 w-3" />
+            {activeThreadsCount} thread{activeThreadsCount > 1 ? 's' : ''}
+          </button>
+
+          {/* Thread list dropdown */}
+          {showThreadList && (
+            <>
+              <div
+                className="fixed inset-0 z-[3]"
+                onClick={() => setShowThreadList(false)}
+              />
+              <div className="absolute right-0 top-full mt-1 z-[4] bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-72 max-h-80 overflow-y-auto">
+                <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
+                  Active Threads
+                </div>
+                {threads
+                  .filter((t) => t.status === 'active')
+                  .map((thread) => (
+                    <button
+                      key={thread.id}
+                      className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        setShowThreadList(false)
+
+                        // Find the highlight element for this thread
+                        const highlightEl = contentRef.current?.querySelector(
+                          `.comment-highlight[data-thread-id="${thread.id}"]`
+                        ) as HTMLElement | null
+
+                        if (highlightEl) {
+                          // Scroll the highlight into view
+                          highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+                          // Open the thread UI after a short delay to let scroll finish
+                          setTimeout(() => {
+                            const containerRect = containerRef.current?.getBoundingClientRect()
+                            const highlightRect = highlightEl.getBoundingClientRect()
+                            if (containerRect) {
+                              setActiveThread(thread)
+                              setActiveThreadRect({
+                                top: highlightRect.top - containerRect.top + highlightRect.height,
+                                bottom: highlightRect.bottom - containerRect.top,
+                                left: highlightRect.left - containerRect.left,
+                                right: highlightRect.right - containerRect.left,
+                                width: highlightRect.width,
+                                height: highlightRect.height,
+                                x: highlightRect.left - containerRect.left,
+                                y: highlightRect.top - containerRect.top,
+                                toJSON: () => ({}),
+                              } as DOMRect)
+                            }
+                          }, 100)
+                        }
+                      }}
+                    >
+                      <div className="text-sm text-gray-700 line-clamp-2">
+                        "{thread.target_text}"
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {thread.messages.length} {thread.messages.length === 1 ? 'reply' : 'replies'}
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -583,9 +659,8 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
         <button
           className="selection-popup absolute z-[5] bg-white border border-gray-200 rounded-full shadow-lg p-2 hover:bg-gray-50 transition-colors"
           style={{
-            top: selection.rect.top,
+            top: selection.rect.top + 8,
             left: selection.rect.left + 12,
-            transform: 'translateY(-50%)',
           }}
           onClick={handleStartComment}
           title="Add Comment"
@@ -604,71 +679,124 @@ export function PlanContentWithComments({ planId, body, comments }: PlanContentW
         />
       )}
 
-      {/* Active comment popup */}
-      {activeComment && activeCommentRect && (
+      {/* Active thread popup */}
+      {activeThread && activeThreadRect && (
         <div
-          className="absolute z-[5] bg-white border border-gray-200 rounded-lg shadow-xl p-4 w-80"
+          className="absolute z-[5] bg-white border border-gray-200 rounded-lg shadow-xl p-4 w-96 max-h-[80vh] overflow-y-auto"
           style={{
-            top: Math.max(activeCommentRect.top, 16),
-            left: activeCommentRect.left + 12,
-            transform: 'translateY(-50%)',
+            top: activeThreadRect.top + 8,
+            left: activeThreadRect.left + 12,
           }}
         >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-sm">
-              <User className="h-4 w-4 text-gray-500" />
-              <span className="font-medium">{activeComment.user_name}</span>
-              <span className="text-gray-400 text-xs">
-                {formatDistanceToNow(new Date(activeComment.created_at), { addSuffix: true })}
-              </span>
+          {/* Header with quote and actions */}
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div className="flex-1">
+              {activeThread.status === 'resolved' && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700 mb-1">
+                  <CheckCircle className="h-3 w-3" />
+                  Resolved
+                </span>
+              )}
+              <div className="text-sm bg-gray-50 border-l-2 border-gray-300 px-2 py-1 italic text-gray-600">
+                "{activeThread.target_text}"
+              </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setActiveComment(null)} className="!p-1">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="text-sm bg-gray-50 border-l-2 border-gray-300 px-2 py-1 mb-2 italic text-gray-600">
-            "{activeComment.target_text}"
-          </div>
-          <div className="text-sm text-gray-700 whitespace-pre-wrap mb-3">
-            {activeComment.content}
-          </div>
-          <div className="flex justify-end gap-2">
-            {user?.id === activeComment.user_id && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (confirm('Delete this comment?')) {
-                    deleteMutation.mutate(activeComment.id)
-                  }
-                }}
-                disabled={deleteMutation.isPending}
-                className="text-red-500 hover:text-red-700"
-              >
-                <Trash2 className="mr-1 h-4 w-4" />
-                Delete
-              </Button>
-            )}
-            {user && activeComment.status === 'active' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => resolveMutation.mutate(activeComment.id)}
-                disabled={resolveMutation.isPending}
-              >
-                <CheckCircle className="mr-1 h-4 w-4" />
-                Resolve
-              </Button>
+            {/* Dropdown menu for thread actions */}
+            {isThreadOwner && activeThread.status === 'active' && (
+              <div className="relative flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowThreadMenu(!showThreadMenu)}
+                  className="!p-1"
+                >
+                  <MoreVertical className="h-4 w-4 text-gray-500" />
+                </Button>
+                {showThreadMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowThreadMenu(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-32">
+                      <button
+                        className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        onClick={() => {
+                          setShowThreadMenu(false)
+                          if (confirm('Delete this thread?')) {
+                            deleteThreadMutation.mutate(activeThread.id)
+                          }
+                        }}
+                        disabled={deleteThreadMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
+
+          {/* Messages */}
+          <div className="space-y-2 mb-3">
+            {activeThread.messages.map((message) => (
+              <div key={message.id} className="border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                <div className="flex items-center gap-2 text-sm mb-1">
+                  <User className="h-3.5 w-3.5 text-gray-500" />
+                  <span className="font-medium">{message.user_name}</span>
+                  <span className="text-gray-400 text-xs">
+                    {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap pl-5">
+                  {message.content}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Reply form */}
+          {activeThread.status === 'active' && user && (
+            <div className="border-t border-gray-200 pt-3">
+              <Textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="Write a reply..."
+                rows={2}
+                className="text-sm mb-2"
+              />
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => resolveThreadMutation.mutate(activeThread.id)}
+                  disabled={resolveThreadMutation.isPending}
+                >
+                  <CheckCircle className="mr-1 h-3.5 w-3.5" />
+                  Resolve
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => addMessageMutation.mutate({ threadId: activeThread.id, content: replyContent })}
+                  disabled={!replyContent.trim() || addMessageMutation.isPending}
+                  loading={addMessageMutation.isPending}
+                >
+                  <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                  Reply
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Backdrop for comment popup */}
-      {activeComment && (
+      {/* Backdrop for thread popup */}
+      {activeThread && (
         <div
           className="fixed inset-0 z-[4]"
-          onClick={() => setActiveComment(null)}
+          onClick={() => { setActiveThread(null); setShowThreadMenu(false) }}
         />
       )}
     </div>

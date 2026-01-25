@@ -21,7 +21,7 @@ var SQLiteMigration_0_0_1 string
 //go:embed postgres/v0.0.1.up.sql
 var PostgresMigration_0_0_1 string
 
-// v0.1.0 migration - Add plan_comments table
+// v0.1.0 migration - Add plan comment thread tables
 //
 //go:embed sqlite/v0.1.0_add_plan_comments.sql
 var SQLiteMigration_0_1_0 string

@@ -308,18 +308,47 @@ mainブランチへのpush/PRで自動テストが実行される（`.github/wor
 
 共通テストスイート（`testsuite/`）を使用して、全実装で同じ振る舞いを保証。
 
+**リポジトリ変更時は、必ず全バックエンドのテストをローカルで実行すること。**
+
 ```bash
 # 通常テスト（memory, sqlite）
 go test ./internal/repository/memory/...
 go test ./internal/repository/sqlite/...
 
-# 統合テスト（要DB接続、ビルドタグ integration）
-DATABASE_URL="postgres://..." go test -tags=integration ./internal/repository/postgres/...
+# 統合テスト（要Docker）
+# 1. PostgreSQL, DynamoDB Local を起動
+docker run -d --name agentrace-postgres-test -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=agentrace_test -p 5433:5432 postgres:16
+docker run -d --name agentrace-dynamodb-test -p 8000:8000 amazon/dynamodb-local
+
+# 2. 起動を待機（数秒）
+sleep 5
+
+# 3. テスト実行
+DATABASE_URL="postgres://test:test@localhost:5433/agentrace_test?sslmode=disable" go test -tags=integration ./internal/repository/postgres/...
 DATABASE_URL="dynamodb://localhost:8000/test_" go test -tags=integration ./internal/repository/dynamodb/...
 TURSO_URL="file:./test_turso.db" go test -tags=integration ./internal/repository/turso/...
+
+# 4. クリーンアップ
+docker stop agentrace-postgres-test agentrace-dynamodb-test
+docker rm agentrace-postgres-test agentrace-dynamodb-test
+rm -f test_turso.db
 ```
 
 ※ Tursoテストは `file:` URL でローカルSQLiteファイルを使用可能（`modernc.org/sqlite` ドライバーを利用）
+
+### テスト作成時の注意点
+
+#### PostgreSQL UUID 互換性
+
+PostgreSQLはIDカラムにUUID型を使用するため、テストで存在しないIDを検索する場合は有効なUUID形式を使用すること。
+
+```go
+// NG: PostgreSQLでエラーになる
+found, err := s.Repo.FindByID(ctx, "non-existent-id")
+
+// OK: 有効なUUID形式を使用
+found, err := s.Repo.FindByID(ctx, "00000000-0000-0000-0000-000000000000")
+```
 
 ### テストスイート構成
 
@@ -336,3 +365,5 @@ TURSO_URL="file:./test_turso.db" go test -tags=integration ./internal/repository
 | PlanDocumentRepositorySuite | Plan CRUD、Find クエリ |
 | PlanDocumentEventRepositorySuite | Plan変更イベント、共同作業者取得 |
 | UserFavoriteRepositorySuite | お気に入り CRUD |
+| PlanCommentThreadRepositorySuite | コメントスレッド CRUD、ステータスフィルタ |
+| PlanCommentMessageRepositorySuite | コメントメッセージ CRUD、スレッド内検索 |

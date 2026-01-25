@@ -18,6 +18,6 @@ type DynamoDBMigration struct {
 func DynamoDBMigrations() []DynamoDBMigration {
 	return []DynamoDBMigration{
 		{Version: "0.0.1", Description: "Add parent_session_id GSI for subagent support"},
-		{Version: "0.1.0", Description: "Add plan_comments table (handled in ensureTables)"},
+		{Version: "0.1.0", Description: "Add plan_comment_threads and plan_comment_messages tables (handled in ensureTables)"},
 	}
 }

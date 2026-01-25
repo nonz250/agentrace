@@ -135,12 +135,12 @@ func (h *PlanDocumentHandler) planDocumentToResponse(ctx context.Context, doc *d
 		url = h.webURL + "/plans/" + doc.ID
 	}
 
-	// Count active comments
+	// Count active comment threads
 	activeCommentsCount := 0
-	activeStatus := domain.PlanCommentStatusActive
-	comments, err := h.repos.PlanComment.FindByPlanDocumentID(ctx, doc.ID, &activeStatus)
+	activeStatus := domain.PlanCommentThreadStatusActive
+	threads, err := h.repos.PlanCommentThread.FindByPlanDocumentID(ctx, doc.ID, &activeStatus)
 	if err == nil {
-		activeCommentsCount = len(comments)
+		activeCommentsCount = len(threads)
 	}
 
 	return &PlanDocumentResponse{
@@ -692,24 +692,24 @@ func (h *PlanDocumentHandler) SetStatus(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(resp)
 }
 
-// invalidateOutdatedComments checks all active comments and marks them as outdated
+// invalidateOutdatedComments checks all active comment threads and marks them as outdated
 // if their target text can no longer be found in the updated document body
 func (h *PlanDocumentHandler) invalidateOutdatedComments(ctx context.Context, doc *domain.PlanDocument) {
-	// Get all active comments for this plan
-	activeStatus := domain.PlanCommentStatusActive
-	comments, err := h.repos.PlanComment.FindByPlanDocumentID(ctx, doc.ID, &activeStatus)
+	// Get all active threads for this plan
+	activeStatus := domain.PlanCommentThreadStatusActive
+	threads, err := h.repos.PlanCommentThread.FindByPlanDocumentID(ctx, doc.ID, &activeStatus)
 	if err != nil {
 		// Log error but don't fail - the document update was successful
 		return
 	}
 
-	for _, comment := range comments {
-		// Check if the comment's target text can still be found
-		position := FindCommentPosition(doc.Body, comment)
+	for _, thread := range threads {
+		// Check if the thread's target text can still be found
+		position := FindThreadPosition(doc.Body, thread)
 		if !position.Found {
 			// Mark as outdated
-			comment.Status = domain.PlanCommentStatusOutdated
-			h.repos.PlanComment.Update(ctx, comment)
+			thread.Status = domain.PlanCommentThreadStatusOutdated
+			h.repos.PlanCommentThread.Update(ctx, thread)
 			// Ignore update errors - best effort
 		}
 	}

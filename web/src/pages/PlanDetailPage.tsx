@@ -49,9 +49,9 @@ export function PlanDetailPage() {
     enabled: !!id && activeTab === 'history',
   })
 
-  const { data: commentsData } = useQuery({
+  const { data: threadsData } = useQuery({
     queryKey: ['plan', id, 'comments'],
-    queryFn: () => commentsApi.getPlanComments(id!),
+    queryFn: () => commentsApi.getPlanThreads(id!),
     enabled: !!id,
   })
 
@@ -359,7 +359,7 @@ export function PlanDetailPage() {
             <PlanContentWithComments
               planId={id!}
               body={plan.body}
-              comments={commentsData?.comments || []}
+              threads={threadsData?.threads || []}
             />
           )}
         </div>

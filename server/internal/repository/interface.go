@@ -121,29 +121,40 @@ type UserFavoriteRepository interface {
 	GetTargetIDs(ctx context.Context, userID string, targetType domain.UserFavoriteTargetType) ([]string, error)
 }
 
-// PlanCommentRepository はPlanCommentの永続化を担当する
-type PlanCommentRepository interface {
-	Create(ctx context.Context, comment *domain.PlanComment) error
-	FindByID(ctx context.Context, id string) (*domain.PlanComment, error)
-	FindByPlanDocumentID(ctx context.Context, planDocumentID string, status *domain.PlanCommentStatus) ([]*domain.PlanComment, error)
-	Update(ctx context.Context, comment *domain.PlanComment) error
+// PlanCommentThreadRepository はPlanCommentThreadの永続化を担当する
+type PlanCommentThreadRepository interface {
+	Create(ctx context.Context, thread *domain.PlanCommentThread) error
+	FindByID(ctx context.Context, id string) (*domain.PlanCommentThread, error)
+	FindByPlanDocumentID(ctx context.Context, planDocumentID string, status *domain.PlanCommentThreadStatus) ([]*domain.PlanCommentThread, error)
+	Update(ctx context.Context, thread *domain.PlanCommentThread) error
 	Delete(ctx context.Context, id string) error
-	// MarkOutdatedByPlanDocumentID marks all active comments as outdated for the given plan document
+	// MarkOutdatedByPlanDocumentID marks all active threads as outdated for the given plan document
 	MarkOutdatedByPlanDocumentID(ctx context.Context, planDocumentID string) error
+}
+
+// PlanCommentMessageRepository はPlanCommentMessageの永続化を担当する
+type PlanCommentMessageRepository interface {
+	Create(ctx context.Context, message *domain.PlanCommentMessage) error
+	FindByID(ctx context.Context, id string) (*domain.PlanCommentMessage, error)
+	FindByThreadID(ctx context.Context, threadID string) ([]*domain.PlanCommentMessage, error)
+	Update(ctx context.Context, message *domain.PlanCommentMessage) error
+	Delete(ctx context.Context, id string) error
+	DeleteByThreadID(ctx context.Context, threadID string) error
 }
 
 // Repositories は全リポジトリをまとめる
 type Repositories struct {
-	Project            ProjectRepository
-	Session            SessionRepository
-	Event              EventRepository
-	User               UserRepository
-	APIKey             APIKeyRepository
-	WebSession         WebSessionRepository
-	PasswordCredential PasswordCredentialRepository
-	OAuthConnection    OAuthConnectionRepository
-	PlanDocument       PlanDocumentRepository
-	PlanDocumentEvent  PlanDocumentEventRepository
-	UserFavorite       UserFavoriteRepository
-	PlanComment        PlanCommentRepository
+	Project              ProjectRepository
+	Session              SessionRepository
+	Event                EventRepository
+	User                 UserRepository
+	APIKey               APIKeyRepository
+	WebSession           WebSessionRepository
+	PasswordCredential   PasswordCredentialRepository
+	OAuthConnection      OAuthConnectionRepository
+	PlanDocument         PlanDocumentRepository
+	PlanDocumentEvent    PlanDocumentEventRepository
+	UserFavorite         UserFavoriteRepository
+	PlanCommentThread    PlanCommentThreadRepository
+	PlanCommentMessage   PlanCommentMessageRepository
 }

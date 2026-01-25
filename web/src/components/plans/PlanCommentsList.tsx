@@ -1,52 +1,30 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { MessageSquare, Plus } from 'lucide-react'
-import { PlanCommentItem } from './PlanCommentItem'
+import { PlanCommentThread as PlanCommentThreadComponent } from './PlanCommentThread'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { Spinner } from '@/components/ui/Spinner'
 import { useAuth } from '@/hooks/useAuth'
 import * as commentsApi from '@/api/plan-comments'
-import type { PlanComment } from '@/types/plan-document'
+import type { PlanCommentThread } from '@/types/plan-document'
 
 interface PlanCommentsListProps {
   planId: string
-  comments: PlanComment[]
+  threads: PlanCommentThread[]
   isLoading: boolean
 }
 
-export function PlanCommentsList({ planId, comments, isLoading }: PlanCommentsListProps) {
+export function PlanCommentsList({ planId, threads, isLoading }: PlanCommentsListProps) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [showAddForm, setShowAddForm] = useState(false)
   const [newContent, setNewContent] = useState('')
   const [selectedText, setSelectedText] = useState('')
 
-  const updateMutation = useMutation({
-    mutationFn: ({ commentId, content }: { commentId: string; content: string }) =>
-      commentsApi.updatePlanComment(planId, commentId, { content }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (commentId: string) => commentsApi.deletePlanComment(planId, commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
-    },
-  })
-
-  const resolveMutation = useMutation({
-    mutationFn: (commentId: string) => commentsApi.resolvePlanComment(planId, commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
-    },
-  })
-
-  const createMutation = useMutation({
+  const createThreadMutation = useMutation({
     mutationFn: () =>
-      commentsApi.createPlanComment(planId, {
+      commentsApi.createPlanThread(planId, {
         target_text: selectedText,
         context_before: '',
         context_after: '',
@@ -60,21 +38,77 @@ export function PlanCommentsList({ planId, comments, isLoading }: PlanCommentsLi
     },
   })
 
-  const handleUpdate = async (commentId: string, content: string) => {
-    await updateMutation.mutateAsync({ commentId, content })
+  const deleteThreadMutation = useMutation({
+    mutationFn: (threadId: string) => commentsApi.deletePlanThread(planId, threadId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
+    },
+  })
+
+  const resolveThreadMutation = useMutation({
+    mutationFn: (threadId: string) => commentsApi.resolvePlanThread(planId, threadId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
+    },
+  })
+
+  const addMessageMutation = useMutation({
+    mutationFn: ({ threadId, content }: { threadId: string; content: string }) =>
+      commentsApi.addThreadMessage(planId, threadId, { content }),
+    onSuccess: (newMessage, { threadId }) => {
+      // Optimistically update the cache with the new message
+      queryClient.setQueryData<PlanCommentThread[]>(['plan', planId, 'comments'], (oldThreads) => {
+        if (!oldThreads || !newMessage) return oldThreads
+        return oldThreads.map((thread) =>
+          thread.id === threadId
+            ? { ...thread, messages: [...thread.messages, newMessage] }
+            : thread
+        )
+      })
+      // Also invalidate to ensure consistency with server
+      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
+    },
+  })
+
+  const updateMessageMutation = useMutation({
+    mutationFn: ({ threadId, messageId, content }: { threadId: string; messageId: string; content: string }) =>
+      commentsApi.updateThreadMessage(planId, threadId, messageId, { content }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
+    },
+  })
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: ({ threadId, messageId }: { threadId: string; messageId: string }) =>
+      commentsApi.deleteThreadMessage(planId, threadId, messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan', planId, 'comments'] })
+    },
+  })
+
+  const handleResolve = async (threadId: string) => {
+    await resolveThreadMutation.mutateAsync(threadId)
   }
 
-  const handleDelete = async (commentId: string) => {
-    await deleteMutation.mutateAsync(commentId)
+  const handleDeleteThread = async (threadId: string) => {
+    await deleteThreadMutation.mutateAsync(threadId)
   }
 
-  const handleResolve = async (commentId: string) => {
-    await resolveMutation.mutateAsync(commentId)
+  const handleAddMessage = async (threadId: string, content: string) => {
+    await addMessageMutation.mutateAsync({ threadId, content })
+  }
+
+  const handleUpdateMessage = async (threadId: string, messageId: string, content: string) => {
+    await updateMessageMutation.mutateAsync({ threadId, messageId, content })
+  }
+
+  const handleDeleteMessage = async (threadId: string, messageId: string) => {
+    await deleteMessageMutation.mutateAsync({ threadId, messageId })
   }
 
   const handleSubmitNew = () => {
     if (selectedText.trim() && newContent.trim()) {
-      createMutation.mutate()
+      createThreadMutation.mutate()
     }
   }
 
@@ -86,10 +120,10 @@ export function PlanCommentsList({ planId, comments, isLoading }: PlanCommentsLi
     )
   }
 
-  // Group comments by status
-  const activeComments = comments.filter((c) => c.status === 'active')
-  const resolvedComments = comments.filter((c) => c.status === 'resolved')
-  const outdatedComments = comments.filter((c) => c.status === 'outdated')
+  // Group threads by status
+  const activeThreads = threads.filter((t) => t.status === 'active')
+  const resolvedThreads = threads.filter((t) => t.status === 'resolved')
+  const outdatedThreads = threads.filter((t) => t.status === 'outdated')
 
   return (
     <div className="space-y-6">
@@ -128,14 +162,14 @@ export function PlanCommentsList({ planId, comments, isLoading }: PlanCommentsLi
                     setNewContent('')
                     setSelectedText('')
                   }}
-                  disabled={createMutation.isPending}
+                  disabled={createThreadMutation.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={handleSubmitNew}
-                  disabled={!selectedText.trim() || !newContent.trim() || createMutation.isPending}
-                  loading={createMutation.isPending}
+                  disabled={!selectedText.trim() || !newContent.trim() || createThreadMutation.isPending}
+                  loading={createThreadMutation.isPending}
                 >
                   Add Comment
                 </Button>
@@ -150,52 +184,54 @@ export function PlanCommentsList({ planId, comments, isLoading }: PlanCommentsLi
         </div>
       )}
 
-      {/* Active comments */}
-      {activeComments.length > 0 && (
+      {/* Active threads */}
+      {activeThreads.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            Active Comments ({activeComments.length})
+            Active Threads ({activeThreads.length})
           </h3>
-          {activeComments.map((comment) => (
-            <PlanCommentItem
-              key={comment.id}
-              comment={comment}
+          {activeThreads.map((thread) => (
+            <PlanCommentThreadComponent
+              key={thread.id}
+              thread={thread}
               currentUserId={user?.id}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
               onResolve={handleResolve}
+              onDeleteThread={handleDeleteThread}
+              onAddMessage={handleAddMessage}
+              onUpdateMessage={handleUpdateMessage}
+              onDeleteMessage={handleDeleteMessage}
             />
           ))}
         </div>
       )}
 
-      {/* Resolved comments */}
-      {resolvedComments.length > 0 && (
+      {/* Resolved threads */}
+      {resolvedThreads.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-gray-500 flex items-center gap-2">
-            Resolved ({resolvedComments.length})
+            Resolved ({resolvedThreads.length})
           </h3>
-          {resolvedComments.map((comment) => (
-            <PlanCommentItem
-              key={comment.id}
-              comment={comment}
+          {resolvedThreads.map((thread) => (
+            <PlanCommentThreadComponent
+              key={thread.id}
+              thread={thread}
               currentUserId={user?.id}
             />
           ))}
         </div>
       )}
 
-      {/* Outdated comments */}
-      {outdatedComments.length > 0 && (
+      {/* Outdated threads */}
+      {outdatedThreads.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-gray-400 flex items-center gap-2">
-            Outdated ({outdatedComments.length})
+            Outdated ({outdatedThreads.length})
           </h3>
-          {outdatedComments.map((comment) => (
-            <PlanCommentItem
-              key={comment.id}
-              comment={comment}
+          {outdatedThreads.map((thread) => (
+            <PlanCommentThreadComponent
+              key={thread.id}
+              thread={thread}
               currentUserId={user?.id}
             />
           ))}
@@ -203,7 +239,7 @@ export function PlanCommentsList({ planId, comments, isLoading }: PlanCommentsLi
       )}
 
       {/* Empty state */}
-      {comments.length === 0 && (
+      {threads.length === 0 && (
         <div className="text-center py-8 text-gray-500">
           <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p>No comments yet.</p>

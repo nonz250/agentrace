@@ -86,3 +86,26 @@ func TestUserFavoriteRepository(t *testing.T) {
 	}
 	suite.Run(t, s)
 }
+
+func TestPlanCommentThreadRepository(t *testing.T) {
+	repos := NewRepositories()
+	s := &testsuite.PlanCommentThreadRepositorySuite{
+		Repo:        repos.PlanCommentThread,
+		PlanDocRepo: repos.PlanDocument,
+		ProjectRepo: repos.Project,
+		UserRepo:    repos.User,
+	}
+	suite.Run(t, s)
+}
+
+func TestPlanCommentMessageRepository(t *testing.T) {
+	repos := NewRepositories()
+	s := &testsuite.PlanCommentMessageRepositorySuite{
+		Repo:        repos.PlanCommentMessage,
+		ThreadRepo:  repos.PlanCommentThread,
+		PlanDocRepo: repos.PlanDocument,
+		ProjectRepo: repos.Project,
+		UserRepo:    repos.User,
+	}
+	suite.Run(t, s)
+}

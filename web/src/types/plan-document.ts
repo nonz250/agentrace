@@ -36,8 +36,8 @@ export interface PlanDocumentEvent {
   created_at: string
 }
 
-// Plan Comment types
-export type PlanCommentStatus = 'active' | 'resolved' | 'outdated'
+// Plan Comment Thread types
+export type PlanCommentThreadStatus = 'active' | 'resolved' | 'outdated'
 
 export interface CommentPosition {
   start_offset: number
@@ -49,15 +49,23 @@ export interface CommentPosition {
   found: boolean
 }
 
-export interface PlanComment {
+export interface PlanCommentMessage {
   id: string
-  plan_document_id: string
+  thread_id: string
   user_id: string
   user_name: string
-  target_text: string
   content: string
-  status: PlanCommentStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface PlanCommentThread {
+  id: string
+  plan_document_id: string
+  target_text: string
+  status: PlanCommentThreadStatus
   position: CommentPosition | null
+  messages: PlanCommentMessage[]
   created_at: string
   updated_at: string
 }

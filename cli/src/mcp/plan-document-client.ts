@@ -67,8 +67,8 @@ export interface UpdatePlanRequest {
   tool_use_id?: string;
 }
 
-// Comment types
-export type PlanCommentStatus = "active" | "resolved" | "outdated";
+// Comment Thread types
+export type PlanCommentThreadStatus = "active" | "resolved" | "outdated";
 
 export interface CommentPosition {
   start_offset: number;
@@ -80,27 +80,39 @@ export interface CommentPosition {
   found: boolean;
 }
 
-export interface PlanComment {
+export interface PlanCommentMessage {
   id: string;
-  plan_document_id: string;
+  thread_id: string;
   user_id: string;
   user_name: string;
-  target_text: string;
   content: string;
-  status: PlanCommentStatus;
-  position: CommentPosition | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface ListCommentsResponse {
-  comments: PlanComment[];
+export interface PlanCommentThread {
+  id: string;
+  plan_document_id: string;
+  target_text: string;
+  status: PlanCommentThreadStatus;
+  position: CommentPosition | null;
+  messages: PlanCommentMessage[];
+  created_at: string;
+  updated_at: string;
 }
 
-export interface CreateCommentRequest {
+export interface ListThreadsResponse {
+  threads: PlanCommentThread[];
+}
+
+export interface CreateThreadRequest {
   target_text: string;
   context_before: string;
   context_after: string;
+  content: string;
+}
+
+export interface AddMessageRequest {
   content: string;
 }
 
@@ -194,19 +206,27 @@ export class PlanDocumentClient {
     return this.request<PlanDocument>("PATCH", `/api/plans/${id}/status`, { status, message });
   }
 
-  // Comment methods
-  async getComments(planId: string, status?: PlanCommentStatus | "all"): Promise<PlanComment[]> {
+  // Comment Thread methods
+  async getThreads(planId: string, status?: PlanCommentThreadStatus | "all"): Promise<PlanCommentThread[]> {
     const params = new URLSearchParams();
     if (status) {
       params.set("status", status);
     }
     const query = params.toString();
     const path = `/api/plans/${planId}/comments${query ? `?${query}` : ""}`;
-    const response = await this.request<ListCommentsResponse>("GET", path);
-    return response.comments;
+    const response = await this.request<ListThreadsResponse>("GET", path);
+    return response.threads;
   }
 
-  async createComment(planId: string, req: CreateCommentRequest): Promise<PlanComment> {
-    return this.request<PlanComment>("POST", `/api/plans/${planId}/comments`, req);
+  async createThread(planId: string, req: CreateThreadRequest): Promise<PlanCommentThread> {
+    return this.request<PlanCommentThread>("POST", `/api/plans/${planId}/comments`, req);
+  }
+
+  async resolveThread(planId: string, threadId: string): Promise<PlanCommentThread> {
+    return this.request<PlanCommentThread>("POST", `/api/plans/${planId}/comments/${threadId}/resolve`);
+  }
+
+  async addMessage(planId: string, threadId: string, req: AddMessageRequest): Promise<PlanCommentMessage> {
+    return this.request<PlanCommentMessage>("POST", `/api/plans/${planId}/comments/${threadId}/messages`, req);
   }
 }

@@ -69,6 +69,11 @@ const AddPlanCommentSchema = z.object({
   content: z.string().describe("The comment content"),
 });
 
+const ResolvePlanCommentSchema = z.object({
+  plan_id: z.string().describe("Plan document ID"),
+  thread_id: z.string().describe("Comment thread ID to resolve"),
+});
+
 // Tool descriptions with usage guidance
 const TOOL_DESCRIPTIONS = {
   search_plans: `Search plan documents with filtering options.
@@ -159,6 +164,15 @@ WHEN TO USE:
 - When reviewing a plan and want to leave notes for the team
 
 The comment is anchored to specific text in the plan body.`,
+
+  resolve_plan_comment: `Resolve a comment thread on a plan.
+
+WHEN TO USE:
+- When you have addressed the feedback in a comment
+- When the issue raised in the comment has been fixed
+- When the comment is no longer relevant after plan updates
+
+Resolving a comment marks it as handled, keeping it visible but indicating it's been addressed.`,
 };
 
 export async function mcpServerCommand(): Promise<void> {
@@ -424,9 +438,9 @@ IMPORTANT GUIDELINES:
     GetPlanCommentsSchema.shape,
     async (args) => {
       try {
-        const comments = await getClient().getComments(args.plan_id, args.status);
+        const threads = await getClient().getThreads(args.plan_id, args.status);
 
-        if (comments.length === 0) {
+        if (threads.length === 0) {
           return {
             content: [
               {
@@ -437,27 +451,31 @@ IMPORTANT GUIDELINES:
           };
         }
 
-        const commentList = comments.map((comment) => ({
-          id: comment.id,
-          user_name: comment.user_name,
-          target_text: comment.target_text,
-          content: comment.content,
-          status: comment.status,
-          position: comment.position ? {
-            start_line: comment.position.start_line,
-            start_column: comment.position.start_column,
-            end_line: comment.position.end_line,
-            end_column: comment.position.end_column,
-            found: comment.position.found,
+        const threadList = threads.map((thread) => ({
+          id: thread.id,
+          target_text: thread.target_text,
+          status: thread.status,
+          position: thread.position ? {
+            start_line: thread.position.start_line,
+            start_column: thread.position.start_column,
+            end_line: thread.position.end_line,
+            end_column: thread.position.end_column,
+            found: thread.position.found,
           } : null,
-          created_at: comment.created_at,
+          messages: thread.messages.map((msg) => ({
+            id: msg.id,
+            user_name: msg.user_name,
+            content: msg.content,
+            created_at: msg.created_at,
+          })),
+          created_at: thread.created_at,
         }));
 
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(commentList, null, 2),
+              text: JSON.stringify(threadList, null, 2),
             },
           ],
         };
@@ -482,7 +500,7 @@ IMPORTANT GUIDELINES:
     AddPlanCommentSchema.shape,
     async (args) => {
       try {
-        const comment = await getClient().createComment(args.plan_id, {
+        const thread = await getClient().createThread(args.plan_id, {
           target_text: args.target_text,
           context_before: "",
           context_after: "",
@@ -493,7 +511,38 @@ IMPORTANT GUIDELINES:
           content: [
             {
               type: "text" as const,
-              text: `Comment added successfully.\n\nID: ${comment.id}\nStatus: ${comment.status}\nTarget: "${comment.target_text}"`,
+              text: `Comment added successfully.\n\nThread ID: ${thread.id}\nStatus: ${thread.status}\nTarget: "${thread.target_text}"`,
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // resolve_plan_comment tool
+  server.tool(
+    "resolve_plan_comment",
+    TOOL_DESCRIPTIONS.resolve_plan_comment,
+    ResolvePlanCommentSchema.shape,
+    async (args) => {
+      try {
+        const thread = await getClient().resolveThread(args.plan_id, args.thread_id);
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Comment resolved successfully.\n\nThread ID: ${thread.id}\nStatus: ${thread.status}\nTarget: "${thread.target_text}"`,
             },
           ],
         };

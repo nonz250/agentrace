@@ -1,21 +1,34 @@
--- v0.1.0: Add plan_comments table for inline comments on plan documents
-CREATE TABLE IF NOT EXISTS plan_comments (
+-- v0.1.0: Add plan comment thread tables
+-- Create plan_comment_threads table (anchored to specific text in plan)
+CREATE TABLE IF NOT EXISTS plan_comment_threads (
     id TEXT PRIMARY KEY,
     plan_document_id TEXT NOT NULL REFERENCES plan_documents(id) ON DELETE CASCADE,
-    user_id TEXT NOT NULL REFERENCES users(id),
 
     target_text TEXT NOT NULL,
     context_before TEXT DEFAULT '',
     context_after TEXT DEFAULT '',
     original_body_hash TEXT NOT NULL,
 
-    content TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'active',
 
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_plan_comments_plan_document_id ON plan_comments(plan_document_id);
-CREATE INDEX IF NOT EXISTS idx_plan_comments_user_id ON plan_comments(user_id);
-CREATE INDEX IF NOT EXISTS idx_plan_comments_status ON plan_comments(status);
+CREATE INDEX IF NOT EXISTS idx_plan_comment_threads_plan_document_id ON plan_comment_threads(plan_document_id);
+CREATE INDEX IF NOT EXISTS idx_plan_comment_threads_status ON plan_comment_threads(status);
+
+-- Create plan_comment_messages table (messages within a thread)
+CREATE TABLE IF NOT EXISTS plan_comment_messages (
+    id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL REFERENCES plan_comment_threads(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES users(id),
+
+    content TEXT NOT NULL,
+
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_plan_comment_messages_thread_id ON plan_comment_messages(thread_id);
+CREATE INDEX IF NOT EXISTS idx_plan_comment_messages_user_id ON plan_comment_messages(user_id);
