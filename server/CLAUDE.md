@@ -264,6 +264,25 @@ Repository Layer (internal/repository/) ← データアクセス抽象化
 
 draft と pending は必要に応じて使用する補助的なステータス。
 
+#### コメント位置検索（FindThreadPosition）
+
+`plan_comment_thread.go`の`FindThreadPosition`関数は、コメントの`target_text`をPlan本文から検索し、位置情報を返す。
+
+**検索の流れ**:
+1. 完全一致（コンテキスト付き）で検索
+2. 見つからない場合、`stripInlineMarkdown`でインライン記法を除去したテキストで再検索
+
+**対応するインライン記法**:
+| 記法 | 例 |
+|------|-----|
+| インラインコード | `` `code` `` |
+| 太字 | `**bold**` / `__bold__` |
+| 斜体 | `*italic*` / `_italic_` |
+| 取り消し線 | `~~strike~~` |
+| リンク | `[text](url)` |
+
+これにより、フロントエンドでインライン記法を跨いで選択されたテキストも正しくマッチングできる。
+
 ### 認証
 
 | Method | Path | 説明 |
