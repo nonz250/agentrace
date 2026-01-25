@@ -168,7 +168,21 @@ func registeredMigrations() []Migration {
 			Description: "v0.0.1 schema changes",
 			Up:          migration_0_0_1,
 		},
+		{
+			Version:     "0.1.0",
+			Description: "Add plan comment tables (tables created in ensureTables)",
+			Up:          migration_0_1_0,
+		},
 	}
+}
+
+// migration_0_1_0 applies v0.1.0 schema changes
+// Note: plan_comment_threads and plan_comment_messages tables are already
+// created in ensureTables(), so this migration is a no-op for consistency.
+func migration_0_1_0(ctx context.Context, db *DB) error {
+	// Tables are created in ensureTables() with createTableIfNotExists
+	// This migration exists for version tracking consistency with SQLite/PostgreSQL
+	return nil
 }
 
 // migration_0_0_1 applies v0.0.1 schema changes
