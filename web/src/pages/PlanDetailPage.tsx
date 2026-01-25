@@ -60,6 +60,7 @@ export function PlanDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plan', id] })
       queryClient.invalidateQueries({ queryKey: ['plan', id, 'events'] })
+      queryClient.invalidateQueries({ queryKey: ['plans', 'list'] })
     },
   })
 
@@ -71,6 +72,7 @@ export function PlanDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plan', id] })
       queryClient.invalidateQueries({ queryKey: ['plan', id, 'events'] })
+      queryClient.invalidateQueries({ queryKey: ['plans', 'list'] })
       setIsEditing(false)
     },
   })
