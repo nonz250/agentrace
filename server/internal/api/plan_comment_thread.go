@@ -147,6 +147,232 @@ func createPosition(body string, startOffset, endOffset int) *domain.CommentPosi
 	}
 }
 
+// stripInlineMarkdown removes inline markdown formatting from text
+// and returns the stripped text along with a mapping from stripped positions to original positions
+func stripInlineMarkdown(text string) (stripped string, posMap []int) {
+	// posMap[i] = original position of stripped[i]
+	posMap = make([]int, 0, len(text))
+	result := strings.Builder{}
+
+	runes := []rune(text)
+	i := 0
+	for i < len(runes) {
+		ch := runes[i]
+
+		// Handle inline code: `code`
+		if ch == '`' {
+			// Find closing backtick
+			j := i + 1
+			for j < len(runes) && runes[j] != '`' {
+				j++
+			}
+			if j < len(runes) {
+				// Found closing backtick, extract content
+				for k := i + 1; k < j; k++ {
+					result.WriteRune(runes[k])
+					posMap = append(posMap, k)
+				}
+				i = j + 1
+				continue
+			}
+		}
+
+		// Handle links: [text](url) or [text](url "title")
+		if ch == '[' {
+			// Find closing bracket
+			j := i + 1
+			bracketDepth := 1
+			for j < len(runes) && bracketDepth > 0 {
+				if runes[j] == '[' {
+					bracketDepth++
+				} else if runes[j] == ']' {
+					bracketDepth--
+				}
+				j++
+			}
+			// j now points to character after ']'
+			if j < len(runes) && runes[j] == '(' {
+				// Find closing parenthesis
+				k := j + 1
+				parenDepth := 1
+				for k < len(runes) && parenDepth > 0 {
+					if runes[k] == '(' {
+						parenDepth++
+					} else if runes[k] == ')' {
+						parenDepth--
+					}
+					k++
+				}
+				// k now points to character after ')'
+				if parenDepth == 0 {
+					// Valid link found, extract link text (between [ and ])
+					for l := i + 1; l < j-1; l++ {
+						result.WriteRune(runes[l])
+						posMap = append(posMap, l)
+					}
+					i = k
+					continue
+				}
+			}
+		}
+
+		// Handle bold/italic: ** or * or __ or _
+		// For simplicity, just skip the markers
+		if ch == '*' || ch == '_' {
+			// Check for double marker
+			if i+1 < len(runes) && runes[i+1] == ch {
+				i += 2
+				continue
+			}
+			i++
+			continue
+		}
+
+		// Handle strikethrough: ~~
+		if ch == '~' && i+1 < len(runes) && runes[i+1] == '~' {
+			i += 2
+			continue
+		}
+
+		// Regular character
+		result.WriteRune(ch)
+		posMap = append(posMap, i)
+		i++
+	}
+
+	return result.String(), posMap
+}
+
+// runeIndex finds the first occurrence of needle in haystack (as rune slices)
+// and returns the rune index, or -1 if not found
+func runeIndex(haystack, needle []rune) int {
+	if len(needle) == 0 {
+		return 0
+	}
+	if len(needle) > len(haystack) {
+		return -1
+	}
+	for i := 0; i <= len(haystack)-len(needle); i++ {
+		match := true
+		for j := 0; j < len(needle); j++ {
+			if haystack[i+j] != needle[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}
+
+// findInStrippedText searches for targetText in the stripped version of body
+// and returns the original byte offset if found
+func findInStrippedText(body, targetText, contextBefore, contextAfter string) (found bool, startOffset int, endOffset int) {
+	strippedBody, posMap := stripInlineMarkdown(body)
+	strippedTarget := stripInlineMarkdownSimple(targetText)
+	strippedBefore := stripInlineMarkdownSimple(contextBefore)
+	strippedAfter := stripInlineMarkdownSimple(contextAfter)
+
+	// Convert to rune slices for proper Unicode handling
+	strippedBodyRunes := []rune(strippedBody)
+	strippedTargetRunes := []rune(strippedTarget)
+	strippedBeforeRunes := []rune(strippedBefore)
+	strippedAfterRunes := []rune(strippedAfter)
+
+	// Try to find with full context first
+	searchPatternRunes := append(append(strippedBeforeRunes, strippedTargetRunes...), strippedAfterRunes...)
+	idx := runeIndex(strippedBodyRunes, searchPatternRunes)
+	if idx >= 0 {
+		strippedStart := idx + len(strippedBeforeRunes)
+		strippedEnd := strippedStart + len(strippedTargetRunes)
+
+		if strippedStart < len(posMap) && strippedEnd <= len(posMap) {
+			// Convert stripped positions to original rune positions
+			origStartRune := posMap[strippedStart]
+			origEndRune := posMap[strippedEnd-1] + 1
+
+			// Convert rune positions to byte offsets
+			runes := []rune(body)
+			byteStart := len(string(runes[:origStartRune]))
+			byteEnd := len(string(runes[:origEndRune]))
+
+			return true, byteStart, byteEnd
+		}
+	}
+
+	// Try with context before only
+	if len(strippedBeforeRunes) > 0 {
+		searchPatternRunes = append(strippedBeforeRunes, strippedTargetRunes...)
+		idx = runeIndex(strippedBodyRunes, searchPatternRunes)
+		if idx >= 0 {
+			strippedStart := idx + len(strippedBeforeRunes)
+			strippedEnd := strippedStart + len(strippedTargetRunes)
+
+			if strippedStart < len(posMap) && strippedEnd <= len(posMap) {
+				origStartRune := posMap[strippedStart]
+				origEndRune := posMap[strippedEnd-1] + 1
+
+				runes := []rune(body)
+				byteStart := len(string(runes[:origStartRune]))
+				byteEnd := len(string(runes[:origEndRune]))
+
+				return true, byteStart, byteEnd
+			}
+		}
+	}
+
+	// Try with context after only
+	if len(strippedAfterRunes) > 0 {
+		searchPatternRunes = append(strippedTargetRunes, strippedAfterRunes...)
+		idx = runeIndex(strippedBodyRunes, searchPatternRunes)
+		if idx >= 0 {
+			strippedStart := idx
+			strippedEnd := strippedStart + len(strippedTargetRunes)
+
+			if strippedStart < len(posMap) && strippedEnd <= len(posMap) {
+				origStartRune := posMap[strippedStart]
+				origEndRune := posMap[strippedEnd-1] + 1
+
+				runes := []rune(body)
+				byteStart := len(string(runes[:origStartRune]))
+				byteEnd := len(string(runes[:origEndRune]))
+
+				return true, byteStart, byteEnd
+			}
+		}
+	}
+
+	// Try target only (no context)
+	if len(strippedBeforeRunes) == 0 && len(strippedAfterRunes) == 0 {
+		idx = runeIndex(strippedBodyRunes, strippedTargetRunes)
+		if idx >= 0 {
+			strippedStart := idx
+			strippedEnd := strippedStart + len(strippedTargetRunes)
+
+			if strippedStart < len(posMap) && strippedEnd <= len(posMap) {
+				origStartRune := posMap[strippedStart]
+				origEndRune := posMap[strippedEnd-1] + 1
+
+				runes := []rune(body)
+				byteStart := len(string(runes[:origStartRune]))
+				byteEnd := len(string(runes[:origEndRune]))
+
+				return true, byteStart, byteEnd
+			}
+		}
+	}
+
+	return false, 0, 0
+}
+
+// stripInlineMarkdownSimple is a simplified version that just returns the stripped text
+func stripInlineMarkdownSimple(text string) string {
+	stripped, _ := stripInlineMarkdown(text)
+	return stripped
+}
+
 // FindThreadPosition searches for the target text in the document body
 // and returns the position where it was found
 func FindThreadPosition(body string, thread *domain.PlanCommentThread) *domain.CommentPosition {
@@ -154,7 +380,7 @@ func FindThreadPosition(body string, thread *domain.PlanCommentThread) *domain.C
 	contextBefore := thread.ContextBefore
 	contextAfter := thread.ContextAfter
 
-	// Try to find with full context first
+	// Try to find with full context first (exact match)
 	searchPattern := contextBefore + targetText + contextAfter
 	idx := strings.Index(body, searchPattern)
 	if idx >= 0 {
@@ -179,6 +405,12 @@ func FindThreadPosition(body string, thread *domain.PlanCommentThread) *domain.C
 		if idx >= 0 {
 			return createPosition(body, idx, idx+len(targetText))
 		}
+	}
+
+	// Try matching with inline markdown stripped (for cross-inline-element selections)
+	found, startOffset, endOffset := findInStrippedText(body, targetText, contextBefore, contextAfter)
+	if found {
+		return createPosition(body, startOffset, endOffset)
 	}
 
 	// If we had context but couldn't match with it, don't fall back to first occurrence

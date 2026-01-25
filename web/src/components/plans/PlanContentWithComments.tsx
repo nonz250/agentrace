@@ -212,29 +212,153 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
     return indices
   }, [])
 
-  // Helper function to extract context from the raw markdown body
-  const extractContextFromBody = useCallback((targetText: string, occurrenceIndex: number): { contextBefore: string; contextAfter: string } => {
-    const contextLength = 100
-    const occurrences = findAllOccurrences(body, targetText)
+  // Helper function to strip inline markdown formatting from text
+  // Returns the stripped text and a position map from stripped positions to original positions
+  const stripInlineMarkdown = useCallback((text: string): { stripped: string; posMap: number[] } => {
+    const posMap: number[] = []
+    let result = ''
+    let i = 0
 
-    if (occurrenceIndex < 0 || occurrenceIndex >= occurrences.length) {
-      // Fallback: use first occurrence or empty context
-      if (occurrences.length > 0) {
-        const pos = occurrences[0]
-        return {
-          contextBefore: body.substring(Math.max(0, pos - contextLength), pos),
-          contextAfter: body.substring(pos + targetText.length, pos + targetText.length + contextLength),
+    while (i < text.length) {
+      const ch = text[i]
+
+      // Handle inline code: `code`
+      if (ch === '`') {
+        // Find closing backtick
+        let j = i + 1
+        while (j < text.length && text[j] !== '`') {
+          j++
+        }
+        if (j < text.length) {
+          // Found closing backtick, extract content
+          for (let k = i + 1; k < j; k++) {
+            result += text[k]
+            posMap.push(k)
+          }
+          i = j + 1
+          continue
         }
       }
-      return { contextBefore: '', contextAfter: '' }
+
+      // Handle links: [text](url) or [text](url "title")
+      if (ch === '[') {
+        // Find closing bracket
+        let j = i + 1
+        let bracketDepth = 1
+        while (j < text.length && bracketDepth > 0) {
+          if (text[j] === '[') {
+            bracketDepth++
+          } else if (text[j] === ']') {
+            bracketDepth--
+          }
+          j++
+        }
+        // j now points to character after ']'
+        if (j < text.length && text[j] === '(') {
+          // Find closing parenthesis
+          let k = j + 1
+          let parenDepth = 1
+          while (k < text.length && parenDepth > 0) {
+            if (text[k] === '(') {
+              parenDepth++
+            } else if (text[k] === ')') {
+              parenDepth--
+            }
+            k++
+          }
+          // k now points to character after ')'
+          if (parenDepth === 0) {
+            // Valid link found, extract link text (between [ and ])
+            for (let l = i + 1; l < j - 1; l++) {
+              result += text[l]
+              posMap.push(l)
+            }
+            i = k
+            continue
+          }
+        }
+      }
+
+      // Handle bold/italic: ** or * or __ or _
+      if (ch === '*' || ch === '_') {
+        // Check for double marker
+        if (i + 1 < text.length && text[i + 1] === ch) {
+          i += 2
+          continue
+        }
+        i++
+        continue
+      }
+
+      // Handle strikethrough: ~~
+      if (ch === '~' && i + 1 < text.length && text[i + 1] === '~') {
+        i += 2
+        continue
+      }
+
+      // Regular character
+      result += ch
+      posMap.push(i)
+      i++
     }
 
-    const pos = occurrences[occurrenceIndex]
-    return {
-      contextBefore: body.substring(Math.max(0, pos - contextLength), pos),
-      contextAfter: body.substring(pos + targetText.length, pos + targetText.length + contextLength),
+    return { stripped: result, posMap }
+  }, [])
+
+
+  // Helper function to extract context from the raw markdown body
+  // Uses stripped text matching to handle inline formatting like `code`
+  const extractContextFromBody = useCallback((targetText: string, occurrenceIndex: number): { contextBefore: string; contextAfter: string } => {
+    const contextLength = 100
+
+    // First try exact match (for text without inline formatting)
+    const exactOccurrences = findAllOccurrences(body, targetText)
+    if (occurrenceIndex >= 0 && occurrenceIndex < exactOccurrences.length) {
+      const pos = exactOccurrences[occurrenceIndex]
+      return {
+        contextBefore: body.substring(Math.max(0, pos - contextLength), pos),
+        contextAfter: body.substring(pos + targetText.length, pos + targetText.length + contextLength),
+      }
     }
-  }, [body, findAllOccurrences])
+
+    // Try matching in stripped text (for text spanning inline formatting)
+    const { stripped, posMap } = stripInlineMarkdown(body)
+    const strippedOccurrences = findAllOccurrences(stripped, targetText)
+
+    if (occurrenceIndex >= 0 && occurrenceIndex < strippedOccurrences.length) {
+      const strippedPos = strippedOccurrences[occurrenceIndex]
+      const strippedEndPos = strippedPos + targetText.length
+
+      // Map stripped positions back to original positions
+      if (strippedPos < posMap.length && strippedEndPos <= posMap.length) {
+        const origStartPos = posMap[strippedPos]
+        const origEndPos = posMap[strippedEndPos - 1] + 1
+
+        return {
+          contextBefore: body.substring(Math.max(0, origStartPos - contextLength), origStartPos),
+          contextAfter: body.substring(origEndPos, origEndPos + contextLength),
+        }
+      }
+    }
+
+    // Fallback: use first occurrence in stripped text
+    if (strippedOccurrences.length > 0) {
+      const strippedPos = strippedOccurrences[0]
+      const strippedEndPos = strippedPos + targetText.length
+
+      if (strippedPos < posMap.length && strippedEndPos <= posMap.length) {
+        const origStartPos = posMap[strippedPos]
+        const origEndPos = posMap[strippedEndPos - 1] + 1
+
+        return {
+          contextBefore: body.substring(Math.max(0, origStartPos - contextLength), origStartPos),
+          contextAfter: body.substring(origEndPos, origEndPos + contextLength),
+        }
+      }
+    }
+
+    return { contextBefore: '', contextAfter: '' }
+  }, [body, findAllOccurrences, stripInlineMarkdown])
 
   // Handle text selection
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
@@ -249,6 +373,13 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
 
       const text = sel.toString().trim()
       if (!text || text.length < 2) {
+        setSelection(null)
+        return
+      }
+
+      // Reject selections that contain newlines (spanning multiple blocks/lines)
+      // Markdown line breaks make matching unreliable due to list markers, indentation, etc.
+      if (text.includes('\n')) {
         setSelection(null)
         return
       }
@@ -273,29 +404,29 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
       }
 
       // If the common ancestor is a list, table, or similar container, selection spans multiple items
-      const containerTags = ['UL', 'OL', 'TABLE', 'TBODY', 'THEAD', 'TFOOT']
+      // TR is included to prevent selecting across table cells (which would break markdown matching)
+      const containerTags = ['UL', 'OL', 'TABLE', 'TBODY', 'THEAD', 'TFOOT', 'TR']
       if (commonAncestorElement && containerTags.includes(commonAncestorElement.tagName)) {
         setSelection(null)
         return
       }
 
-      // Check if selection spans across inline formatting elements
-      const getInlineFormattingParent = (node: Node): Element | null => {
+      // Note: We allow selections that span across inline formatting elements (CODE, STRONG, EM, etc.)
+      // The server-side and client-side logic handles inline markdown stripping for proper matching
+
+      // However, reject selections inside links (A elements) to avoid click handling conflicts
+      const isInsideLink = (node: Node): boolean => {
         let current = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement
-        const inlineTags = ['CODE', 'STRONG', 'EM', 'A', 'MARK', 'SPAN']
         while (current && current !== contentRef.current) {
-          if (inlineTags.includes(current.tagName)) {
-            return current
+          if (current.tagName === 'A') {
+            return true
           }
           current = current.parentElement
         }
-        return null
+        return false
       }
 
-      const startInlineParent = getInlineFormattingParent(range.startContainer)
-      const endInlineParent = getInlineFormattingParent(range.endContainer)
-
-      if (startInlineParent !== endInlineParent) {
+      if (isInsideLink(range.startContainer) || isInsideLink(range.endContainer)) {
         setSelection(null)
         return
       }
@@ -449,8 +580,10 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
         const startCharOffset = byteOffsetToCharOffset(body, startByteOffset)
 
         // Count how many occurrences of target_text appear before this position in body
+        // Use stripped text to handle cases where target_text spans across inline formatting
         const bodyBeforeTarget = body.substring(0, startCharOffset)
-        const occurrencesBeforeInBody = findAllOccurrences(bodyBeforeTarget, thread.target_text).length
+        const { stripped: strippedBodyBefore } = stripInlineMarkdown(bodyBeforeTarget)
+        const occurrencesBeforeInBody = findAllOccurrences(strippedBodyBefore, thread.target_text).length
 
         // Find all occurrences in rendered content
         const occurrencesInRendered = findAllOccurrences(fullRenderedText, thread.target_text)
