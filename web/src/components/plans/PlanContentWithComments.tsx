@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { MessageSquare, MessageSquarePlus, X, Send, CheckCircle, User, Trash2, MessageCircle, MoreVertical } from 'lucide-react'
+import { MessageSquare, MessageSquarePlus, X, Send, CheckCircle, User, Trash2, MessageCircle, MoreVertical, AlertTriangle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -558,8 +558,10 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
     return () => clearTimeout(timer)
   }, [threads, body, byteOffsetToCharOffset, findAllOccurrences])
 
-  // Get active threads count
+  // Get thread counts
   const activeThreadsCount = threads.filter((t) => t.status === 'active').length
+  const outdatedThreadsCount = threads.filter((t) => t.status === 'outdated').length
+  const outdatedThreads = threads.filter((t) => t.status === 'outdated')
 
   // Get first message creator for thread owner check
   const isThreadOwner = activeThread && activeThread.messages.length > 0 && user?.id === activeThread.messages[0].user_id
@@ -569,14 +571,22 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
       <CopyButton text={body} className="absolute top-0 right-0 z-10" />
 
       {/* Threads indicator - clickable to show thread list */}
-      {activeThreadsCount > 0 && (
+      {(activeThreadsCount > 0 || outdatedThreadsCount > 0) && (
         <div className="absolute top-0 right-12">
           <button
             className="flex items-center gap-1 text-xs text-yellow-600 bg-yellow-50 hover:bg-yellow-100 px-2 py-1 rounded transition-colors cursor-pointer"
             onClick={() => setShowThreadList(!showThreadList)}
           >
             <MessageSquare className="h-3 w-3" />
-            {activeThreadsCount} thread{activeThreadsCount > 1 ? 's' : ''}
+            {activeThreadsCount > 0 && (
+              <span>{activeThreadsCount} thread{activeThreadsCount > 1 ? 's' : ''}</span>
+            )}
+            {outdatedThreadsCount > 0 && (
+              <span className="text-gray-400">
+                {activeThreadsCount > 0 && ' · '}
+                {outdatedThreadsCount} outdated
+              </span>
+            )}
           </button>
 
           {/* Thread list dropdown */}
@@ -587,57 +597,104 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
                 onClick={() => setShowThreadList(false)}
               />
               <div className="absolute right-0 top-full mt-1 z-[4] bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-72 max-h-80 overflow-y-auto">
-                <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
-                  Active Threads
-                </div>
-                {threads
-                  .filter((t) => t.status === 'active')
-                  .map((thread) => (
-                    <button
-                      key={thread.id}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors"
-                      onClick={() => {
-                        setShowThreadList(false)
+                {/* Active Threads */}
+                {activeThreadsCount > 0 && (
+                  <>
+                    <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
+                      Active Threads
+                    </div>
+                    {threads
+                      .filter((t) => t.status === 'active')
+                      .map((thread) => (
+                        <button
+                          key={thread.id}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                          onClick={() => {
+                            setShowThreadList(false)
 
-                        // Find the highlight element for this thread
-                        const highlightEl = contentRef.current?.querySelector(
-                          `.comment-highlight[data-thread-id="${thread.id}"]`
-                        ) as HTMLElement | null
+                            // Find the highlight element for this thread
+                            const highlightEl = contentRef.current?.querySelector(
+                              `.comment-highlight[data-thread-id="${thread.id}"]`
+                            ) as HTMLElement | null
 
-                        if (highlightEl) {
-                          // Scroll the highlight into view
-                          highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            if (highlightEl) {
+                              // Scroll the highlight into view
+                              highlightEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
-                          // Open the thread UI after a short delay to let scroll finish
-                          setTimeout(() => {
-                            const containerRect = containerRef.current?.getBoundingClientRect()
-                            const highlightRect = highlightEl.getBoundingClientRect()
-                            if (containerRect) {
-                              setActiveThread(thread)
-                              setActiveThreadRect({
-                                top: highlightRect.top - containerRect.top + highlightRect.height,
-                                bottom: highlightRect.bottom - containerRect.top,
-                                left: highlightRect.left - containerRect.left,
-                                right: highlightRect.right - containerRect.left,
-                                width: highlightRect.width,
-                                height: highlightRect.height,
-                                x: highlightRect.left - containerRect.left,
-                                y: highlightRect.top - containerRect.top,
-                                toJSON: () => ({}),
-                              } as DOMRect)
+                              // Open the thread UI after a short delay to let scroll finish
+                              setTimeout(() => {
+                                const containerRect = containerRef.current?.getBoundingClientRect()
+                                const highlightRect = highlightEl.getBoundingClientRect()
+                                if (containerRect) {
+                                  setActiveThread(thread)
+                                  setActiveThreadRect({
+                                    top: highlightRect.top - containerRect.top + highlightRect.height,
+                                    bottom: highlightRect.bottom - containerRect.top,
+                                    left: highlightRect.left - containerRect.left,
+                                    right: highlightRect.right - containerRect.left,
+                                    width: highlightRect.width,
+                                    height: highlightRect.height,
+                                    x: highlightRect.left - containerRect.left,
+                                    y: highlightRect.top - containerRect.top,
+                                    toJSON: () => ({}),
+                                  } as DOMRect)
+                                }
+                              }, 100)
                             }
-                          }, 100)
-                        }
-                      }}
-                    >
-                      <div className="text-sm text-gray-700 line-clamp-2">
-                        "{thread.target_text}"
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {thread.messages.length} {thread.messages.length === 1 ? 'reply' : 'replies'}
-                      </div>
-                    </button>
-                  ))}
+                          }}
+                        >
+                          <div className="text-sm text-gray-700 line-clamp-2">
+                            "{thread.target_text}"
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {thread.messages.length} {thread.messages.length === 1 ? 'reply' : 'replies'}
+                          </div>
+                        </button>
+                      ))}
+                  </>
+                )}
+
+                {/* Outdated Threads */}
+                {outdatedThreadsCount > 0 && (
+                  <>
+                    <div className="px-3 py-2 text-xs font-medium text-gray-400 border-b border-gray-100 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Outdated ({outdatedThreadsCount})
+                    </div>
+                    {outdatedThreads.map((thread) => (
+                      <button
+                        key={thread.id}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors opacity-60"
+                        onClick={() => {
+                          setShowThreadList(false)
+                          // Open popup at a fixed position (no scrolling since text doesn't exist)
+                          const containerRect = containerRef.current?.getBoundingClientRect()
+                          if (containerRect) {
+                            setActiveThread(thread)
+                            setActiveThreadRect({
+                              top: 40,
+                              bottom: 60,
+                              left: 0,
+                              right: 200,
+                              width: 200,
+                              height: 20,
+                              x: 0,
+                              y: 40,
+                              toJSON: () => ({}),
+                            } as DOMRect)
+                          }
+                        }}
+                      >
+                        <div className="text-sm text-gray-500 line-clamp-2">
+                          "{thread.target_text}"
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {thread.messages.length} {thread.messages.length === 1 ? 'reply' : 'replies'} · text no longer exists
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             </>
           )}
@@ -697,12 +754,23 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
                   Resolved
                 </span>
               )}
+              {activeThread.status === 'outdated' && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-600 mb-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Outdated
+                </span>
+              )}
               <div className="text-sm bg-gray-50 border-l-2 border-gray-300 px-2 py-1 italic text-gray-600">
                 "{activeThread.target_text}"
+                {activeThread.status === 'outdated' && (
+                  <span className="block mt-1 text-xs text-orange-600 not-italic">
+                    This text has been modified or removed from the document.
+                  </span>
+                )}
               </div>
             </div>
             {/* Dropdown menu for thread actions */}
-            {isThreadOwner && activeThread.status === 'active' && (
+            {isThreadOwner && (activeThread.status === 'active' || activeThread.status === 'outdated') && (
               <div className="relative flex-shrink-0">
                 <Button
                   variant="ghost"
@@ -787,6 +855,21 @@ export function PlanContentWithComments({ planId, body, threads }: PlanContentWi
                   Reply
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Actions for outdated threads */}
+          {activeThread.status === 'outdated' && user && (
+            <div className="border-t border-gray-200 pt-3 flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => resolveThreadMutation.mutate(activeThread.id)}
+                disabled={resolveThreadMutation.isPending}
+              >
+                <CheckCircle className="mr-1 h-3.5 w-3.5" />
+                Resolve
+              </Button>
             </div>
           )}
         </div>
