@@ -15,7 +15,7 @@ Claude Codeのやりとりをチームでレビューできるサービス
 
 | コンポーネント | 技術 |
 |----------------|------|
-| CLI | Node.js / TypeScript（npx配布） |
+| CLI | Node.js / TypeScript / tsup（npx配布） |
 | バックエンド | Go + Gorilla Mux |
 | データ層 | Repository パターン（Memory / SQLite / PostgreSQL / DynamoDB / Turso） |
 | フロントエンド | React + Vite + Tailwind CSS |
@@ -152,7 +152,6 @@ git push origin v0.1.0
 ## 将来の拡張（スコープ外）
 
 - リアルタイム機能（WebSocket）
-- コメント機能
 - セッションの再開機能
 - Slack/Discord通知
 - 統計ダッシュボード

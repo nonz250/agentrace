@@ -1,12 +1,12 @@
 import { ProxyAgent } from 'undici';
-import { loadConfig } from '../config/manager.js';
+import { loadConfigWithFallback } from '../config/manager.js';
 
 /**
  * プロキシURLを取得する
  * 優先順位: 設定ファイル > 環境変数（HTTPS_PROXY > HTTP_PROXY）
  */
-export function getProxyUrl(): string | undefined {
-  const config = loadConfig();
+export function getProxyUrl(projectDir?: string): string | undefined {
+  const config = loadConfigWithFallback(projectDir);
 
   // 設定ファイル優先
   if (config?.proxy_url) {
@@ -24,8 +24,8 @@ export function getProxyUrl(): string | undefined {
  * undici の dispatcher を生成する
  * プロキシ設定がない場合は undefined を返す（デフォルト動作）
  */
-export function createDispatcher(): ProxyAgent | undefined {
-  const proxyUrl = getProxyUrl();
+export function createDispatcher(projectDir?: string): ProxyAgent | undefined {
+  const proxyUrl = getProxyUrl(projectDir);
 
   if (!proxyUrl) {
     return undefined;

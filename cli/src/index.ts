@@ -8,6 +8,7 @@ import { uninstallCommand } from "./commands/uninstall.js";
 import { onCommand } from "./commands/on.js";
 import { offCommand } from "./commands/off.js";
 import { mcpServerCommand } from "./commands/mcp-server.js";
+import { doctorCommand } from "./commands/doctor.js";
 
 const program = new Command();
 
@@ -80,6 +81,13 @@ program
   .description("Run MCP server for Claude Code integration (stdio)")
   .action(async () => {
     await mcpServerCommand();
+  });
+
+program
+  .command("doctor")
+  .description("Check configuration and server connectivity")
+  .action(async () => {
+    await doctorCommand();
   });
 
 program.parse();

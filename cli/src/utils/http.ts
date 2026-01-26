@@ -1,5 +1,5 @@
 import { fetch } from "undici";
-import { loadConfig } from "../config/manager.js";
+import { loadConfigWithFallback } from "../config/manager.js";
 import { createDispatcher } from "./proxy.js";
 
 export interface IngestPayload {
@@ -31,9 +31,10 @@ function getBaseUrl(config: { server_url: string }): string {
 }
 
 export async function sendIngest(
-  payload: IngestPayload
+  payload: IngestPayload,
+  projectDir?: string
 ): Promise<IngestResponse> {
-  const config = loadConfig();
+  const config = loadConfigWithFallback(projectDir);
   if (!config) {
     return { ok: false, error: "Config not found" };
   }
@@ -48,7 +49,7 @@ export async function sendIngest(
         Authorization: `Bearer ${config.api_key}`,
       },
       body: JSON.stringify(payload),
-      dispatcher: createDispatcher(),
+      dispatcher: createDispatcher(projectDir),
     });
 
     if (!response.ok) {
@@ -63,10 +64,12 @@ export async function sendIngest(
   }
 }
 
-export async function createWebSession(): Promise<
+export async function createWebSession(
+  projectDir?: string
+): Promise<
   { ok: true; data: WebSessionResponse } | { ok: false; error: string }
 > {
-  const config = loadConfig();
+  const config = loadConfigWithFallback(projectDir);
   if (!config) {
     return { ok: false, error: "Config not found. Run 'agentrace init' first." };
   }
@@ -80,7 +83,7 @@ export async function createWebSession(): Promise<
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.api_key}`,
       },
-      dispatcher: createDispatcher(),
+      dispatcher: createDispatcher(projectDir),
     });
 
     if (!response.ok) {

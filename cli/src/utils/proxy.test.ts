@@ -3,13 +3,13 @@ import { ProxyAgent } from 'undici';
 
 // モックを設定
 vi.mock('../config/manager.js', () => ({
-  loadConfig: vi.fn(),
+  loadConfigWithFallback: vi.fn(),
 }));
 
 import { getProxyUrl, createDispatcher } from './proxy.js';
-import { loadConfig } from '../config/manager.js';
+import { loadConfigWithFallback } from '../config/manager.js';
 
-const mockedLoadConfig = vi.mocked(loadConfig);
+const mockedLoadConfigWithFallback = vi.mocked(loadConfigWithFallback);
 
 describe('proxy', () => {
   const originalEnv = process.env;
@@ -32,7 +32,7 @@ describe('proxy', () => {
 
   describe('getProxyUrl', () => {
     it('設定ファイルにproxy_urlがある場合、それを返す', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
         proxy_url: 'http://proxy.example.com:8080',
@@ -42,7 +42,7 @@ describe('proxy', () => {
     });
 
     it('設定ファイルにproxy_urlがなく、HTTPS_PROXYがある場合、それを返す', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
       });
@@ -52,7 +52,7 @@ describe('proxy', () => {
     });
 
     it('設定ファイルにproxy_urlがなく、https_proxy（小文字）がある場合、それを返す', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
       });
@@ -62,7 +62,7 @@ describe('proxy', () => {
     });
 
     it('設定ファイルにproxy_urlがなく、HTTP_PROXYがある場合、それを返す', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
       });
@@ -72,7 +72,7 @@ describe('proxy', () => {
     });
 
     it('設定ファイルにproxy_urlがなく、http_proxy（小文字）がある場合、それを返す', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
       });
@@ -82,7 +82,7 @@ describe('proxy', () => {
     });
 
     it('設定ファイルも環境変数もない場合、undefinedを返す', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
       });
@@ -91,14 +91,14 @@ describe('proxy', () => {
     });
 
     it('設定ファイルがnullの場合、環境変数にフォールバックする', () => {
-      mockedLoadConfig.mockReturnValue(null);
+      mockedLoadConfigWithFallback.mockReturnValue(null);
       process.env.HTTPS_PROXY = 'http://env-proxy.example.com:8080';
 
       expect(getProxyUrl()).toBe('http://env-proxy.example.com:8080');
     });
 
     it('設定ファイルが環境変数より優先される', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
         proxy_url: 'http://config-proxy.example.com:8080',
@@ -109,7 +109,7 @@ describe('proxy', () => {
     });
 
     it('HTTPS_PROXYがHTTP_PROXYより優先される', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
       });
@@ -122,7 +122,7 @@ describe('proxy', () => {
 
   describe('createDispatcher', () => {
     it('プロキシURLがある場合、ProxyAgentを返す', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
         proxy_url: 'http://proxy.example.com:8080',
@@ -133,7 +133,7 @@ describe('proxy', () => {
     });
 
     it('プロキシURLがない場合、undefinedを返す', () => {
-      mockedLoadConfig.mockReturnValue({
+      mockedLoadConfigWithFallback.mockReturnValue({
         server_url: 'http://localhost:8080',
         api_key: 'test-key',
       });

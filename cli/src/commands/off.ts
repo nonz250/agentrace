@@ -1,5 +1,5 @@
 import { uninstallHooks, uninstallMcpServer, uninstallPreToolUseHook } from "../hooks/installer.js";
-import { loadConfig, loadConfigWithFallback } from "../config/manager.js";
+import { loadConfigWithFallback } from "../config/manager.js";
 
 export interface OffOptions {
   local?: boolean;
@@ -8,8 +8,8 @@ export interface OffOptions {
 export async function offCommand(options: OffOptions = {}): Promise<void> {
   const projectDir = options.local ? process.cwd() : undefined;
 
-  // Check if config exists (local config takes precedence if --local is specified)
-  const config = options.local ? loadConfigWithFallback(projectDir) : loadConfig();
+  // Check if config exists (local config takes precedence over global)
+  const config = loadConfigWithFallback(process.cwd());
   if (!config) {
     console.log("AgenTrace is not configured. Run 'npx agentrace init' first.");
     return;

@@ -92,12 +92,52 @@ export function deleteLocalConfig(projectDir: string): boolean {
 }
 
 /**
- * Load config with fallback: local config > global config
+ * Find local config by searching up the directory tree from startDir to home directory.
+ * Returns the path to the found config, or null if not found.
+ */
+export function findLocalConfigPath(startDir: string): string | null {
+  const homeDir = os.homedir();
+  let currentDir = path.resolve(startDir);
+
+  while (currentDir !== homeDir && currentDir !== path.dirname(currentDir)) {
+    const configPath = getLocalConfigPath(currentDir);
+    if (fs.existsSync(configPath)) {
+      return configPath;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+
+  return null;
+}
+
+/**
+ * Load local config by searching up the directory tree from startDir.
+ * Returns the config and its path, or null if not found.
+ */
+export function findAndLoadLocalConfig(startDir: string): { config: AgentraceConfig; path: string } | null {
+  const configPath = findLocalConfigPath(startDir);
+  if (!configPath) {
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(configPath, "utf-8");
+    return {
+      config: JSON.parse(content) as AgentraceConfig,
+      path: configPath,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Load config with fallback: local config (searching up directory tree) > global config
  */
 export function loadConfigWithFallback(projectDir?: string): AgentraceConfig | null {
   if (projectDir) {
-    const localConfig = loadLocalConfig(projectDir);
-    if (localConfig) return localConfig;
+    const localResult = findAndLoadLocalConfig(projectDir);
+    if (localResult) return localResult.config;
   }
   return loadConfig();
 }

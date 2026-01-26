@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { installHooks, installMcpServer, installPreToolUseHook } from "../hooks/installer.js";
-import { loadConfig, loadConfigWithFallback } from "../config/manager.js";
+import { loadConfigWithFallback } from "../config/manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,8 +14,8 @@ export interface OnOptions {
 export async function onCommand(options: OnOptions = {}): Promise<void> {
   const projectDir = options.local ? process.cwd() : undefined;
 
-  // Check if config exists (local config takes precedence if --local is specified)
-  const config = options.local ? loadConfigWithFallback(projectDir) : loadConfig();
+  // Check if config exists (local config takes precedence over global)
+  const config = loadConfigWithFallback(process.cwd());
   if (!config) {
     console.log("AgenTrace is not configured. Run 'npx agentrace init' first.");
     return;

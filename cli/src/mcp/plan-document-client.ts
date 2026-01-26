@@ -119,6 +119,7 @@ export interface AddMessageRequest {
 export class PlanDocumentClient {
   private serverUrl: string;
   private apiKey: string;
+  private projectDir?: string;
 
   constructor(projectDir?: string) {
     const config = loadConfigWithFallback(projectDir);
@@ -127,6 +128,7 @@ export class PlanDocumentClient {
     }
     this.serverUrl = config.server_url;
     this.apiKey = config.api_key;
+    this.projectDir = projectDir;
   }
 
   private async request<T>(
@@ -144,7 +146,7 @@ export class PlanDocumentClient {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
-      dispatcher: createDispatcher(),
+      dispatcher: createDispatcher(this.projectDir),
     });
 
     if (!response.ok) {

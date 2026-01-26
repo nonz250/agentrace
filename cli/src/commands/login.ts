@@ -4,7 +4,7 @@ import * as readline from "node:readline";
 export async function loginCommand(): Promise<void> {
   console.log("Creating login session...\n");
 
-  const result = await createWebSession();
+  const result = await createWebSession(process.cwd());
 
   if (!result.ok) {
     console.error(`Error: ${result.error}`);

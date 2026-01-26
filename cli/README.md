@@ -44,6 +44,7 @@ That's it! When you use Claude Code, sessions will be automatically sent to Agen
 | `agentrace off --local`                      | Disable hooks for current project      |
 | `agentrace uninstall`                        | Remove hooks and configuration         |
 | `agentrace uninstall --local`                | Remove project-local settings only     |
+| `agentrace doctor`                           | Check configuration and server status  |
 
 ## Command Details
 
@@ -113,11 +114,57 @@ npx agentrace uninstall
 npx agentrace uninstall --local
 ```
 
+### doctor
+
+Displays configuration status and checks server connectivity.
+
+```bash
+npx agentrace doctor
+```
+
+**Output example:**
+
+```
+AgenTrace Doctor
+
+================
+
+CLI Version: 0.1.0
+
+Configuration:
+  Global config: /Users/you/.agentrace/config.json
+    Status: ✓ Found
+
+  Local config: /path/to/project/.agentrace/config.json
+    Status: ✓ Found
+
+  Active config: Local (/path/to/project/.agentrace/config.json)
+  Server URL: http://localhost:9080
+  API Key: agtr_xxx****xxxx
+
+Server Status:
+  Connection: ✓ Connected
+  Server Version: v0.1.0
+```
+
 ### send
 
 This command is automatically called by Claude Code's Stop hook. You normally don't need to run it manually.
 
 ## Configuration Files
+
+### Config Loading Priority
+
+The CLI loads configuration in the following order:
+
+1. **Local config**: Searches from the current directory up to parent directories for `.agentrace/config.json`
+2. **Global config**: `~/.agentrace/config.json`
+
+This means even when you're in a subdirectory of a project, the project's local config will be used.
+
+Use `agentrace doctor` to see which config is currently active.
+
+### File Locations
 
 Configuration is stored in the following locations:
 

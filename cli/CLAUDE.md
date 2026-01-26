@@ -6,6 +6,7 @@ Claude Code の transcript を AgenTrace サーバーに送信する CLI ツー�
 
 - Node.js / TypeScript
 - Commander.js（CLI フレームワーク）
+- tsup（ビルド、esbuild ベース）
 - npx 配布
 
 ## ディレクトリ構成
@@ -13,11 +14,13 @@ Claude Code の transcript を AgenTrace サーバーに送信する CLI ツー�
 ```
 cli/src/
 ├── index.ts             # エントリーポイント（Commander.js）
+├── globals.d.ts         # グローバル定数の型定義（__CLI_VERSION__）
 ├── commands/            # コマンド実装
 │   ├── init.ts          # 初期セットアップ（ブラウザ連携）
 │   ├── login.ts         # Webログイン
 │   ├── send.ts          # transcript送信（hooks用 + 手動送信）
 │   ├── mcp-server.ts    # MCPサーバー
+│   ├── doctor.ts        # 設定状況・接続確認
 │   ├── on.ts            # hooks有効化
 │   ├── off.ts           # hooks無効化
 │   └── uninstall.ts     # 完全アンインストール
@@ -26,8 +29,11 @@ cli/src/
 │   └── cursor.ts        # 差分追跡（送信済み行数）
 ├── hooks/               # Claude Code hooks連携
 │   └── installer.ts     # ~/.claude/settings.json 編集
+├── mcp/                 # MCP関連
+│   └── plan-document-client.ts # PlanDocument APIクライアント
 └── utils/               # ユーティリティ
     ├── http.ts          # HTTP APIクライアント
+    ├── proxy.ts         # プロキシ設定
     ├── callback-server.ts # ローカルHTTP callbackサーバー
     ├── browser.ts       # ブラウザ起動
     └── session-finder.ts # Claude Codeセッションファイル検索
@@ -79,8 +85,20 @@ cli/src/
 | `on --local` / `off --local` | プロジェクト単位で hooks + MCP 有効化/無効化 |
 | `uninstall` | hooks/MCP/config 削除 |
 | `uninstall --local` | プロジェクト単位の hooks/MCP/config 削除 |
+| `doctor` | 設定状況・サーバー接続確認 |
 
 ## 設定ファイル
+
+### 設定の読み込み優先順位
+
+設定は以下の優先順位で読み込まれる:
+
+1. **ローカル設定**: カレントディレクトリから親ディレクトリを遡り、最初に見つかった `{dir}/.agentrace/config.json`
+2. **グローバル設定**: `~/.agentrace/config.json`
+
+これにより、プロジェクトのサブディレクトリにいても、プロジェクトルートのローカル設定が使用される。
+
+`doctor` コマンドで現在どの設定が使用されているか確認できる。
 
 ### グローバル設定
 
@@ -299,3 +317,31 @@ npx agentrace send --claude-session-id <session-id>
 npm install
 npx tsx src/index.ts init --url http://localhost:8080 --dev
 ```
+
+## ビルド
+
+tsup を使用してビルド:
+
+```bash
+npm run build
+```
+
+### バージョン埋め込み
+
+`tsup.config.ts` で `package.json` のバージョンを `__CLI_VERSION__` としてビルド時に埋め込む。
+
+```typescript
+// tsup.config.ts
+define: {
+  __CLI_VERSION__: JSON.stringify(pkg.version),
+}
+```
+
+コード内では以下のように使用:
+
+```typescript
+// tsx 開発時は undefined になるのでフォールバック
+const version = typeof __CLI_VERSION__ !== "undefined" ? __CLI_VERSION__ : "dev";
+```
+
+型定義は `src/globals.d.ts` で宣言。

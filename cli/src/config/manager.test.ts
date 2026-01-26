@@ -9,6 +9,8 @@ import {
   deleteLocalConfig,
   getLocalConfigPath,
   loadConfigWithFallback,
+  findLocalConfigPath,
+  findAndLoadLocalConfig,
   type AgentraceConfig,
 } from "./manager.js";
 
@@ -113,6 +115,140 @@ describe("config/manager", () => {
 
       // loadConfigWithFallback should return local config
       const loaded = loadConfigWithFallback(tempProjectDir);
+      expect(loaded).toEqual(localConfig);
+    });
+  });
+
+  describe("findLocalConfigPath", () => {
+    let tempRootDir: string;
+    let tempSubDir: string;
+    let tempDeepDir: string;
+
+    const localConfig: AgentraceConfig = {
+      server_url: "http://local:8080",
+      api_key: "test_local_key",
+    };
+
+    beforeEach(() => {
+      // Create nested directory structure: root/sub/deep
+      tempRootDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentrace-root-"));
+      tempSubDir = path.join(tempRootDir, "sub");
+      tempDeepDir = path.join(tempSubDir, "deep");
+      fs.mkdirSync(tempDeepDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      if (fs.existsSync(tempRootDir)) {
+        fs.rmSync(tempRootDir, { recursive: true });
+      }
+    });
+
+    it("finds config in current directory", () => {
+      saveLocalConfig(tempRootDir, localConfig);
+
+      const foundPath = findLocalConfigPath(tempRootDir);
+      expect(foundPath).toBe(getLocalConfigPath(tempRootDir));
+    });
+
+    it("finds config in parent directory when searching from subdirectory", () => {
+      saveLocalConfig(tempRootDir, localConfig);
+
+      const foundPath = findLocalConfigPath(tempSubDir);
+      expect(foundPath).toBe(getLocalConfigPath(tempRootDir));
+    });
+
+    it("finds config in ancestor directory when searching from deep subdirectory", () => {
+      saveLocalConfig(tempRootDir, localConfig);
+
+      const foundPath = findLocalConfigPath(tempDeepDir);
+      expect(foundPath).toBe(getLocalConfigPath(tempRootDir));
+    });
+
+    it("prefers nearest config when multiple exist in ancestor chain", () => {
+      const rootConfig: AgentraceConfig = {
+        server_url: "http://root:8080",
+        api_key: "root_key",
+      };
+      const subConfig: AgentraceConfig = {
+        server_url: "http://sub:8080",
+        api_key: "sub_key",
+      };
+
+      saveLocalConfig(tempRootDir, rootConfig);
+      saveLocalConfig(tempSubDir, subConfig);
+
+      // From deep, should find sub's config (nearest ancestor)
+      const foundPath = findLocalConfigPath(tempDeepDir);
+      expect(foundPath).toBe(getLocalConfigPath(tempSubDir));
+    });
+
+    it("returns null when no config exists in ancestor chain", () => {
+      const foundPath = findLocalConfigPath(tempDeepDir);
+      expect(foundPath).toBeNull();
+    });
+  });
+
+  describe("findAndLoadLocalConfig", () => {
+    let tempRootDir: string;
+    let tempSubDir: string;
+
+    const localConfig: AgentraceConfig = {
+      server_url: "http://local:8080",
+      api_key: "test_local_key",
+    };
+
+    beforeEach(() => {
+      tempRootDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentrace-root-"));
+      tempSubDir = path.join(tempRootDir, "sub");
+      fs.mkdirSync(tempSubDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      if (fs.existsSync(tempRootDir)) {
+        fs.rmSync(tempRootDir, { recursive: true });
+      }
+    });
+
+    it("returns config and path when found in parent directory", () => {
+      saveLocalConfig(tempRootDir, localConfig);
+
+      const result = findAndLoadLocalConfig(tempSubDir);
+      expect(result).not.toBeNull();
+      expect(result!.config).toEqual(localConfig);
+      expect(result!.path).toBe(getLocalConfigPath(tempRootDir));
+    });
+
+    it("returns null when no config exists", () => {
+      const result = findAndLoadLocalConfig(tempSubDir);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("loadConfigWithFallback with parent directory search", () => {
+    let tempRootDir: string;
+    let tempSubDir: string;
+
+    const localConfig: AgentraceConfig = {
+      server_url: "http://local:8080",
+      api_key: "test_local_key",
+    };
+
+    beforeEach(() => {
+      tempRootDir = fs.mkdtempSync(path.join(os.tmpdir(), "agentrace-root-"));
+      tempSubDir = path.join(tempRootDir, "sub");
+      fs.mkdirSync(tempSubDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      if (fs.existsSync(tempRootDir)) {
+        fs.rmSync(tempRootDir, { recursive: true });
+      }
+    });
+
+    it("finds config in parent directory when called from subdirectory", () => {
+      saveLocalConfig(tempRootDir, localConfig);
+
+      const loaded = loadConfigWithFallback(tempSubDir);
       expect(loaded).toEqual(localConfig);
     });
   });

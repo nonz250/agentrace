@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { loadConfig, loadConfigWithFallback } from "../config/manager.js";
+import { loadConfigWithFallback } from "../config/manager.js";
 import { getNewLines, saveCursor, hasCursor } from "../config/cursor.js";
 import { sendIngest } from "../utils/http.js";
 import {
@@ -136,18 +136,21 @@ async function sendTranscript(params: SendTranscriptParams): Promise<void> {
   }
 
   // Send to server
-  const result = await sendIngest({
-    session_id: sessionId,
-    transcript_lines: transcriptLines,
-    cwd: cwd,
-    git_remote_url: gitRemoteUrl,
-    git_branch: gitBranch,
-    // Subagent fields
-    parent_session_id: parentSessionId,
-    agent_id: agentId,
-    is_sidechain: isSidechain || undefined,
-    title: subagentTitle,
-  });
+  const result = await sendIngest(
+    {
+      session_id: sessionId,
+      transcript_lines: transcriptLines,
+      cwd: cwd,
+      git_remote_url: gitRemoteUrl,
+      git_branch: gitBranch,
+      // Subagent fields
+      parent_session_id: parentSessionId,
+      agent_id: agentId,
+      is_sidechain: isSidechain || undefined,
+      title: subagentTitle,
+    },
+    cwd
+  );
 
   if (result.ok) {
     // Update cursor on success
@@ -170,15 +173,6 @@ async function sendTranscript(params: SendTranscriptParams): Promise<void> {
  * Reads session info from stdin (provided by Claude Code hooks).
  */
 export async function sendCommand(): Promise<void> {
-  // Check if config exists
-  const config = loadConfig();
-  if (!config) {
-    console.error(
-      "[agentrace] Warning: Config not found. Run 'npx agentrace init' first."
-    );
-    process.exit(0); // Exit 0 to not block hooks
-  }
-
   // Read stdin
   let input = "";
   try {
@@ -235,15 +229,6 @@ export async function sendManualCommand(options: {
   sessionId: string;
 }): Promise<void> {
   const { sessionId } = options;
-
-  // Check if config exists
-  const config = loadConfig();
-  if (!config) {
-    console.error(
-      "[agentrace] Error: Config not found. Run 'npx agentrace init' first."
-    );
-    process.exit(1);
-  }
 
   // Find session file
   const transcriptPath = findSessionFile(sessionId);
