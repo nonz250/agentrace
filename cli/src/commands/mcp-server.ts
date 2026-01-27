@@ -194,8 +194,8 @@ IMPORTANT GUIDELINES:
 
   function getClient(): PlanDocumentClient {
     if (!client) {
-      // Use CLAUDE_PROJECT_DIR to find local config if available
-      const projectDir = process.env.CLAUDE_PROJECT_DIR;
+      // Use CLAUDE_PROJECT_DIR if available, fallback to cwd for local config lookup
+      const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
       client = new PlanDocumentClient(projectDir);
     }
     return client;
