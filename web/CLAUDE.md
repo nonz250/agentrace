@@ -28,6 +28,7 @@ web/src/
 │   └── members/         # メンバー表示
 ├── hooks/               # カスタムフック
 ├── lib/                 # ユーティリティ
+├── utils/               # ユーティリティ関数
 ├── pages/               # ページコンポーネント
 ├── types/               # 型定義
 ├── App.tsx              # ルーティング・AuthProvider
@@ -121,6 +122,24 @@ import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
   }}
 >
 ```
+
+### バージョン切り替え
+
+`PlanDetailPage.tsx`でPlanの過去バージョンを閲覧可能:
+
+- **VersionSelector**: バージョン選択コンポーネント（`components/plans/VersionSelector.tsx`）
+- **patch.ts**: パッチ適用ユーティリティ（`utils/patch.ts`）
+
+#### パッチ形式
+
+2種類のパッチ形式を処理:
+
+| 形式 | 生成元 | 例 |
+|------|--------|-----|
+| 初期パッチ | サーバー（`bodyToInitialPatch`） | `+line1\n+line2` |
+| 更新パッチ | CLI（`diff-match-patch`） | `@@ -1,3 +1,4 @@...` |
+
+`reconstructContent()`関数で両形式を判定し、イベントを順番に適用してテキストを復元。
 
 ### DiffView（変更履歴表示）
 
