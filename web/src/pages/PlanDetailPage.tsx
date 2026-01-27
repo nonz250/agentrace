@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save, Copy, Check, FolderEdit } from 'lucide-react'
+import { GitBranch, Users, Clock, FileText, History, Pencil, X, Save, Copy, Check, FolderEdit, AlertTriangle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { PlanEventHistory } from '@/components/plans/PlanEventHistory'
 import { PlanContentWithComments } from '@/components/plans/PlanContentWithComments'
 import { PlanStatusBadge } from '@/components/plans/PlanStatusBadge'
+import { VersionSelector } from '@/components/plans/VersionSelector'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
@@ -20,6 +21,7 @@ import * as commentsApi from '@/api/plan-comments'
 import type { PlanDocumentStatus } from '@/types/plan-document'
 import { parseRepoName, getRepoUrl, isDefaultProject, getProjectDisplayName } from '@/lib/project-utils'
 import { statusConfig } from '@/lib/plan-status'
+import { reconstructContent } from '@/utils/patch'
 
 type TabType = 'content' | 'history'
 
@@ -36,6 +38,7 @@ export function PlanDetailPage() {
   const [editProjectId, setEditProjectId] = useState('')
   const [isEditingStatus, setIsEditingStatus] = useState(false)
   const [editStatus, setEditStatus] = useState<PlanDocumentStatus>('scratch')
+  const [selectedVersionIndex, setSelectedVersionIndex] = useState<number | null>(null)
 
   const { data: plan, isLoading: isPlanLoading, error: planError } = useQuery({
     queryKey: ['plan', id],
@@ -46,8 +49,28 @@ export function PlanDetailPage() {
   const { data: eventsData, isLoading: isEventsLoading } = useQuery({
     queryKey: ['plan', id, 'events'],
     queryFn: () => plansApi.getPlanEvents(id!),
-    enabled: !!id && activeTab === 'history',
+    enabled: !!id,
   })
+
+  // Filter body_change events for version selector
+  const bodyChangeEvents = useMemo(
+    () => eventsData?.events.filter((e) => e.event_type === 'body_change') ?? [],
+    [eventsData]
+  )
+
+  // Reconstruct historical content when viewing past version
+  const historicalContent = useMemo(() => {
+    if (selectedVersionIndex === null || bodyChangeEvents.length === 0) {
+      return null
+    }
+    return reconstructContent(bodyChangeEvents, selectedVersionIndex)
+  }, [bodyChangeEvents, selectedVersionIndex])
+
+  const isViewingHistory = historicalContent !== null
+
+  const handleVersionChange = useCallback((index: number | null) => {
+    setSelectedVersionIndex(index)
+  }, [])
 
   const { data: threadsData } = useQuery({
     queryKey: ['plan', id, 'comments'],
@@ -236,7 +259,7 @@ export function PlanDetailPage() {
             <Button variant="ghost" size="sm" onClick={handleCopyId} title="Copy plan ID for AI agents">
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
-            {user && !isEditing && (
+            {user && !isEditing && !isViewingHistory && (
               <Button variant="secondary" size="sm" onClick={handleStartEdit}>
                 <Pencil className="mr-1 h-4 w-4" />
                 Edit
@@ -330,40 +353,76 @@ export function PlanDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'content' && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          {isEditing ? (
-            <div className="space-y-4">
-              <Input
-                label="Description"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                placeholder="Brief description of the plan"
-              />
-              <Textarea
-                label="Body"
-                value={editBody}
-                onChange={(e) => setEditBody(e.target.value)}
-                placeholder="Plan details in Markdown format"
-                rows={15}
-              />
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="ghost" onClick={handleCancelEdit} disabled={updateMutation.isPending}>
-                  <X className="mr-1 h-4 w-4" />
-                  Cancel
-                </Button>
-                <Button onClick={handleSaveEdit} loading={updateMutation.isPending}>
-                  <Save className="mr-1 h-4 w-4" />
-                  Save
-                </Button>
+        <div className="space-y-4">
+          {/* Version Selector - shown differently based on whether viewing history */}
+          {bodyChangeEvents.length > 1 && (
+            isViewingHistory ? (
+              <div className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5">
+                <div className="flex items-center gap-1.5 text-amber-700">
+                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="text-xs">Viewing</span>
+                  <VersionSelector
+                    events={bodyChangeEvents}
+                    selectedIndex={selectedVersionIndex}
+                    onSelect={handleVersionChange}
+                    disabled={isEditing}
+                    variant="warning"
+                  />
+                </div>
+                <button
+                  onClick={() => handleVersionChange(null)}
+                  className="text-xs text-amber-700 hover:text-amber-900 hover:underline"
+                >
+                  View Latest
+                </button>
               </div>
-            </div>
-          ) : (
-            <PlanContentWithComments
-              planId={id!}
-              body={plan.body}
-              threads={threadsData?.threads || []}
-            />
+            ) : (
+              <div className="flex items-center">
+                <VersionSelector
+                  events={bodyChangeEvents}
+                  selectedIndex={selectedVersionIndex}
+                  onSelect={handleVersionChange}
+                  disabled={isEditing}
+                />
+              </div>
+            )
           )}
+
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            {isEditing ? (
+              <div className="space-y-4">
+                <Input
+                  label="Description"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Brief description of the plan"
+                />
+                <Textarea
+                  label="Body"
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  placeholder="Plan details in Markdown format"
+                  rows={15}
+                />
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button variant="ghost" onClick={handleCancelEdit} disabled={updateMutation.isPending}>
+                    <X className="mr-1 h-4 w-4" />
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveEdit} loading={updateMutation.isPending}>
+                    <Save className="mr-1 h-4 w-4" />
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <PlanContentWithComments
+                planId={id!}
+                body={isViewingHistory ? historicalContent : plan.body}
+                threads={isViewingHistory ? [] : (threadsData?.threads || [])}
+              />
+            )}
+          </div>
         </div>
       )}
 
