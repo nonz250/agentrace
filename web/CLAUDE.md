@@ -29,6 +29,8 @@ web/src/
 ├── hooks/               # カスタムフック
 ├── lib/                 # ユーティリティ
 ├── utils/               # ユーティリティ関数
+│   ├── patch.ts         # パッチ適用（reconstructContent）
+│   └── line-diff.ts     # 行単位diff計算
 ├── pages/               # ページコンポーネント
 ├── types/               # 型定義
 ├── App.tsx              # ルーティング・AuthProvider
@@ -141,11 +143,32 @@ import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 `reconstructContent()`関数で両形式を判定し、イベントを順番に適用してテキストを復元。
 
-### DiffView（変更履歴表示）
+### Side-by-Side Diff（変更履歴表示）
 
-`PlanEventHistory.tsx`で使用。diff-match-patch形式のパッチを表示:
-- URLエンコードされたパッチをデコード
-- 追加行（`+`）を緑背景、削除行（`-`）を赤背景で表示
+`PlanEventHistory.tsx`の「View changes」でモーダル表示:
+
+| コンポーネント | 役割 |
+|----------------|------|
+| `DiffModal.tsx` | フルスクリーンモーダル（95vw、ESC/背景クリックで閉じる） |
+| `SideBySideDiff.tsx` | 2カラムside-by-side表示（Before/After横並び） |
+| `line-diff.ts` | 行単位diff計算、ハンクマージ、コンテキスト行付与 |
+
+#### 表示仕様
+
+- Before（左）/ After（右）の2カラム表示
+- 削除行: 赤背景（左側のみ）
+- 追加行: 緑背景（右側のみ）
+- 行番号表示
+- 連続する削除+追加は高さを揃えてペアリング
+- 変更前後5行のコンテキスト表示
+- 近いハンク（5行以内）は1つにマージ
+
+#### diff計算の流れ
+
+1. `reconstructContent()` でbefore/afterの全文を取得
+2. `computeLineDiff()` でdiff-match-patchの `diff_linesToChars_` を使い行単位diff計算
+3. 変更箇所をハンクにグループ化（コンテキスト行付き）
+4. `SideBySideDiff` で2カラム表示
 
 ### コメント機能
 
