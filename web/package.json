@@ -13,6 +13,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.90.13",
     "@types/diff-match-patch": "^1.0.36",
+    "cc-transcript-react": "file:../../cc-transcript-react",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "diff-match-patch": "^1.0.5",

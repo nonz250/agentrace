@@ -44,6 +44,7 @@ type SessionDetailResponse struct {
 
 type EventResponse struct {
 	ID        string                 `json:"id"`
+	UUID      string                 `json:"uuid"`
 	EventType string                 `json:"event_type"`
 	Payload   map[string]interface{} `json:"payload"`
 	CreatedAt string                 `json:"created_at"`
@@ -89,6 +90,7 @@ func (h *SessionHandler) sessionToResponse(ctx context.Context, s *domain.Sessio
 func eventToResponse(e *domain.Event) *EventResponse {
 	return &EventResponse{
 		ID:        e.ID,
+		UUID:      e.UUID,
 		EventType: e.EventType,
 		Payload:   e.Payload,
 		CreatedAt: e.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),

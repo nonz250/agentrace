@@ -1,9 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Clock, Folder, GitBranch, MessageSquare, User, Pencil, X, Save, FolderEdit, MoreVertical, Trash2 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
-import { TimelineContainer } from '@/components/timeline/TimelineContainer'
+import { ClaudeCodeTranscript, filterHiddenEvents, expandEvents, extractMessageBlocks } from 'cc-transcript-react'
+import type { TranscriptEvent } from 'cc-transcript-react'
+import 'cc-transcript-react/styles.css'
+import { buildAgentraceBlockRenderers } from '@/components/timeline/agentrace-block-renderers'
+import { MessageNav } from '@/components/timeline/MessageNav'
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/Breadcrumb'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
@@ -290,7 +294,7 @@ export function SessionDetailPage() {
         </div>
       </div>
 
-      <TimelineContainer events={session.events || []} projectPath={session.project_path} />
+      <TranscriptTimeline events={session.events || []} projectPath={session.project_path} />
 
       {/* Delete confirmation dialog */}
       <Modal
@@ -325,6 +329,147 @@ export function SessionDetailPage() {
           </div>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+// Wrapper to convert agentrace Event[] to TranscriptEvent[] and render via library with sidebar navigation
+function TranscriptTimeline({ events, projectPath }: { events: import('@/types/event').Event[]; projectPath?: string }) {
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
+  const isInitialScrollDoneRef = useRef(false)
+  const hashUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const transcriptEvents: TranscriptEvent[] = useMemo(
+    () => events.map((e) => ({
+      key: e.id,
+      uuid: e.uuid,
+      event_type: e.event_type,
+      payload: e.payload,
+      created_at: e.created_at,
+    })),
+    [events]
+  )
+
+  const customBlockRenderers = useMemo(() => buildAgentraceBlockRenderers(), [])
+
+  // Compute message blocks for sidebar navigation
+  const messageBlocks = useMemo(() => {
+    const filtered = filterHiddenEvents(transcriptEvents)
+    const displayBlocks = expandEvents(filtered, projectPath)
+    return extractMessageBlocks(displayBlocks)
+  }, [transcriptEvents, projectPath])
+
+  // Scroll to hash on initial load and hash change
+  useEffect(() => {
+    const scrollToHash = () => {
+      const hash = window.location.hash
+      if (hash && hash.startsWith('#event-')) {
+        setTimeout(() => {
+          const element = document.getElementById(hash.slice(1))
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+          isInitialScrollDoneRef.current = true
+        }, 100)
+      } else {
+        isInitialScrollDoneRef.current = true
+      }
+    }
+
+    scrollToHash()
+    window.addEventListener('hashchange', scrollToHash)
+    return () => window.removeEventListener('hashchange', scrollToHash)
+  }, [events])
+
+  // Update URL hash when active block changes (debounced)
+  useEffect(() => {
+    if (!isInitialScrollDoneRef.current || !activeBlockId) return
+
+    if (hashUpdateTimerRef.current) {
+      clearTimeout(hashUpdateTimerRef.current)
+    }
+
+    hashUpdateTimerRef.current = setTimeout(() => {
+      const newHash = `#event-${activeBlockId}`
+      if (window.location.hash !== newHash) {
+        window.history.replaceState(null, '', newHash)
+      }
+    }, 300)
+
+    return () => {
+      if (hashUpdateTimerRef.current) {
+        clearTimeout(hashUpdateTimerRef.current)
+      }
+    }
+  }, [activeBlockId])
+
+  // IntersectionObserver to track which message block is currently visible
+  useEffect(() => {
+    const messageBlockIds = messageBlocks.map(b => b.id)
+    if (messageBlockIds.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const intersecting = entries.find((entry) => entry.isIntersecting)
+        if (intersecting) {
+          const blockId = intersecting.target.getAttribute('data-block-id')
+          if (blockId) {
+            setActiveBlockId(blockId)
+          }
+        }
+      },
+      {
+        rootMargin: '-100px 0px -70% 0px',
+        threshold: 0,
+      }
+    )
+
+    // Observe elements rendered by ClaudeCodeTranscript (they have id="event-{blockId}")
+    for (const blockId of messageBlockIds) {
+      const element = document.getElementById(`event-${blockId}`)
+      if (element) {
+        element.setAttribute('data-block-id', blockId)
+        observer.observe(element)
+      }
+    }
+
+    return () => observer.disconnect()
+  }, [messageBlocks])
+
+  const handleNavigate = useCallback((blockId: string) => {
+    const element = document.getElementById(`event-${blockId}`)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [])
+
+  if (events.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
+        <p className="text-gray-500">No events yet.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex gap-6">
+      {/* Left sidebar - hidden on small screens */}
+      <aside className="hidden w-48 flex-shrink-0 lg:block">
+        <MessageNav
+          messageBlocks={messageBlocks}
+          activeBlockId={activeBlockId}
+          onNavigate={handleNavigate}
+        />
+      </aside>
+
+      {/* Main timeline */}
+      <main className="min-w-0 flex-1">
+        <ClaudeCodeTranscript
+          events={transcriptEvents}
+          projectPath={projectPath}
+          customBlockRenderers={customBlockRenderers}
+        />
+      </main>
     </div>
   )
 }

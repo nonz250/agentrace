@@ -1,7 +1,7 @@
 import { cn } from '@/lib/cn'
 import { format } from 'date-fns'
 import { Bot, MessageSquare, User } from 'lucide-react'
-import type { MessageBlockInfo } from './Timeline'
+import type { MessageBlockInfo } from 'cc-transcript-react'
 
 interface MessageNavProps {
   messageBlocks: MessageBlockInfo[]
