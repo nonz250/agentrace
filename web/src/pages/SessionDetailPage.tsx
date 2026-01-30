@@ -467,6 +467,7 @@ function TranscriptTimeline({ events, projectPath }: { events: import('@/types/e
         <ClaudeCodeTranscript
           events={transcriptEvents}
           projectPath={projectPath}
+          colorScheme="light"
           customBlockRenderers={customBlockRenderers}
         />
       </main>
