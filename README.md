@@ -120,11 +120,34 @@ See [CLI README](cli/README.md#proxy-configuration) for more details.
 
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
+| `PORT` | 8080 | Server listen port (used in non-Docker deployments) |
 | `DB_TYPE` | sqlite | Database type (`memory`, `sqlite`, `postgres`, `dynamodb`, `turso`) |
 | `DATABASE_URL` | /data/agentrace.db | Database connection string |
+| `WEB_URL` | - | Frontend origin URL for CORS and OAuth redirects (see below) |
 | `DEV_MODE` | false | Enable debug logging |
 | `GITHUB_CLIENT_ID` | - | GitHub OAuth Client ID |
 | `GITHUB_CLIENT_SECRET` | - | GitHub OAuth Client Secret |
+
+### WEB_URL
+
+When using the Docker image, the frontend and backend are served from the same origin via nginx, so `WEB_URL` is not needed.
+
+Set `WEB_URL` when the frontend is hosted on a different origin than the backend:
+
+- **CORS**: Allows cross-origin requests from the frontend
+- **OAuth redirects**: Redirects users back to the frontend after authentication
+
+```bash
+# Example: frontend on port 3000, backend on port 8080
+docker run -d -p 8080:8080 \
+  -e WEB_URL=http://localhost:3000 \
+  satetsu888/agentrace:latest
+
+# Example: separate hosts
+docker run -d -p 8080:8080 \
+  -e WEB_URL=https://agentrace.internal.example.com \
+  satetsu888/agentrace:latest
+```
 
 ### Database Configuration
 
