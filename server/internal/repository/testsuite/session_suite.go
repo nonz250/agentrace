@@ -213,6 +213,103 @@ func (s *SessionRepositorySuite) TestFind() {
 	s.NotEmpty(nextCursor) // More items available
 }
 
+func (s *SessionRepositorySuite) TestFind_CursorPagination() {
+	ctx := context.Background()
+
+	// Create 5 sessions with distinct timestamps
+	var createdIDs []string
+	for i := 0; i < 5; i++ {
+		session := &domain.Session{
+			ClaudeSessionID: "cursor-page-session-" + string(rune('a'+i)),
+		}
+		time.Sleep(10 * time.Millisecond)
+		err := s.Repo.Create(ctx, session)
+		s.Require().NoError(err)
+		createdIDs = append(createdIDs, session.ID)
+	}
+
+	// Page 1: fetch first 3
+	query := domain.SessionQuery{
+		Limit: 3,
+	}
+	page1, nextCursor, err := s.Repo.Find(ctx, query)
+	s.Require().NoError(err)
+	s.Len(page1, 3)
+	s.NotEmpty(nextCursor)
+
+	// Page 2: fetch remaining using cursor
+	query2 := domain.SessionQuery{
+		Limit:  3,
+		Cursor: nextCursor,
+	}
+	page2, _, err := s.Repo.Find(ctx, query2)
+	s.Require().NoError(err)
+	s.GreaterOrEqual(len(page2), 2) // At least 2 remaining from our 5
+
+	// Verify no overlap between pages
+	page1IDs := make(map[string]bool)
+	for _, sess := range page1 {
+		page1IDs[sess.ID] = true
+	}
+	for _, sess := range page2 {
+		s.False(page1IDs[sess.ID], "Page 2 should not contain items from page 1")
+	}
+}
+
+func (s *SessionRepositorySuite) TestFind_CursorPagination_ByProjectID() {
+	ctx := context.Background()
+
+	projectID := s.createTestProject("cursor-pagination-project")
+	if projectID == "" {
+		s.T().Skip("ProjectRepo not available, skipping test")
+	}
+
+	// Create 5 sessions for the project with distinct timestamps
+	for i := 0; i < 5; i++ {
+		session := &domain.Session{
+			ClaudeSessionID: "cursor-proj-session-" + string(rune('a'+i)),
+			ProjectID:       projectID,
+		}
+		time.Sleep(10 * time.Millisecond)
+		err := s.Repo.Create(ctx, session)
+		s.Require().NoError(err)
+	}
+
+	// Page 1: fetch first 3
+	query := domain.SessionQuery{
+		ProjectID: projectID,
+		Limit:     3,
+	}
+	page1, nextCursor, err := s.Repo.Find(ctx, query)
+	s.Require().NoError(err)
+	s.Len(page1, 3)
+	s.NotEmpty(nextCursor)
+
+	// Page 2: fetch remaining using cursor
+	query2 := domain.SessionQuery{
+		ProjectID: projectID,
+		Limit:     3,
+		Cursor:    nextCursor,
+	}
+	page2, _, err := s.Repo.Find(ctx, query2)
+	s.Require().NoError(err)
+	s.Equal(2, len(page2))
+
+	// Verify all belong to the correct project
+	for _, sess := range page2 {
+		s.Equal(projectID, sess.ProjectID)
+	}
+
+	// Verify no overlap between pages
+	page1IDs := make(map[string]bool)
+	for _, sess := range page1 {
+		page1IDs[sess.ID] = true
+	}
+	for _, sess := range page2 {
+		s.False(page1IDs[sess.ID], "Page 2 should not contain items from page 1")
+	}
+}
+
 func (s *SessionRepositorySuite) TestFind_SortByCreatedAt() {
 	ctx := context.Background()
 

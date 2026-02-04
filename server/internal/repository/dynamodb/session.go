@@ -209,21 +209,6 @@ func (r *SessionRepository) Find(ctx context.Context, query domain.SessionQuery)
 		filterConditions = append(filterConditions, userIDFilter)
 	}
 
-	// Apply cursor filter
-	if query.Cursor != "" {
-		cursorInfo := repository.DecodeCursor(query.Cursor)
-		if cursorInfo != nil {
-			cursorFilter := expression.Or(
-				expression.Name(sortAttr).LessThan(expression.Value(cursorInfo.SortValue)),
-				expression.And(
-					expression.Name(sortAttr).Equal(expression.Value(cursorInfo.SortValue)),
-					expression.Name("id").LessThan(expression.Value(cursorInfo.ID)),
-				),
-			)
-			filterConditions = append(filterConditions, cursorFilter)
-		}
-	}
-
 	// Combine all filter conditions with AND
 	if len(filterConditions) > 0 {
 		combinedFilter := filterConditions[0]
@@ -255,6 +240,26 @@ func (r *SessionRepository) Find(ctx context.Context, query domain.SessionQuery)
 		input.FilterExpression = expr.Filter()
 	}
 	input.Limit = aws.Int32(int32(limit + 1))
+
+	// Use ExclusiveStartKey for cursor-based pagination
+	if query.Cursor != "" {
+		cursorInfo := repository.DecodeCursor(query.Cursor)
+		if cursorInfo != nil {
+			if query.ProjectID != "" {
+				input.ExclusiveStartKey = map[string]types.AttributeValue{
+					"id":         &types.AttributeValueMemberS{Value: cursorInfo.ID},
+					"project_id": &types.AttributeValueMemberS{Value: query.ProjectID},
+					sortAttr:     &types.AttributeValueMemberS{Value: cursorInfo.SortValue},
+				}
+			} else {
+				input.ExclusiveStartKey = map[string]types.AttributeValue{
+					"id":      &types.AttributeValueMemberS{Value: cursorInfo.ID},
+					"_gsi_pk": &types.AttributeValueMemberS{Value: sessionGSIPK},
+					sortAttr:  &types.AttributeValueMemberS{Value: cursorInfo.SortValue},
+				}
+			}
+		}
+	}
 
 	result, err := r.db.Client.Query(ctx, input)
 	if err != nil {
